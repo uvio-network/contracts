@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-// 1. claim() -- is it a new claim, or is it a claim on a resolve-claim
-// if it's on a resolve-claim, is it a claim that 
-
 contract Voter2 {
 
     enum ClaimType {
@@ -21,8 +18,10 @@ contract Voter2 {
     uint256 public minStake;
     uint256 public minNewClaimDuration;
     uint256 public resolveDuration;
+    uint256 public resolveLockupDuration;
     uint256 public resolveBond;
 
+    // @todo - add votingExpiration (claimExpiration)
     struct Claim {
         string description;
         uint256 expiration;
@@ -32,10 +31,11 @@ contract Voter2 {
         address[] nayVoters;
         ClaimStatus status;
     }
-    Claim public claim;
+    Claim private _claim;
 
     struct Resolve {
         address caller;
+        uint256 bond;
         uint256 expiration;
         uint256 yeaVotes;
         uint256 nayVotes;
@@ -44,23 +44,23 @@ contract Voter2 {
         ClaimType _type;
         ClaimStatus status;
     }
-    Resolve public resolve;
+    Resolve private _resolve;
 
     mapping(address voter => mapping(bool isYea => uint256 amount)) public stakes;
 
-    function initiateClaim(ClaimType _type, bool _yea, uint256 _expiration, string memory _description) public payable {
+    function claim(ClaimType _type, bool _yea, uint256 _expiration, string memory _description) public payable {
         if (msg.value < minStake) revert("!value");
 
         if (_type == ClaimType.New) {
             if (_expiration < block.timestamp + minNewClaimDuration) revert("!expiration");
             if (bytes(_description).length == 0) revert("!description");
-            if (claim.status != ClaimStatus.None) revert("active");
+            if (_claim.status != ClaimStatus.None) revert("active");
 
-            stakes[msg.sender][true] = msg.value;
+            stakes[msg.sender][_yea] = msg.value;
 
             address[] memory _voters = new address[](1);
             _voters[0] = msg.sender;
-            claim = _yea ?
+            _claim = _yea ?
                 Claim(
                     _description,
                     _expiration,
@@ -79,22 +79,24 @@ contract Voter2 {
                     _voters,
                     ClaimStatus.Active
                 );
-
             return;
         }
 
         if (_expiration != 0) revert("!expiration");
         if (bytes(_description).length != 0) revert("!description");
         if (msg.value != resolveBond) revert("!bond");
-        if (claim.expiration > block.timestamp) revert("!expired");
+        if (_claim.expiration > block.timestamp) revert("!expired");
+        if (_claim.status != ClaimStatus.Active) revert("!active");
+        if (_resolve.status != ClaimStatus.None) revert("active");
 
-        resolve = Resolve(
+        _resolve = Resolve(
             msg.sender,
+            msg.value, // bond
             block.timestamp + resolveDuration,
             0, // yeaVotes
             0, // nayVotes
-            claim.yeaVoters, // @todo - randomize with cap, make sure voter is not in both groups
-            claim.nayVoters, // @todo - randomize with cap, make sure voter is not in both groups
+            _claim.yeaVoters, // @todo - randomize with cap, make sure voter is not in both groups
+            _claim.nayVoters, // @todo - randomize with cap, make sure voter is not in both groups
             _type, // of type Resolve/Nullify
             ClaimStatus.Active
         );
@@ -102,43 +104,59 @@ contract Voter2 {
 
     function voteOnNewClaim(bool _yea) public payable {
         if (msg.value < minStake) revert("!value");
-        if (claim.expiration < block.timestamp) revert("expired");
+        if (_claim.expiration < block.timestamp) revert("expired");
+
+        stakes[msg.sender][_yea] = msg.value;
 
         if (_yea) {
-            if (stakes[msg.sender][true] == 0) claim.yeaVoters.push(msg.sender);
-            stakes[msg.sender][true] = msg.value;
-            claim.stakeYea += msg.value;
+            if (stakes[msg.sender][true] == 0) _claim.yeaVoters.push(msg.sender);
+            _claim.stakeYea += msg.value;
         } else {
-            if (stakes[msg.sender][false] == 0) claim.nayVoters.push(msg.sender);
-            stakes[msg.sender][false] = msg.value;
-            claim.stakeNay += msg.value;
+            if (stakes[msg.sender][false] == 0) _claim.nayVoters.push(msg.sender);
+            _claim.stakeNay += msg.value;
         }
     }
 
     function voteOnResolve(bool _yea, bool _yeaGroup) public {
-        if (resolve.caller == address(0)) revert("!resolve");
+        if (_resolve.caller == address(0)) revert("!resolve");
+        if (_resolve.expiration < block.timestamp) revert("expired");
 
-        _yeaGroup ? _isInList(msg.sender, resolve.yeaVoters) : _isInList(msg.sender, resolve.nayVoters);
-        _yea ? resolve.yeaVotes++ : resolve.nayVotes++;
+        _yeaGroup ? _isInList(msg.sender, _resolve.yeaVoters) : _isInList(msg.sender, _resolve.nayVoters);
+        _yea ? _resolve.yeaVotes++ : _resolve.nayVotes++;
     }
 
-    function initiateResolve() public {
-        if (resolve.status != ClaimStatus.Active) revert("!active");
-        if (resolve.expiration < block.timestamp) revert("!expired");
-        if (resolve.yeaVotes == resolve.nayVotes) {
-            _dispute();
+    // @todo - add reenterencyGuard
+    function resolve() public {
+        if (_resolve.status != ClaimStatus.Active) revert("!active");
+        if (_resolve.expiration + resolveLockupDuration > block.timestamp) revert("!lockup");
+        if (_resolve.yeaVotes == _resolve.nayVotes) revert("tie");
+
+        if (_resolve.bond > 0) {
+            payable(_resolve.caller).transfer(_resolve.bond); // @todo - dont use transfer. handle if is a contract without receive
+            _resolve.bond = 0;
+            _resolve.status = ClaimStatus.Resolved;
+            _claim.status = ClaimStatus.Resolved;
+        }
+
+        if (_resolve.yeaVotes > _resolve.nayVotes) {
+            if (stakes[msg.sender][true] == 0) revert("!stake");
+            uint256 _amount = stakes[msg.sender][true] * _claim.stakeNay / _claim.stakeYea;
+            stakes[msg.sender][true] = 0;
+            payable(msg.sender).transfer(_amount); // @todo - dont use transfer. handle if is a contract without receive (just use WETH)
         } else {
-            resolve.status = ClaimStatus.Resolved;
+            if (stakes[msg.sender][false] == 0) revert("!stake");
+            uint256 _amount = stakes[msg.sender][false] * _claim.stakeYea / _claim.stakeNay;
+            stakes[msg.sender][false] = 0;
+            payable(msg.sender).transfer(_amount); // @todo - dont use transfer. handle if is a contract without receive (just use WETH)
         }
     }
 
-    function _dispute() internal {
+    function dispute() public {
         // create another resolve claim
     }
 
-    function _resolve() internal {
-        // a resolution has been made
-    }
+    // function voteOnDispute() public {
+    // function resolveDispute() public {
 
     function _isInList(address _addr, address[] memory _list) private pure {
         uint256 _len = _list.length;
