@@ -51,6 +51,7 @@ contract Voter4 {
     uint256 public votingDuration = 1 days;
     uint256 public disputeDuration = 1 days;
     bool public resolved = false;
+    bool public goToCommittee = false;
 
     mapping(bytes32 => uint256) public stakes;
     mapping(bytes32 => bool) public isVoted;
@@ -181,12 +182,29 @@ contract Voter4 {
                 _claim.vote.resolutionOutcome = Outcome.Nay;
             } else {
                 _claim.vote.resolutionOutcome = Outcome.Tie;
+                goToCommittee = true;
             }
             _claimId -= 1;
         }
     }
 
-    // function claimRewards(uint256 _claimId) public {
+    function claimProceeds(uint256 _claimId, address _user, bool _yea) public {
+        if (!resolved) revert();
+
+        uint256 _userStake = stakes[userStakeKey(_claimId, _user, _yea)];
+        if (_userStake == 0) revert();
+
+        Claim memory _claim = _claims[_claimId];
+        if (_claim.vote.resolutionOutcome == Outcome.Yea && _yea) {
+            uint256 _userProceeds = _userStake + (_userStake * _claim.stake.nay / _claim.stake.yea);
+            payable(_user).transfer(_userProceeds);
+        } else if (_claim.vote.resolutionOutcome == Outcome.Nay && !_yea) {
+            uint256 _userProceeds = _userStake + (_userStake * _claim.stake.yea / _claim.stake.nay);
+            payable(_user).transfer(_userProceeds);
+        } else {
+            // user lost
+        }
+    }
 
     function userStakeKey(uint256 _claimId, address _user, bool _yea) public pure returns (bytes32) {
         return keccak256(abi.encode(_claimId, _user, _yea));
