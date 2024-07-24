@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-contract Voter4 {
+contract Market {
 
     enum Status {
         None,
         Active,
-        PendingResolution
+        PendingResolution,
+        Nullified, // @todo
+        Resolved // @todo
     }
 
     enum Outcome {
@@ -56,11 +58,14 @@ contract Voter4 {
     mapping(bytes32 => uint256) public stakes;
     mapping(bytes32 => bool) public isVoted;
 
+    // @todo - add nullify claim, allow only once
+    // @todo - choose yea/ney
     function propose(string memory _description, uint256 _claimExpiration, uint256 _stakingExpiration) public payable {
         if (msg.value < minStake) revert();
         if (_claimExpiration < block.timestamp) revert();
         if (_stakingExpiration < _claimExpiration) revert();
         if (bytes(_description).length == 0) revert();
+
         if (_claims.length >= maxClaims) revert();
         if (_claims[_claims.length].status == Status.Active) revert();
         if (resolved) revert();
@@ -99,6 +104,8 @@ contract Voter4 {
         uint256 _claimId = _claims.length - 1;
         Claim storage _claim = _claims[_claimId];
         if (_claim.stake.expiration < block.timestamp) revert();
+
+        // @todo - stakes mapping
 
         if (_yea) {
             if (stakes[userStakeKey(_claimId, msg.sender, true)] == 0) _claim.stake.yeaStakers.push(msg.sender);
@@ -202,7 +209,7 @@ contract Voter4 {
             uint256 _userProceeds = _userStake + (_userStake * _claim.stake.yea / _claim.stake.nay);
             payable(_user).transfer(_userProceeds);
         } else {
-            // user lost
+            // @todo user get back funds, maybe penalty
         }
     }
 
