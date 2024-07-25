@@ -6,16 +6,19 @@ interface IStorage {
     enum ClaimStatus {
         None,
         Active,
+        PendingVote,
         PendingResolution,
+        PendingCommitteeResolution,
         Nullified,
-        Resolved
+        ResolvedYea,
+        ResolvedNay
     }
 
     enum VoteStatus {
         None,
         Yea,
-        Nay,
-        Abstain
+        Nay
+        // Abstain
     }
 
     enum Outcome {
@@ -40,8 +43,7 @@ interface IStorage {
         uint256 disputeExpiration;
         address[] yeaVoters;
         address[] nayVoters;
-        Outcome voteOutcome;
-        Outcome resolutionOutcome;
+        Outcome outcome;
     }
 
     struct Claim {
@@ -53,9 +55,20 @@ interface IStorage {
     }
 
     function userStakeKey(address _user, uint256 _marketId, uint256 _claimId, bool _yea) external pure returns (bytes32);
+    function userVoteKey(address _user, uint256 _marketId, uint256 _claimId) external pure returns (bytes32);
     function updateClaim(Claim calldata _claim, uint256 _marketId, uint256 _claimId) external;
-    function updateStake(uint256 _stake, bytes32 _userStakeKey) external;
+    function incrementUserStake(uint256 _stake, address _user, bytes32 _userStakeKey) external;
+    function incrementClaimStake(uint256 _stake, uint256 _marketId, uint256 _claimId, bool _yea) external;
+    function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external;
     function newMarketId() external returns (uint256);
+    function updateVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external;
+    function updateVoters(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId, uint256 _claimId) external;
+    function updateClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external;
+    function updateUserVoteStatus(VoteStatus _voteStatus, bytes32 _userVoteKey) external;
+    function incrementVote(bool _yea, uint256 _marketId, uint256 _claimId) external;
+    function updateVoteOutcome(Outcome _voteOutcome, uint256 _marketId, uint256 _claimId) external;
+    function updateDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external;
+    function incerementUserBalance(uint256 _amount, address _user) external;
 
     // ==============================================================
     // Events
@@ -70,5 +83,5 @@ interface IStorage {
 
     error NotWhitelisted();
     error ZeroAmount();
-    error InsufficientFunds();
+    error NotMarket();
 }
