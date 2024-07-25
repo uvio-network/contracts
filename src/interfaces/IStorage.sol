@@ -18,7 +18,6 @@ interface IStorage {
         None,
         Yea,
         Nay
-        // Abstain
     }
 
     enum Outcome {
@@ -26,6 +25,14 @@ interface IStorage {
         Yea,
         Nay,
         Tie
+    }
+
+    struct User {
+        uint256 balance;
+        bool isWhitelisted;
+        mapping(bytes32 userClaimKey => uint256 stake) stakes;
+        mapping(bytes32 userClaimKey => VoteStatus stakes) stakesStatus;
+        mapping(bytes32 userClaimKey => VoteStatus vote) votesStatus;
     }
 
     struct Stake {
@@ -54,21 +61,23 @@ interface IStorage {
         ClaimStatus status;
     }
 
-    function userStakeKey(address _user, uint256 _marketId, uint256 _claimId, bool _yea) external pure returns (bytes32);
-    function userVoteKey(address _user, uint256 _marketId, uint256 _claimId) external pure returns (bytes32);
-    function updateClaim(Claim calldata _claim, uint256 _marketId, uint256 _claimId) external;
+    function userClaimKey(address _user, uint256 _marketId, uint256 _claimId) external pure returns (bytes32);
+    function createClaim(Claim calldata _claim, uint256 _marketId, uint256 _claimId) external;
     function incrementUserStake(uint256 _stake, address _user, bytes32 _userStakeKey) external;
     function incrementClaimStake(uint256 _stake, uint256 _marketId, uint256 _claimId, bool _yea) external;
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external;
     function newMarketId() external returns (uint256);
-    function updateVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external;
-    function updateVoters(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId, uint256 _claimId) external;
-    function updateClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external;
-    function updateUserVoteStatus(VoteStatus _voteStatus, bytes32 _userVoteKey) external;
+    function setVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external;
+    function setVoters(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId, uint256 _claimId) external;
+    function setClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external;
+    function setUserVoteStatus(VoteStatus _voteStatus, address _user, bytes32 _userVoteKey) external;
     function incrementVote(bool _yea, uint256 _marketId, uint256 _claimId) external;
-    function updateVoteOutcome(Outcome _voteOutcome, uint256 _marketId, uint256 _claimId) external;
-    function updateDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external;
+    function setVoteOutcome(Outcome _voteOutcome, uint256 _marketId, uint256 _claimId) external;
+    function setDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external;
     function incerementUserBalance(uint256 _amount, address _user) external;
+    function userStake(bytes32 _userClaimKey) external view returns (uint256);
+    function userStakeStatus(bytes32 _userClaimKey) external view returns (VoteStatus);
+    function userVoteStatus(bytes32 _userVoteKey) external view returns (VoteStatus);
 
     // ==============================================================
     // Events
@@ -84,4 +93,7 @@ interface IStorage {
     error NotWhitelisted();
     error ZeroAmount();
     error NotMarket();
+    error AlreadySet();
+    error InsufficientFunds();
+    error WhitelistDisabled();
 }

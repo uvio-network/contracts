@@ -17,13 +17,11 @@ contract Storage is IStorage, Ownable2Step {
     Markets public market;
 
     uint256 public marketId;
+    uint256 public totalAssets;
 
     bool public whitelistActive;
 
-    mapping(address user => uint256 balance) public balances;
-    mapping(address user => bool isWhitelisted) public whitelist;
-    mapping(bytes32 userStakeKey => uint256 stake) public stakes;
-    mapping(bytes32 userVoteKey => VoteStatus vote) public votes;
+    mapping(address user => User userInfo) public users;
     mapping(uint256 marketId => Claim[] claims) public claims;
 
     IERC20 public immutable asset;
@@ -48,14 +46,26 @@ contract Storage is IStorage, Ownable2Step {
     }
 
     // ==============================================================
+    // View
+    // ==============================================================
+
+    function userStake(bytes32 _userClaimKey) external view returns (uint256) {
+        return users[msg.sender].stakes[_userClaimKey];
+    }
+
+    function userStakeStatus(bytes32 _userClaimKey) external view returns (VoteStatus) {
+        return users[msg.sender].stakesStatus[_userClaimKey];
+    }
+
+    function userVoteStatus(bytes32 _userVoteKey) external view returns (VoteStatus) {
+        return users[msg.sender].votesStatus[_userVoteKey];
+    }
+
+    // ==============================================================
     // Keys
     // ==============================================================
 
-    function userStakeKey(address _user, uint256 _marketId, uint256 _claimId, bool _yea) external pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_user, _marketId, _claimId, _yea));
-    }
-
-    function userVoteKey(address _user, uint256 _marketId, uint256 _claimId) external pure returns (bytes32) {
+    function userClaimKey(address _user, uint256 _marketId, uint256 _claimId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_user, _marketId, _claimId));
     }
 
@@ -64,10 +74,11 @@ contract Storage is IStorage, Ownable2Step {
     // ==============================================================
 
     function deposit(uint256 _amount, address _reciever) external {
-        if (whitelistActive && !whitelist[_reciever]) revert NotWhitelisted();
+        if (whitelistActive && !users[_reciever].isWhitelisted) revert NotWhitelisted();
         if (_amount == 0) revert ZeroAmount();
 
-        balances[_reciever] += _amount;
+        totalAssets += _amount;
+        users[_reciever].balance += _amount;
         asset.safeTransferFrom(msg.sender, address(this), _amount);
 
         emit Deposit(msg.sender, _reciever, _amount);
@@ -76,7 +87,8 @@ contract Storage is IStorage, Ownable2Step {
     function withdraw(uint256 _amount, address _reciever) external {
         if (_amount == 0) revert ZeroAmount();
 
-        balances[msg.sender] -= _amount;
+        totalAssets -= _amount;
+        users[msg.sender].balance -= _amount;
         asset.safeTransfer(_reciever, _amount);
 
         emit Withdraw(msg.sender, _reciever, _amount);
@@ -89,7 +101,8 @@ contract Storage is IStorage, Ownable2Step {
     // Balance
 
     function incerementUserBalance(uint256 _amount, address _user) external onlyMarket {
-        balances[_user] += _amount;
+        if (asset.balanceOf(address(this)) < totalAssets + _amount) revert InsufficientFunds();
+        users[_user].balance += _amount;
     }
 
     // Claim
@@ -98,11 +111,13 @@ contract Storage is IStorage, Ownable2Step {
         return ++marketId;
     }
 
-    function updateClaim(Claim calldata _claim, uint256 _marketId, uint256 _claimId) external onlyMarket {
+    function createClaim(Claim calldata _claim, uint256 _marketId, uint256 _claimId) external onlyMarket {
+        if (claims[_marketId][_claimId].status != ClaimStatus.None) revert AlreadySet();
         claims[_marketId][_claimId] = _claim;
     }
 
-    function updateClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external onlyMarket {
+    function setClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external onlyMarket {
+        if (uint8(claims[_marketId][_claimId].status) <= uint8(_status)) revert AlreadySet();
         claims[_marketId][_claimId].status = _status;
     }
 
@@ -112,12 +127,15 @@ contract Storage is IStorage, Ownable2Step {
         _yea ? claims[_marketId][_claimId].stake.yea += _amount : claims[_marketId][_claimId].stake.nay += _amount;
     }
 
-    function incrementUserStake(uint256 _amount, address _user, bytes32 _userStakeKey) external onlyMarket {
-        balances[_user] -= _amount;
-        stakes[_userStakeKey] += _amount;
+    function incrementUserStake(uint256 _amount, address _user, bytes32 _userClaimKey) external onlyMarket {
+        users[_user].balance -= _amount;
+        users[_user].stakes[_userClaimKey] += _amount;
     }
 
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external onlyMarket {
+        bytes32 _userClaimKey = userClaimKey(_staker, _marketId, _claimId);
+        if (users[_staker].stakesStatus[_userClaimKey] != VoteStatus.None) revert AlreadySet();
+        users[_staker].stakesStatus[_userClaimKey] = _yea ? VoteStatus.Yea : VoteStatus.Nay;
         _yea ? claims[_marketId][_claimId].stake.yeaStakers.push(_staker) : claims[_marketId][_claimId].stake.nayStakers.push(_staker);
     }
 
@@ -127,30 +145,39 @@ contract Storage is IStorage, Ownable2Step {
         _yea ? claims[_marketId][_claimId].vote.yea++ : claims[_marketId][_claimId].vote.nay++;
     }
 
-    function updateVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        claims[_marketId][_claimId].vote.expiration = _expiration;
+    function setVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
+        if (claims[_marketId][_claimId].vote.expiration != 0) revert AlreadySet();
+        claims[_marketId][_claimId].vote.expiration += _expiration;
     }
 
-    function updateDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        claims[_marketId][_claimId].vote.disputeExpiration = _disputeExpiration;
+    function setDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
+        if (claims[_marketId][_claimId].vote.disputeExpiration != 0) revert AlreadySet();
+        claims[_marketId][_claimId].vote.disputeExpiration += _disputeExpiration;
     }
 
-    function updateVoteOutcome(Outcome _outcome, uint256 _marketId, uint256 _claimId) external onlyMarket {
+    function setVoteOutcome(Outcome _outcome, uint256 _marketId, uint256 _claimId) external onlyMarket {
+        if (claims[_marketId][_claimId].vote.outcome != Outcome.None) revert AlreadySet();
         claims[_marketId][_claimId].vote.outcome = _outcome;
     }
 
-    function updateVoters(
+    function setVoters(
         address[] calldata _yeaVoters,
         address[] calldata _nayVoters,
         uint256 _marketId,
         uint256 _claimId
     ) external onlyMarket {
+        if (
+            claims[_marketId][_claimId].vote.yeaVoters.length != 0 ||
+            claims[_marketId][_claimId].vote.nayVoters.length != 0
+        ) revert AlreadySet();
+
         claims[_marketId][_claimId].vote.yeaVoters = _yeaVoters;
         claims[_marketId][_claimId].vote.nayVoters = _nayVoters;
     }
 
-    function updateUserVoteStatus(VoteStatus _voteStatus, bytes32 _userVoteKey) external onlyMarket {
-        votes[_userVoteKey] = _voteStatus;
+    function setUserVoteStatus(VoteStatus _voteStatus, address _user, bytes32 _userVoteKey) external onlyMarket {
+        if (users[_user].votesStatus[_userVoteKey] != VoteStatus.None) revert AlreadySet();
+        users[_user].votesStatus[_userVoteKey] = _voteStatus;
     }
 
     // ==============================================================
@@ -167,6 +194,7 @@ contract Storage is IStorage, Ownable2Step {
     }
 
     function whitelistUser(address _user) external onlyOwner {
-        whitelist[_user] = true;
+        if (whitelistActive) revert WhitelistDisabled();
+        users[_user].isWhitelisted = true;
     }
 }
