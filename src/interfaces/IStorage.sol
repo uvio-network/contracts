@@ -27,12 +27,16 @@ interface IStorage {
         Tie
     }
 
+    struct UserStatus {
+        uint256 stakeAmount;
+        VoteStatus stakeStatus;
+        VoteStatus voteStatus;
+    }
+
     struct User {
         uint256 balance;
         bool isWhitelisted;
-        mapping(bytes32 userClaimKey => uint256 stake) stakes;
-        mapping(bytes32 userClaimKey => VoteStatus stakes) stakesStatus;
-        mapping(bytes32 userClaimKey => VoteStatus vote) votesStatus;
+        mapping(bytes32 userClaimKey => UserStatus) status;
     }
 
     struct Stake {
@@ -78,6 +82,8 @@ interface IStorage {
     function userStake(bytes32 _userClaimKey) external view returns (uint256);
     function userStakeStatus(bytes32 _userClaimKey) external view returns (VoteStatus);
     function userVoteStatus(bytes32 _userVoteKey) external view returns (VoteStatus);
+    function shiftClaimStakes(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _from) external;
+    function claimsLength(uint256 _marketId) external view returns (uint256);
 
     // ==============================================================
     // Events
@@ -96,4 +102,5 @@ interface IStorage {
     error AlreadySet();
     error InsufficientFunds();
     error WhitelistDisabled();
+    error InvalidStatus();
 }

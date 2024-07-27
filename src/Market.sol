@@ -5,11 +5,12 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
 
 import {IStorageReader, IStorage} from "./interfaces/IStorageReader.sol";
 
-// @todo - use whitelist
+// @todo - allow vote "yea/nay/nullify" (instead of only "yea/nay") --> another tree, which overwrites the original one
 contract Market is Ownable2Step {
 
     uint256 public maxClaims;
     uint256 public minStake;
+    uint256 public minStakeIncrease;
     uint256 public minClaimDuration;
     uint256 public votersLimit;
     uint256 public votingDuration;
@@ -18,7 +19,8 @@ contract Market is Ownable2Step {
 
     address public randomizer;
 
-    mapping(bytes32 => bool) public isClaimed;
+    mapping(bytes32 userClaimKey => bool isClaim) public claimed;
+    mapping(uint256 marketId => uint256 minStake) public marketMinStake;
 
     IStorageReader public immutable s;
 
@@ -72,29 +74,31 @@ contract Market is Ownable2Step {
         string calldata _ref,
         uint256 _marketId,
         uint256 _amount,
+        uint256 _marketMinStake,
         uint256 _claimExpiration,
         uint256 _stakingExpiration,
         bool _yea
     ) external {
-        if (_amount < minStake) revert InvalidAmount();
+        if (_marketMinStake < minStake) revert InvalidMarketMinStake();
+        if (_amount < _marketMinStake) revert InvalidAmount();
 
         if (bytes(_ref).length == 0) {
             if (_marketId >= s.marketId()) revert InvalidMarketId();
             _claimExpiration = block.timestamp + minClaimDuration;
             _stakingExpiration = _claimExpiration;
+            marketMinStake[_marketId] *= (PRECISION + minStakeIncrease) / PRECISION;
         } else {
             if (
                 _claimExpiration < block.timestamp + minClaimDuration || _stakingExpiration < _claimExpiration
             ) revert InvalidExpiration();
 
             _marketId = s.newMarketId();
+            marketMinStake[_marketId] = _marketMinStake;
         }
 
-        IStorage.Claim[] memory _claims = s.claims(_marketId);
-
-        uint256 _claimId = _claims.length;
+        uint256 _claimId = s.claimsLength(_marketId);
         if (_claimId >= maxClaims) revert MaxClaimsReached();
-        if (_claimId > 0 && _claims[_claimId - 1].vote.disputeExpiration < block.timestamp) revert NotDisputePeriod();
+        if (_claimId > 0 && s.claims(_marketId)[_claimId - 1].vote.disputeExpiration < block.timestamp) revert NotDisputePeriod();
 
         IStorage.Stake memory _stake;
         {
@@ -138,7 +142,7 @@ contract Market is Ownable2Step {
     }
 
     function stake(uint256 _marketId, uint256 _amount, bool _yea) external {
-        if (_amount < minStake) revert InvalidAmount();
+        if (_amount < marketMinStake[_marketId]) revert InvalidAmount();
 
         IStorage.Claim[] memory _claims = s.claims(_marketId);
 
@@ -167,6 +171,8 @@ contract Market is Ownable2Step {
         if (msg.sender != randomizer) revert OnlyRandomizer();
         if (_yeaVoters.length != _nayVoters.length) revert NotEqualVoters();
         if (_yeaVoters.length == 0 || _yeaVoters.length > votersLimit) revert InvalidVoters();
+        // @todo - voters are unique
+        // @todo - voters are stakers, also handle 0 stakers case
 
         IStorage.Claim[] memory _claims = s.claims(_marketId);
 
@@ -197,6 +203,7 @@ contract Market is Ownable2Step {
         IStorage.VoteStatus _voteStatus = _yea ? IStorage.VoteStatus.Yea : IStorage.VoteStatus.Nay;
         s.setUserVoteStatus(_voteStatus, msg.sender, _userClaimKey);
         s.incrementVote(_yea, _marketId, _claimId);
+        if (_yeaGroup != _yea) s.shiftClaimStakes(s.userStake(_userClaimKey), _marketId, _claimId, _yea);
 
         emit Vote(msg.sender, _marketId, _claimId, _yea, _yeaGroup);
     }
@@ -271,36 +278,50 @@ contract Market is Ownable2Step {
         emit CommitteeResolve(_marketId);
     }
 
-    function claimProceeds(uint256 _marketId, uint256 _claimId, address _user) external {
+    function claimProceeds(uint256 _marketId, uint256[] calldata _claimIds, address _user) external {
+        uint256 _len = _claimIds.length;
+        for (uint256 i; i < _len; i++) {
+            claimProceeds(_marketId, _claimIds[i], _user);
+        }
+    }
+
+    function claimProceeds(uint256 _marketId, uint256 _claimId, address _user) public {
         IStorage.Claim memory _claim = s.claims(_marketId)[_claimId];
 
         bytes32 _userClaimKey = s.userClaimKey(_user, _marketId, _claimId);
-        if (isClaimed[_userClaimKey]) revert AlreadyClaimed();
+        if (claimed[_userClaimKey]) revert AlreadyClaimed();
 
         uint256 _stake = s.userStake(_userClaimKey);
         if (_stake == 0) revert NoStake();
 
-        isClaimed[_userClaimKey] = true;
+        claimed[_userClaimKey] = true;
 
-        uint256 _proceeds;
-        IStorage.VoteStatus _userStake = s.userStakeStatus(_userClaimKey);
-        if (_claim.status == IStorage.ClaimStatus.ResolvedYea && _userStake == IStorage.VoteStatus.Yea) {
-            _proceeds = _stake + (_stake * _claim.stake.nay / _claim.stake.yea);
-        } else if (_claim.status == IStorage.ClaimStatus.ResolvedNay && _userStake == IStorage.VoteStatus.Nay) {
-            _proceeds = _stake + (_stake * _claim.stake.yea / _claim.stake.nay);
+        IStorage.VoteStatus _userVoteStatus = s.userVoteStatus(_userClaimKey);
+        if (_userVoteStatus == IStorage.VoteStatus.None) {
+            _userVoteStatus = s.userStakeStatus(_userClaimKey);
+        }
+
+        uint256 _fee;
+        uint256 _earned;
+        if (_claim.status == IStorage.ClaimStatus.ResolvedYea && _userVoteStatus == IStorage.VoteStatus.Yea) {
+            _earned = _stake * _claim.stake.nay / _claim.stake.yea;
+            _fee = _earned * fee / PRECISION;
+        } else if (_claim.status == IStorage.ClaimStatus.ResolvedNay && _userVoteStatus == IStorage.VoteStatus.Nay) {
+            _earned = _stake * _claim.stake.yea / _claim.stake.nay;
+            _fee = _earned * fee / PRECISION;
         } else if (_claim.status == IStorage.ClaimStatus.Nullified) {
-            _proceeds = _stake;
+            _earned = 0;
+            _fee = _stake * fee / PRECISION;
         } else {
             revert InvalidClaimStatus();
         }
 
-        uint256 _fee = _proceeds * fee / PRECISION;
-        _proceeds -= _fee;
-
         s.incerementUserBalance(_fee, owner());
+
+        uint256 _proceeds = _stake + _earned - _fee;
         s.incerementUserBalance(_proceeds, _user);
 
-        emit ClaimProceeds(_user, _proceeds, _fee, _marketId, _claimId);
+        emit ClaimProceeds(_user, _proceeds, _fee, _earned, _marketId, _claimId);
     }
 
     // ==============================================================
@@ -315,6 +336,10 @@ contract Market is Ownable2Step {
     function setMinStake(uint256 _minStake) external onlyOwner {
         if (_minStake == 0) revert InvalidAmount();
         minStake = _minStake;
+    }
+
+    function setMinStakeIncrease(uint256 _minStakeIncrease) external onlyOwner {
+        minStakeIncrease = _minStakeIncrease;
     }
 
     function setMinClaimDuration(uint256 _minClaimDuration) external onlyOwner {
@@ -343,6 +368,7 @@ contract Market is Ownable2Step {
     }
 
     function setRandomizer(address _randomizer) external onlyOwner {
+        if (_randomizer == address(0)) revert InvalidAddress();
         randomizer = _randomizer;
     }
 
@@ -369,7 +395,7 @@ contract Market is Ownable2Step {
     event EndVote(uint256 indexed marketId);
     event Resolve(uint256 indexed marketId);
     event CommitteeResolve(uint256 indexed marketId);
-    event ClaimProceeds(address indexed user, uint256 proceeds, uint256 fee, uint256 marketId, uint256 claimId);
+    event ClaimProceeds(address indexed user, uint256 proceeds, uint256 fee, uint256 earned, uint256 marketId, uint256 claimId);
 
     // ==============================================================
     // Errors
@@ -398,4 +424,6 @@ contract Market is Ownable2Step {
     error InvalidVoters();
     error OnlyRandomizer();
     error InvalidStake();
+    error InvalidMarketMinStake();
+    error InvalidAddress();
 }

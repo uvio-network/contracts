@@ -50,15 +50,19 @@ contract Storage is IStorage, Ownable2Step {
     // ==============================================================
 
     function userStake(bytes32 _userClaimKey) external view returns (uint256) {
-        return users[msg.sender].stakes[_userClaimKey];
+        return users[msg.sender].status[_userClaimKey].stakeAmount;
     }
 
     function userStakeStatus(bytes32 _userClaimKey) external view returns (VoteStatus) {
-        return users[msg.sender].stakesStatus[_userClaimKey];
+        return users[msg.sender].status[_userClaimKey].stakeStatus;
     }
 
     function userVoteStatus(bytes32 _userVoteKey) external view returns (VoteStatus) {
-        return users[msg.sender].votesStatus[_userVoteKey];
+        return users[msg.sender].status[_userVoteKey].voteStatus;
+    }
+
+    function claimsLength(uint256 _marketId) external view returns (uint256) {
+        return claims[_marketId].length;
     }
 
     // ==============================================================
@@ -127,15 +131,27 @@ contract Storage is IStorage, Ownable2Step {
         _yea ? claims[_marketId][_claimId].stake.yea += _amount : claims[_marketId][_claimId].stake.nay += _amount;
     }
 
+    function shiftClaimStakes(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _from) external onlyMarket {
+        if (claims[_marketId][_claimId].status != ClaimStatus.PendingVote) revert InvalidStatus();
+        if (_from) {
+            claims[_marketId][_claimId].stake.yea -= _amount;
+            claims[_marketId][_claimId].stake.nay += _amount;
+        } else {
+            claims[_marketId][_claimId].stake.nay -= _amount;
+            claims[_marketId][_claimId].stake.yea += _amount;
+        }
+    }
+
     function incrementUserStake(uint256 _amount, address _user, bytes32 _userClaimKey) external onlyMarket {
+        if (whitelistActive && !users[_user].isWhitelisted) revert NotWhitelisted();
         users[_user].balance -= _amount;
-        users[_user].stakes[_userClaimKey] += _amount;
+        users[_user].status[_userClaimKey].stakeAmount += _amount;
     }
 
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external onlyMarket {
         bytes32 _userClaimKey = userClaimKey(_staker, _marketId, _claimId);
-        if (users[_staker].stakesStatus[_userClaimKey] != VoteStatus.None) revert AlreadySet();
-        users[_staker].stakesStatus[_userClaimKey] = _yea ? VoteStatus.Yea : VoteStatus.Nay;
+        if (users[_staker].status[_userClaimKey].stakeStatus != VoteStatus.None) revert AlreadySet();
+        users[_staker].status[_userClaimKey].stakeStatus = _yea ? VoteStatus.Yea : VoteStatus.Nay;
         _yea ? claims[_marketId][_claimId].stake.yeaStakers.push(_staker) : claims[_marketId][_claimId].stake.nayStakers.push(_staker);
     }
 
@@ -176,8 +192,8 @@ contract Storage is IStorage, Ownable2Step {
     }
 
     function setUserVoteStatus(VoteStatus _voteStatus, address _user, bytes32 _userVoteKey) external onlyMarket {
-        if (users[_user].votesStatus[_userVoteKey] != VoteStatus.None) revert AlreadySet();
-        users[_user].votesStatus[_userVoteKey] = _voteStatus;
+        if (users[_user].status[_userVoteKey].voteStatus != VoteStatus.None) revert AlreadySet();
+        users[_user].status[_userVoteKey].voteStatus = _voteStatus;
     }
 
     // ==============================================================
