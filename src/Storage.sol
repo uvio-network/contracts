@@ -30,7 +30,7 @@ contract Storage is IStorage, Ownable2Step {
     // Constructor
     // ==============================================================
 
-    constructor(address _asset, address _owner) Ownable(_owner) {
+    constructor(address _owner, address _asset) Ownable(_owner) {
         asset = IERC20(_asset);
 
         whitelistActive = true;

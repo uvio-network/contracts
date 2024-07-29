@@ -4,32 +4,10 @@ pragma solidity 0.8.25;
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import {IStorageReader, IStorage} from "./interfaces/IStorageReader.sol";
+import {IMarket} from "./interfaces/IMarket.sol";
 
-abstract contract BaseMarket is Ownable2Step {
-
-    struct Initialize {
-        uint256 maxClaims;
-        uint256 minStake;
-        uint256 minClaimDuration;
-        uint256 votersLimit;
-        uint256 votingDuration;
-        uint256 disputeDuration;
-        uint256 fee;
-        address storage_;
-        address owner;
-        address randomizer;
-    }
-
-    struct Propose {
-        string ref;
-        uint256 marketId;
-        uint256 refMarketId;
-        uint256 amount;
-        uint256 marketMinStake;
-        uint256 claimExpiration;
-        uint256 stakingExpiration;
-        bool yea;
-    }
+// @todo - configurable perf fee to original proposer
+abstract contract BaseMarket is IMarket, Ownable2Step {
 
     uint256 public maxClaims;
     uint256 public minStake;
@@ -50,6 +28,7 @@ abstract contract BaseMarket is Ownable2Step {
 
     uint256 public constant MAX_FEE = 1_000;
     uint256 public constant MIN_CLAIM_DURATION = 1 days;
+    uint256 public constant MIN_STAKE_FREEZE_DURATION = 1 days;
     uint256 public constant MIN_VOTING_DURATION = 3 days;
     uint256 public constant MIN_DISPUTE_DURATION = 3 days;
     uint256 public constant PRECISION = 10_000;
@@ -84,10 +63,10 @@ abstract contract BaseMarket is Ownable2Step {
     // ==============================================================
 
     function propose(Propose memory _propose) external {
-        if (_propose.marketMinStake < minStake) revert InvalidMarketMinStake();
+        if (_propose.marketMinStake < minStake) revert InvalidMinStake();
         if (_propose.amount < _propose.marketMinStake) revert InvalidAmount();
 
-        if (bytes(_propose.ref).length == 0) {
+        if (bytes(_propose.metadataURI).length == 0) {
             if (_propose.refMarketId != 0) revert InvalidReferenceMarkedId();
             if (_propose.marketId >= s.marketId()) revert InvalidMarketId();
             if (!isMarket[_propose.marketId]) revert InvalidMarketType();
@@ -96,7 +75,8 @@ abstract contract BaseMarket is Ownable2Step {
             marketMinStake[_propose.marketId] *= (PRECISION + minStakeIncrease) / PRECISION;
         } else {
             if (
-                _propose.claimExpiration < block.timestamp + minClaimDuration || _propose.stakingExpiration < _propose.claimExpiration
+                _propose.claimExpiration < block.timestamp + minClaimDuration ||
+                _propose.stakingExpiration + MIN_STAKE_FREEZE_DURATION < _propose.claimExpiration
             ) revert InvalidExpiration();
 
             _propose.marketId = s.newMarketId();
@@ -135,7 +115,7 @@ abstract contract BaseMarket is Ownable2Step {
         {
             IStorage.Vote memory _vote;
             _claim = IStorage.Claim({
-                ref: _propose.ref,
+                metadataURI: _propose.metadataURI,
                 expiration: _propose.claimExpiration,
                 stake: _stake,
                 vote: _vote,
@@ -170,15 +150,11 @@ abstract contract BaseMarket is Ownable2Step {
         emit Stake(msg.sender, _marketId, _claimId, _amount, _yea);
     }
 
-    // @todo - voters are unique
-    // @todo - voters are stakers, also handle 0 stakers case
     function prepareVote(
         address[] calldata _yeaVoters,
         address[] calldata _nayVoters,
         uint256 _marketId
     ) external {
-        if (_yeaVoters.length == 0 || _yeaVoters.length > votersLimit) revert InvalidVoters();
-        if (_yeaVoters.length != _nayVoters.length) revert NotEqualVoters();
         if (msg.sender != randomizer) revert OnlyRandomizer();
         if (!isMarket[_marketId]) revert InvalidMarketType();
 
@@ -293,9 +269,9 @@ abstract contract BaseMarket is Ownable2Step {
         emit CommitteeResolve(_marketId);
     }
 
-    function claimProceeds(uint256 _marketId, uint256[] calldata _claimIds, address _user) external {
+    function claimProceedsMulti(uint256[] calldata _claimIds, uint256 _marketId, address _user) external {
         uint256 _len = _claimIds.length;
-        for (uint256 i; i < _len; i++) {
+        for (uint256 i; i < _len; ++i) {
             claimProceeds(_marketId, _claimIds[i], _user);
         }
     }
@@ -445,7 +421,7 @@ abstract contract BaseMarket is Ownable2Step {
     error InvalidVoters();
     error OnlyRandomizer();
     error InvalidStake();
-    error InvalidMarketMinStake();
+    error InvalidMinStake();
     error InvalidAddress();
     error InvalidReferenceMarkedId();
     error InvalidMarketType();

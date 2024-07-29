@@ -58,7 +58,7 @@ interface IStorage {
     }
 
     struct Claim {
-        string ref;
+        string metadataURI;
         uint256 expiration;
         Stake stake;
         Vote vote;
