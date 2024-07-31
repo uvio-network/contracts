@@ -10,19 +10,17 @@ contract Storage is IStorage, Ownable2Step {
 
     using SafeERC20 for IERC20;
 
-    struct Markets {
-        address marketV1;
-        address marketV2;
-    }
-    Markets public market;
-
     uint256 public marketId;
     uint256 public totalAssets;
 
     bool public whitelistActive;
 
-    mapping(address user => User userInfo) public users;
-    mapping(uint256 marketId => Claim[] claims) public claims;
+    mapping(address market => bool whitelisted) public markets;
+    mapping(uint256 marketId => uint256 length) public claimsLength;
+
+    uint256 public constant MAX_CLAIMS = 10;
+    mapping(uint256 marketId => Claim[MAX_CLAIMS] claims) private _claims;
+    mapping(address user => User userInfo) private _users;
 
     IERC20 public immutable asset;
 
@@ -41,7 +39,7 @@ contract Storage is IStorage, Ownable2Step {
     // ==============================================================
 
     modifier onlyMarket() {
-        if (msg.sender != market.marketV1 && msg.sender != market.marketV2) revert NotMarket();
+        if (!markets[msg.sender]) revert NotMarket();
         _;
     }
 
@@ -49,28 +47,36 @@ contract Storage is IStorage, Ownable2Step {
     // View
     // ==============================================================
 
-    function userStake(bytes32 _userClaimKey) external view returns (uint256) {
-        return users[msg.sender].status[_userClaimKey].stakeAmount;
+    function userBalance(address _user) external view returns (uint256) {
+        return _users[_user].balance;
     }
 
-    function userStakeStatus(bytes32 _userClaimKey) external view returns (VoteStatus) {
-        return users[msg.sender].status[_userClaimKey].stakeStatus;
+    function userStake(address _user, bytes32 _claimKey) external view returns (uint256) {
+        return _users[_user].status[_claimKey].stakeAmount;
     }
 
-    function userVoteStatus(bytes32 _userVoteKey) external view returns (VoteStatus) {
-        return users[msg.sender].status[_userVoteKey].voteStatus;
+    function userIsWhitelisted(address _user) external view returns (bool) {
+        return _users[_user].isWhitelisted;
     }
 
-    function claimsLength(uint256 _marketId) external view returns (uint256) {
-        return claims[_marketId].length;
+    function userStakeStatus(address _user, bytes32 _claimKey) external view returns (VoteStatus) {
+        return _users[_user].status[_claimKey].stakeStatus;
+    }
+
+    function userVoteStatus(address _user, bytes32 _userVoteKey) external view returns (VoteStatus) {
+        return _users[_user].status[_userVoteKey].voteStatus;
+    }
+
+    function claims(uint256 _marketId) external view returns (Claim[10] memory) {
+        return _claims[_marketId];
     }
 
     // ==============================================================
     // Keys
     // ==============================================================
 
-    function userClaimKey(address _user, uint256 _marketId, uint256 _claimId) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_user, _marketId, _claimId));
+    function claimKey(uint256 _marketId, uint256 _claimId) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_marketId, _claimId));
     }
 
     // ==============================================================
@@ -78,11 +84,11 @@ contract Storage is IStorage, Ownable2Step {
     // ==============================================================
 
     function deposit(uint256 _amount, address _reciever) external {
-        if (whitelistActive && !users[_reciever].isWhitelisted) revert NotWhitelisted();
+        if (whitelistActive && !_users[_reciever].isWhitelisted) revert NotWhitelisted();
         if (_amount == 0) revert ZeroAmount();
 
         totalAssets += _amount;
-        users[_reciever].balance += _amount;
+        _users[_reciever].balance += _amount;
         asset.safeTransferFrom(msg.sender, address(this), _amount);
 
         emit Deposit(msg.sender, _reciever, _amount);
@@ -92,7 +98,7 @@ contract Storage is IStorage, Ownable2Step {
         if (_amount == 0) revert ZeroAmount();
 
         totalAssets -= _amount;
-        users[msg.sender].balance -= _amount;
+        _users[msg.sender].balance -= _amount;
         asset.safeTransfer(_reciever, _amount);
 
         emit Withdraw(msg.sender, _reciever, _amount);
@@ -106,74 +112,78 @@ contract Storage is IStorage, Ownable2Step {
 
     function incerementUserBalance(uint256 _amount, address _user) external onlyMarket {
         if (asset.balanceOf(address(this)) < totalAssets + _amount) revert InsufficientFunds();
-        users[_user].balance += _amount;
+        _users[_user].balance += _amount;
     }
 
     // Claim
 
     function newMarketId() external onlyMarket returns (uint256) {
-        return ++marketId;
+        return marketId++;
     }
 
-    function createClaim(Claim calldata _claim, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (claims[_marketId][_claimId].status != ClaimStatus.None) revert AlreadySet();
-        claims[_marketId][_claimId] = _claim;
+    function createClaim(Claim calldata _claim, uint256 _marketId) external onlyMarket {
+        uint256 _length = claimsLength[_marketId];
+        if (_length >= MAX_CLAIMS - 1) revert MaxClaimsReached();
+        if (_claims[_marketId][_length].status != ClaimStatus.None) revert AlreadySet();
+
+        _claims[_marketId][_length] = _claim;
+        claimsLength[_marketId] = _length + 1;
     }
 
     function setClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (uint8(claims[_marketId][_claimId].status) <= uint8(_status)) revert AlreadySet();
-        claims[_marketId][_claimId].status = _status;
+        if (uint8(_claims[_marketId][_claimId].status) <= uint8(_status)) revert AlreadySet();
+        _claims[_marketId][_claimId].status = _status;
     }
 
     // Stake
 
     function incrementClaimStake(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _yea) external onlyMarket {
-        _yea ? claims[_marketId][_claimId].stake.yea += _amount : claims[_marketId][_claimId].stake.nay += _amount;
+        _yea ? _claims[_marketId][_claimId].stake.yea += _amount : _claims[_marketId][_claimId].stake.nay += _amount;
     }
 
     function shiftClaimStakes(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _from) external onlyMarket {
-        if (claims[_marketId][_claimId].status != ClaimStatus.PendingVote) revert InvalidStatus();
+        if (_claims[_marketId][_claimId].status != ClaimStatus.PendingVote) revert InvalidStatus();
         if (_from) {
-            claims[_marketId][_claimId].stake.yea -= _amount;
-            claims[_marketId][_claimId].stake.nay += _amount;
+            _claims[_marketId][_claimId].stake.yea -= _amount;
+            _claims[_marketId][_claimId].stake.nay += _amount;
         } else {
-            claims[_marketId][_claimId].stake.nay -= _amount;
-            claims[_marketId][_claimId].stake.yea += _amount;
+            _claims[_marketId][_claimId].stake.nay -= _amount;
+            _claims[_marketId][_claimId].stake.yea += _amount;
         }
     }
 
-    function incrementUserStake(uint256 _amount, address _user, bytes32 _userClaimKey) external onlyMarket {
-        if (whitelistActive && !users[_user].isWhitelisted) revert NotWhitelisted();
-        users[_user].balance -= _amount;
-        users[_user].status[_userClaimKey].stakeAmount += _amount;
+    function incrementUserStake(uint256 _amount, address _user, bytes32 _claimKey) external onlyMarket {
+        if (whitelistActive && !_users[_user].isWhitelisted) revert NotWhitelisted();
+        _users[_user].balance -= _amount;
+        _users[_user].status[_claimKey].stakeAmount += _amount;
     }
 
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external onlyMarket {
-        bytes32 _userClaimKey = userClaimKey(_staker, _marketId, _claimId);
-        if (users[_staker].status[_userClaimKey].stakeStatus != VoteStatus.None) revert AlreadySet();
-        users[_staker].status[_userClaimKey].stakeStatus = _yea ? VoteStatus.Yea : VoteStatus.Nay;
-        _yea ? claims[_marketId][_claimId].stake.yeaStakers.push(_staker) : claims[_marketId][_claimId].stake.nayStakers.push(_staker);
+        bytes32 _claimKey = claimKey(_marketId, _claimId);
+        if (_users[_staker].status[_claimKey].stakeStatus != VoteStatus.None) revert AlreadySet();
+        _users[_staker].status[_claimKey].stakeStatus = _yea ? VoteStatus.Yea : VoteStatus.Nay;
+        _yea ? _claims[_marketId][_claimId].stake.yeaStakers.push(_staker) : _claims[_marketId][_claimId].stake.nayStakers.push(_staker);
     }
 
     // Vote
 
     function incrementVote(bool _yea, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        _yea ? claims[_marketId][_claimId].vote.yea++ : claims[_marketId][_claimId].vote.nay++;
+        _yea ? _claims[_marketId][_claimId].vote.yea++ : _claims[_marketId][_claimId].vote.nay++;
     }
 
     function setVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (claims[_marketId][_claimId].vote.expiration != 0) revert AlreadySet();
-        claims[_marketId][_claimId].vote.expiration += _expiration;
+        if (_claims[_marketId][_claimId].vote.expiration != 0) revert AlreadySet();
+        _claims[_marketId][_claimId].vote.expiration += _expiration;
     }
 
     function setDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (claims[_marketId][_claimId].vote.disputeExpiration != 0) revert AlreadySet();
-        claims[_marketId][_claimId].vote.disputeExpiration += _disputeExpiration;
+        if (_claims[_marketId][_claimId].vote.disputeExpiration != 0) revert AlreadySet();
+        _claims[_marketId][_claimId].vote.disputeExpiration += _disputeExpiration;
     }
 
     function setVoteOutcome(Outcome _outcome, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (claims[_marketId][_claimId].vote.outcome != Outcome.None) revert AlreadySet();
-        claims[_marketId][_claimId].vote.outcome = _outcome;
+        if (_claims[_marketId][_claimId].vote.outcome != Outcome.None) revert AlreadySet();
+        _claims[_marketId][_claimId].vote.outcome = _outcome;
     }
 
     function setVoters(
@@ -183,26 +193,25 @@ contract Storage is IStorage, Ownable2Step {
         uint256 _claimId
     ) external onlyMarket {
         if (
-            claims[_marketId][_claimId].vote.yeaVoters.length != 0 ||
-            claims[_marketId][_claimId].vote.nayVoters.length != 0
+            _claims[_marketId][_claimId].vote.yeaVoters.length != 0 ||
+            _claims[_marketId][_claimId].vote.nayVoters.length != 0
         ) revert AlreadySet();
 
-        claims[_marketId][_claimId].vote.yeaVoters = _yeaVoters;
-        claims[_marketId][_claimId].vote.nayVoters = _nayVoters;
+        _claims[_marketId][_claimId].vote.yeaVoters = _yeaVoters;
+        _claims[_marketId][_claimId].vote.nayVoters = _nayVoters;
     }
 
     function setUserVoteStatus(VoteStatus _voteStatus, address _user, bytes32 _userVoteKey) external onlyMarket {
-        if (users[_user].status[_userVoteKey].voteStatus != VoteStatus.None) revert AlreadySet();
-        users[_user].status[_userVoteKey].voteStatus = _voteStatus;
+        if (_users[_user].status[_userVoteKey].voteStatus != VoteStatus.None) revert AlreadySet();
+        _users[_user].status[_userVoteKey].voteStatus = _voteStatus;
     }
 
     // ==============================================================
     // Mutative - Admin
     // ==============================================================
 
-    function updateMarket(address _marketV1, address _marketV2) external onlyOwner {
-        market.marketV1 = _marketV1;
-        market.marketV2 = _marketV2;
+    function setMarket(address market, bool _whitelist) external onlyOwner {
+        markets[market] = _whitelist;
     }
 
     function disableWhitelist() external onlyOwner {
@@ -210,7 +219,7 @@ contract Storage is IStorage, Ownable2Step {
     }
 
     function whitelistUser(address _user) external onlyOwner {
-        if (whitelistActive) revert WhitelistDisabled();
-        users[_user].isWhitelisted = true;
+        if (!whitelistActive) revert WhitelistDisabled();
+        _users[_user].isWhitelisted = true;
     }
 }

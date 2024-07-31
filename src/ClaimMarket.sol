@@ -32,8 +32,7 @@ contract ClaimMarket is BaseMarket {
         }
     }
 
-    function _attachClaimMarket(uint256 _marketId, uint256 _refMarketId) override internal {
+    function _attachClaimMarket(uint256, uint256 _refMarketId) override internal pure {
         if (_refMarketId != 0) revert NotNullifyMarket();
-        isMarket[_marketId] = true;
     }
 }

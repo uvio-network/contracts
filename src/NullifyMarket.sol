@@ -24,6 +24,5 @@ contract NullifyMarket is BaseMarket {
     function _attachClaimMarket(uint256 _marketId, uint256 _refMarketId) override internal {
         if (refMarketToMarket[_refMarketId] != 0) revert AlreadyAttached();
         refMarketToMarket[_refMarketId] = _marketId;
-        isMarket[_marketId] = true;
     }
 }
