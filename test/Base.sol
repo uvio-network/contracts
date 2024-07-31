@@ -19,7 +19,8 @@ abstract contract Base is Deploy, Test {
     IMarket internal _router;
 
     function setUp() public virtual {
-        vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL")));
+        uint256 _blockNumber = 20428430;
+        vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL"), _blockNumber));
 
         run(); // deploy and initialize contracts
 

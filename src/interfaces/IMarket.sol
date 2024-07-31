@@ -11,6 +11,7 @@ interface IMarket {
         uint256 votingDuration;
         uint256 disputeDuration;
         uint256 fee;
+        uint256 numHalves;
         address storage_;
         address owner;
         address randomizer;
@@ -77,4 +78,5 @@ interface IMarket {
     error InvalidReferenceMarkedId();
     error InvalidMarketType();
     error NotVoter();
+    error InvalidHalves();
 }

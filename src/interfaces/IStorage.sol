@@ -43,6 +43,7 @@ interface IStorage {
         uint256 yea;
         uint256 nay;
         uint256 expiration;
+        uint256 start;
         address[] yeaStakers;
         address[] nayStakers;
     }
@@ -60,6 +61,7 @@ interface IStorage {
     struct Claim {
         string metadataURI;
         uint256 expiration;
+        address proposer;
         Stake stake;
         Vote vote;
         ClaimStatus status;
@@ -67,8 +69,8 @@ interface IStorage {
 
     function claimKey(uint256 _marketId, uint256 _claimId) external pure returns (bytes32);
     function createClaim(Claim calldata _claim, uint256 _marketId) external;
-    function incrementUserStake(uint256 _stake, address _user, bytes32 _userStakeKey) external;
-    function incrementClaimStake(uint256 _stake, uint256 _marketId, uint256 _claimId, bool _yea) external;
+    function incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _user, bytes32 _claimKey) external;
+    function incrementClaimStake(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _yea) external;
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external;
     function newMarketId() external returns (uint256);
     function setVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external;

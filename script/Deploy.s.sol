@@ -33,6 +33,7 @@ contract Deploy is Script {
     uint256 public constant VOTING_DURATION = 3 days;
     uint256 public constant DISPUTE_DURATION = 3 days;
     uint256 public constant FEE = 1_000; // 10%
+    uint256 public constant HALVES = 10;
 
     function run() public {
 
@@ -66,6 +67,7 @@ contract Deploy is Script {
             VOTING_DURATION,
             DISPUTE_DURATION,
             FEE,
+            HALVES,
             address(s),
             _deployer, // owner
             address(0) // randomizer

@@ -92,6 +92,8 @@ contract ClaimMarketTest is Base {
         assertEq(s.claims(marketId)[_claimId].vote.yeaVoters.length, 0, "testPropose: E18");
         assertEq(s.claims(marketId)[_claimId].vote.nayVoters.length, 0, "testPropose: E19");
         assertEq(uint8(s.claims(marketId)[_claimId].vote.outcome), uint8(IStorage.Outcome.None), "testPropose: E20");
+        assertEq(s.claims(marketId)[_claimId].proposer, alice, "testPropose: E21");
+        assertEq(s.claims(marketId)[_claimId].stake.start, block.timestamp, "testPropose: E22");
     }
 
     function testProposeInvalidMinStake(uint256 _invalidMinStake) public {
@@ -308,7 +310,10 @@ contract ClaimMarketTest is Base {
     //     if (!isMarket[_marketId]) revert InvalidMarketType();
 
     //     uint256 _claimId = s.claimsLength(_marketId) - 1;
-    //     if (s.claims(_marketId)[_claimId].stake.expiration < block.timestamp) revert NotStakingPeriod();
+    //     IStorage.Stake memory _stake = s.claims(_marketId)[_claimId].stake;
+
+    //     uint256 _expiration = _stake.expiration;
+    //     if (_expiration < block.timestamp) revert NotStakingPeriod();
 
     //     bytes32 _claimKey = s.claimKey(_marketId, _claimId);
     //     if (s.userStake(msg.sender, _claimKey) == 0) {
@@ -318,12 +323,37 @@ contract ClaimMarketTest is Base {
     //         if (s.userStakeStatus(msg.sender, _claimKey) == IStorage.VoteStatus.Nay && _yea) revert InvalidStake();
     //     }
 
-    //     s.incrementUserStake(_amount, msg.sender, _claimKey);
-    //     s.incrementClaimStake(_amount, _marketId, _claimId, _yea);
+    //     uint256 _timeWeightedAmount = _amount;
+    //     if (_claimId == 0) {
+    //         uint256 _start = _stake.start;
+    //         _timeWeightedAmount *= getPrice(block.timestamp - _start, _expiration - _start) / PRICE_PRECISION;
+    //     }
+
+    //     s.incrementUserStake(_amount, _timeWeightedAmount, msg.sender, _claimKey);
+    //     s.incrementClaimStake(_timeWeightedAmount, _marketId, _claimId, _yea);
 
     //     emit Stake(msg.sender, _marketId, _claimId, _amount, _yea);
     // }
 
+    function testStakeDecay(uint256 _amount) public {
+        testPropose(_amount);
+
+        uint256 _claimId = s.claimsLength(marketId) - 1;
+        vm.assume(_amount >= _getMarketMinStake(_claimId) && _amount <= 100 ether);
+
+        _deposit(bob, _amount);
+
+        uint256 _halvingTime = (s.claims(marketId)[_claimId].stake.expiration - s.claims(marketId)[_claimId].stake.start) / claimMarket.numHalves();
+        skip(_halvingTime);
+
+        vm.prank(bob);
+        claimMarket.stake(marketId, _amount, false);
+        console.log("bob stake: %s", s.userStake(bob, s.claimKey(marketId, _claimId)));
+        console.log("alice stake: %s", s.userStake(alice, s.claimKey(marketId, _claimId)));
+        revert("asd"); // @todo - here
+    }
+
+    // function testGetPrice
     // function testStakeInvalidAmount
     // function InvalidMarketType
     // function testStakeNotStakingPeriod

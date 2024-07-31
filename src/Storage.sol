@@ -152,10 +152,10 @@ contract Storage is IStorage, Ownable2Step {
         }
     }
 
-    function incrementUserStake(uint256 _amount, address _user, bytes32 _claimKey) external onlyMarket {
+    function incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _user, bytes32 _claimKey) external onlyMarket {
         if (whitelistActive && !_users[_user].isWhitelisted) revert NotWhitelisted();
         _users[_user].balance -= _amount;
-        _users[_user].status[_claimKey].stakeAmount += _amount;
+        _users[_user].status[_claimKey].stakeAmount += _timeWeightedAmount;
     }
 
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external onlyMarket {
