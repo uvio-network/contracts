@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
+import {DataTypes} from "./DataTypes.sol";
+
 import {IStorage} from "../interfaces/IStorage.sol";
 import {IMarket} from "../interfaces/IMarket.sol";
 
@@ -28,8 +30,8 @@ contract Randomizer {
     function triggerPrepareVote(uint256 _marketId) public view returns (bool) {
         uint256 _claimId = s.claimsLength(_marketId) - 1;
         if (_claimId == 0) return false;
-        IStorage.Claim memory _claim = s.claims(_marketId)[_claimId];
-        if (_claim.expiration <= block.timestamp && _claim.status == IStorage.ClaimStatus.Active) return true;
+        DataTypes.Claim memory _claim = s.claims(_marketId)[_claimId];
+        if (_claim.expiration <= block.timestamp && _claim.status == DataTypes.ClaimStatus.Active) return true;
         return false;
     }
 

@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
+import {DataTypes} from "../utils/DataTypes.sol";
+
 interface IMarket {
     struct Initialize {
         uint256 maxClaims;
         uint256 minStake;
         uint256 minStakeIncrease;
-        uint256 minClaimDuration;
         uint256 votersLimit;
-        uint256 votingDuration;
-        uint256 disputeDuration;
+        uint40 minClaimDuration;
+        uint40 votingDuration;
+        uint40 disputeDuration;
         uint256 fee;
-        uint256 numHalves;
         address storage_;
         address owner;
         address randomizer;
+        address priceProvider;
     }
 
     struct Propose {
@@ -23,9 +25,10 @@ interface IMarket {
         uint256 refMarketId;
         uint256 amount;
         uint256 marketMinStake;
-        uint256 claimExpiration;
-        uint256 stakingExpiration;
+        uint40 claimExpiration;
+        uint40 stakingExpiration;
         bool yea;
+        DataTypes.Price price;
     }
     function propose(Propose memory _propose) external;
     function prepareVote(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId) external;
@@ -38,7 +41,7 @@ interface IMarket {
     // ==============================================================
 
     event Proposed(Propose propose, address indexed proposer, uint256 indexed claimId);
-    event Stake(address indexed staker, uint256 indexed marketId, uint256 indexed claimId, uint256 stake, bool yea);
+    event Stake(address indexed staker, uint256 indexed marketId, uint256 indexed claimId, uint256 amount, uint256 timeWeightedAmount, bool yea);
     event PrepareVote(uint256 indexed marketId);
     event Vote(address indexed voter, uint256 indexed marketId, uint256 indexed claimId, bool yea, bool yeaGroup);
     event EndVote(uint256 indexed marketId);
@@ -78,5 +81,5 @@ interface IMarket {
     error InvalidReferenceMarkedId();
     error InvalidMarketType();
     error NotVoter();
-    error InvalidHalves();
+    error InvalidPriceParams();
 }

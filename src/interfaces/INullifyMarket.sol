@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {IStorage} from "./IStorage.sol";
+import {DataTypes} from "../utils/DataTypes.sol";
 
 interface INullifyMarket {
-    function status(uint256 _refMarketId) external view returns (IStorage.ClaimStatus);
+    function status(uint256 _refMarketId) external view returns (DataTypes.ClaimStatus);
 }

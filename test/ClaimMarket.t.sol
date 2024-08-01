@@ -58,15 +58,17 @@ contract ClaimMarketTest is Base {
         uint256 _userStakeBefore = s.userStake(alice, _claimKey);
         uint256 _storageBalanceBefore = IERC20(asset).balanceOf(address(s));
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "metadataURI",
             marketId,
             0, // refMarketId
             _amount,
             MIN_STAKE, // 0.1 ether
-            block.timestamp + MIN_CLAIM_DURATION, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(alice);
         claimMarket.propose(_propose);
@@ -78,7 +80,7 @@ contract ClaimMarketTest is Base {
         assertEq(claimMarket.marketMinStake(marketId), _getMarketMinStake(_claimId), "testPropose: E4");
         assertEq(s.claims(marketId)[_claimId].metadataURI, "metadataURI", "testPropose: E5");
         assertEq(s.claims(marketId)[_claimId].expiration, block.timestamp + MIN_CLAIM_DURATION, "testPropose: E6");
-        assertEq(uint8(s.claims(marketId)[_claimId].status), uint8(IStorage.ClaimStatus.Active), "testPropose: E7");
+        assertEq(uint8(s.claims(marketId)[_claimId].status), uint8(DataTypes.ClaimStatus.Active), "testPropose: E7");
         assertEq(s.claims(marketId)[_claimId].stake.yea, _amount, "testPropose: E8");
         assertEq(s.claims(marketId)[_claimId].stake.nay, 0, "testPropose: E9");
         assertEq(s.claims(marketId)[_claimId].stake.expiration, block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), "testPropose: E10");
@@ -91,23 +93,65 @@ contract ClaimMarketTest is Base {
         assertEq(s.claims(marketId)[_claimId].vote.disputeExpiration, 0, "testPropose: E17");
         assertEq(s.claims(marketId)[_claimId].vote.yeaVoters.length, 0, "testPropose: E18");
         assertEq(s.claims(marketId)[_claimId].vote.nayVoters.length, 0, "testPropose: E19");
-        assertEq(uint8(s.claims(marketId)[_claimId].vote.outcome), uint8(IStorage.Outcome.None), "testPropose: E20");
+        assertEq(uint8(s.claims(marketId)[_claimId].vote.outcome), uint8(DataTypes.Outcome.None), "testPropose: E20");
         assertEq(s.claims(marketId)[_claimId].proposer, alice, "testPropose: E21");
         assertEq(s.claims(marketId)[_claimId].stake.start, block.timestamp, "testPropose: E22");
+    }
+
+    function testProposeInvalidPriceParamsInvalidCurveType(uint8 _invalidCurveType) public {
+        vm.assume(_invalidCurveType != 0);
+
+        DataTypes.Price memory _price = DataTypes.Price(_invalidCurveType, HALVES);
+        IMarket.Propose memory _propose = IMarket.Propose(
+            "metadataURI",
+            marketId,
+            0, // refMarketId
+            MIN_STAKE,
+            MIN_STAKE, // 0.1 ether
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
+        );
+        vm.prank(alice);
+        vm.expectRevert(IMarket.InvalidPriceParams.selector);
+        claimMarket.propose(_propose);
+    }
+
+    function testProposeInvalidPriceParamsInvalidSteepness(uint256 _invalidSteepness) public {
+        vm.assume(_invalidSteepness > HALVES);
+
+        DataTypes.Price memory _price = DataTypes.Price(0, _invalidSteepness);
+        IMarket.Propose memory _propose = IMarket.Propose(
+            "metadataURI",
+            marketId,
+            0, // refMarketId
+            MIN_STAKE,
+            MIN_STAKE, // 0.1 ether
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
+        );
+        vm.prank(alice);
+        vm.expectRevert(IMarket.InvalidPriceParams.selector);
+        claimMarket.propose(_propose);
     }
 
     function testProposeInvalidMinStake(uint256 _invalidMinStake) public {
         vm.assume(_invalidMinStake < MIN_STAKE);
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "",
             0, // marketId
             0, // refMarketId
             0, // amount
             _invalidMinStake,
-            block.timestamp + MIN_CLAIM_DURATION, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(alice);
         vm.expectRevert(IMarket.InvalidMinStake.selector);
@@ -117,24 +161,27 @@ contract ClaimMarketTest is Base {
     function testProposeInvalidAmount(uint256 _invalidAmount) public {
         vm.assume(_invalidAmount < MIN_STAKE);
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "",
             marketId,
             0, // refMarketId
             _invalidAmount,
             MIN_STAKE, // 0.1 ether
-            block.timestamp + MIN_CLAIM_DURATION, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(alice);
         vm.expectRevert(IMarket.InvalidAmount.selector);
         claimMarket.propose(_propose);
     }
 
-    function testProposeInvalidClaimExpiration(uint256 _invalidClaimExpiration) public {
+    function testProposeInvalidClaimExpiration(uint40 _invalidClaimExpiration) public {
         vm.assume(_invalidClaimExpiration < block.timestamp + MIN_CLAIM_DURATION);
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "metadataURI",
             marketId,
@@ -142,17 +189,19 @@ contract ClaimMarketTest is Base {
             MIN_STAKE, // amount
             MIN_STAKE, // 0.1 ether
             _invalidClaimExpiration, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(alice);
         vm.expectRevert(IMarket.InvalidExpiration.selector);
         claimMarket.propose(_propose);
     }
 
-    function testProposeInvalidStakeExpiration(uint256 _claimExpiration, uint256 _invalidStakeExpiration) public {
-        vm.assume(_invalidStakeExpiration < _claimExpiration);
+    function testProposeInvalidStakeExpiration(uint40 _claimExpiration, uint40 _invalidStakeExpiration) public {
+        vm.assume(_claimExpiration < (52 weeks * 100) && _invalidStakeExpiration < _claimExpiration);
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "metadataURI",
             marketId,
@@ -161,7 +210,8 @@ contract ClaimMarketTest is Base {
             MIN_STAKE, // 0.1 ether
             _claimExpiration,
             _invalidStakeExpiration, // stakingExpiration, 1 week + 1 day
-            true // yea
+            true, // yea
+            _price
         );
         vm.prank(alice);
         vm.expectRevert(IMarket.InvalidExpiration.selector);
@@ -171,15 +221,17 @@ contract ClaimMarketTest is Base {
     function testProposeNotDisputePeriod() public {
         testPropose(1 ether);
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "",
             marketId,
             0, // refMarketId
             MIN_STAKE, // amount
             MIN_STAKE, // 0.1 ether
-            block.timestamp + MIN_CLAIM_DURATION, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(alice);
         vm.expectRevert(IMarket.NotDisputePeriod.selector);
@@ -187,15 +239,17 @@ contract ClaimMarketTest is Base {
     }
 
     function testProposeNotWhitelisted() public {
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "metadataURI",
             marketId,
             0, // refMarketId
             MIN_STAKE, // amount
             MIN_STAKE, // 0.1 ether
-            block.timestamp + MIN_CLAIM_DURATION, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(notWhitelistedUser);
         vm.expectRevert(IStorage.NotWhitelisted.selector);
@@ -206,15 +260,17 @@ contract ClaimMarketTest is Base {
         vm.prank(deployer);
         s.whitelistUser(notWhitelistedUser);
 
+        DataTypes.Price memory _price = DataTypes.Price(0, HALVES);
         IMarket.Propose memory _propose = IMarket.Propose(
             "metadataURI",
             marketId,
             0, // refMarketId
             MIN_STAKE, // amount
             MIN_STAKE, // 0.1 ether
-            block.timestamp + MIN_CLAIM_DURATION, // claimExpiration, 1 week
-            block.timestamp + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
-            true // yea
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration, 1 week
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + claimMarket.MIN_STAKE_FREEZE_DURATION(), // stakingExpiration, 1 week + 1 day
+            true, // yea
+            _price
         );
         vm.prank(notWhitelistedUser);
         vm.expectRevert(); // arithmetic underflow or overflow
@@ -238,15 +294,15 @@ contract ClaimMarketTest is Base {
         vm.prank(bob);
         claimMarket.stake(marketId, _amount, true);
 
-        assertEq(s.userBalance(bob), _bobBalanceBefore - _amount, "testStake: E0");
-        assertEq(s.userStake(bob, s.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStake: E1");
-        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStake: E2");
-        assertEq(s.claims(marketId)[_claimId].stake.yea, _amount * 2, "testStake: E3");
-        assertEq(s.claims(marketId)[_claimId].stake.yeaStakers.length, 2, "testStake: E4");
-        assertEq(s.claims(marketId)[_claimId].stake.yeaStakers[0], alice, "testStake: E5");
-        assertEq(s.claims(marketId)[_claimId].stake.yeaStakers[1], bob, "testStake: E5");
-        assertEq(uint8(s.userStakeStatus(bob, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.Yea), "testStake: E6");
-        assertEq(uint8(s.userVoteStatus(bob, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.None), "testStake: E7");
+        assertEq(s.userBalance(bob), _bobBalanceBefore - _amount, "testStakeYea: E0");
+        assertEq(s.userStake(bob, s.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStakeYea: E1");
+        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStakeYea: E2");
+        assertEq(s.claims(marketId)[_claimId].stake.yea, _amount * 2, "testStakeYea: E3");
+        assertEq(s.claims(marketId)[_claimId].stake.yeaStakers.length, 2, "testStakeYea: E4");
+        assertEq(s.claims(marketId)[_claimId].stake.yeaStakers[0], alice, "testStakeYea: E5");
+        assertEq(s.claims(marketId)[_claimId].stake.yeaStakers[1], bob, "testStakeYea: E5");
+        assertEq(uint8(s.userStakeStatus(bob, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.Yea), "testStakeYea: E6");
+        assertEq(uint8(s.userVoteStatus(bob, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.None), "testStakeYea: E7");
 
         _deposit(yossi, _amount);
         uint256 _yossiBalanceBefore = s.userBalance(yossi);
@@ -255,14 +311,14 @@ contract ClaimMarketTest is Base {
         vm.prank(yossi);
         claimMarket.stake(marketId, _amount, false);
 
-        assertEq(s.userBalance(yossi), _yossiBalanceBefore - _amount, "testStake: E8");
-        assertEq(s.userStake(yossi, s.claimKey(marketId, _claimId)), _yossiStakeBefore + _amount, "testStake: E9");
-        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStake: E10");
-        assertEq(s.claims(marketId)[_claimId].stake.nay, _amount, "testStake: E11");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStake: E12");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], yossi, "testStake: E13");
-        assertEq(uint8(s.userStakeStatus(yossi, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.Nay), "testStake: E14");
-        assertEq(uint8(s.userVoteStatus(yossi, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.None), "testStake: E15");
+        assertEq(s.userBalance(yossi), _yossiBalanceBefore - _amount, "testStakeYea: E8");
+        assertEq(s.userStake(yossi, s.claimKey(marketId, _claimId)), _yossiStakeBefore + _amount, "testStakeYea: E9");
+        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStakeYea: E10");
+        assertEq(s.claims(marketId)[_claimId].stake.nay, _amount, "testStakeYea: E11");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStakeYea: E12");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], yossi, "testStakeYea: E13");
+        assertEq(uint8(s.userStakeStatus(yossi, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.Nay), "testStakeYea: E14");
+        assertEq(uint8(s.userVoteStatus(yossi, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.None), "testStakeYea: E15");
     }
 
     function testStakeNay(uint256 _amount) public {
@@ -278,14 +334,14 @@ contract ClaimMarketTest is Base {
         vm.prank(bob);
         claimMarket.stake(marketId, _amount, false);
 
-        assertEq(s.userBalance(bob), _bobBalanceBefore - _amount, "testStake: E0");
-        assertEq(s.userStake(bob, s.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStake: E1");
-        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStake: E2");
-        assertEq(s.claims(marketId)[_claimId].stake.nay, _amount, "testStake: E3");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStake: E4");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStake: E5");
-        assertEq(uint8(s.userStakeStatus(bob, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.Nay), "testStake: E6");
-        assertEq(uint8(s.userVoteStatus(bob, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.None), "testStake: E7");
+        assertEq(s.userBalance(bob), _bobBalanceBefore - _amount, "testStakeNay: E0");
+        assertEq(s.userStake(bob, s.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStakeNay: E1");
+        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStakeNay: E2");
+        assertEq(s.claims(marketId)[_claimId].stake.nay, _amount, "testStakeNay: E3");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStakeNay: E4");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStakeNay: E5");
+        assertEq(uint8(s.userStakeStatus(bob, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.Nay), "testStakeNay: E6");
+        assertEq(uint8(s.userVoteStatus(bob, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.None), "testStakeNay: E7");
 
         _deposit(yossi, _amount);
         uint256 _yossiBalanceBefore = s.userBalance(yossi);
@@ -294,74 +350,152 @@ contract ClaimMarketTest is Base {
         vm.prank(yossi);
         claimMarket.stake(marketId, _amount, false);
 
-        assertEq(s.userBalance(yossi), _yossiBalanceBefore - _amount, "testStake: E8");
-        assertEq(s.userStake(yossi, s.claimKey(marketId, _claimId)), _yossiStakeBefore + _amount, "testStake: E9");
-        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStake: E10");
-        assertEq(s.claims(marketId)[_claimId].stake.nay, _amount * 2, "testStake: E11");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 2, "testStake: E12");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStake: E13");
-        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[1], yossi, "testStake: E14");
-        assertEq(uint8(s.userStakeStatus(yossi, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.Nay), "testStake: E15");
-        assertEq(uint8(s.userVoteStatus(yossi, s.claimKey(marketId, _claimId))), uint8(IStorage.VoteStatus.None), "testStake: E16");
+        assertEq(s.userBalance(yossi), _yossiBalanceBefore - _amount, "testStakeNay: E8");
+        assertEq(s.userStake(yossi, s.claimKey(marketId, _claimId)), _yossiStakeBefore + _amount, "testStakeNay: E9");
+        assertEq(IERC20(asset).balanceOf(address(s)), _storageBalanceBefore, "testStakeNay: E10");
+        assertEq(s.claims(marketId)[_claimId].stake.nay, _amount * 2, "testStakeNay: E11");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 2, "testStakeNay: E12");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStakeNay: E13");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[1], yossi, "testStakeNay: E14");
+        assertEq(uint8(s.userStakeStatus(yossi, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.Nay), "testStakeNay: E15");
+        assertEq(uint8(s.userVoteStatus(yossi, s.claimKey(marketId, _claimId))), uint8(DataTypes.VoteStatus.None), "testStakeNay: E16");
     }
 
-    // function stake(uint256 _marketId, uint256 _amount, bool _yea) external {
-    //     if (_amount < marketMinStake[_marketId]) revert InvalidAmount();
-    //     if (!isMarket[_marketId]) revert InvalidMarketType();
-
-    //     uint256 _claimId = s.claimsLength(_marketId) - 1;
-    //     IStorage.Stake memory _stake = s.claims(_marketId)[_claimId].stake;
-
-    //     uint256 _expiration = _stake.expiration;
-    //     if (_expiration < block.timestamp) revert NotStakingPeriod();
-
-    //     bytes32 _claimKey = s.claimKey(_marketId, _claimId);
-    //     if (s.userStake(msg.sender, _claimKey) == 0) {
-    //         s.pushStaker(_marketId, _claimId, msg.sender, _yea);
-    //     } else {
-    //         if (s.userStakeStatus(msg.sender, _claimKey) == IStorage.VoteStatus.Yea && !_yea) revert InvalidStake();
-    //         if (s.userStakeStatus(msg.sender, _claimKey) == IStorage.VoteStatus.Nay && _yea) revert InvalidStake();
-    //     }
-
-    //     uint256 _timeWeightedAmount = _amount;
-    //     if (_claimId == 0) {
-    //         uint256 _start = _stake.start;
-    //         _timeWeightedAmount *= getPrice(block.timestamp - _start, _expiration - _start) / PRICE_PRECISION;
-    //     }
-
-    //     s.incrementUserStake(_amount, _timeWeightedAmount, msg.sender, _claimKey);
-    //     s.incrementClaimStake(_timeWeightedAmount, _marketId, _claimId, _yea);
-
-    //     emit Stake(msg.sender, _marketId, _claimId, _amount, _yea);
-    // }
-
-    function testStakeDecay(uint256 _amount) public {
+    function testStakeExponentialDecay(uint256 _amount) public {
         testPropose(_amount);
 
         uint256 _claimId = s.claimsLength(marketId) - 1;
         vm.assume(_amount >= _getMarketMinStake(_claimId) && _amount <= 100 ether);
 
-        _deposit(bob, _amount);
+        DataTypes.Stake memory _stake = s.claims(marketId)[_claimId].stake;
+        uint256 _halvingTime = (_stake.expiration - _stake.start) / _stake.price.steepness;
 
-        uint256 _halvingTime = (s.claims(marketId)[_claimId].stake.expiration - s.claims(marketId)[_claimId].stake.start) / claimMarket.numHalves();
+        _deposit(bob, _amount);
         skip(_halvingTime);
+        uint256 _bobBalanceBefore = s.userBalance(bob);
+        vm.prank(bob);
+        uint256 _bobWeightedStake = claimMarket.stake(marketId, _amount, false);
+
+        _deposit(yossi, _amount);
+        skip(_halvingTime);
+        uint256 _yossiBalanceBefore = s.userBalance(yossi);
+        vm.prank(yossi);
+        uint256 _yossiWeightedStake = claimMarket.stake(marketId, _amount, true);
+
+        assertEq(_bobWeightedStake, s.userStake(bob, s.claimKey(marketId, _claimId)), "testStakeExponentialDecay: E0");
+        assertEq(_yossiWeightedStake, s.userStake(yossi, s.claimKey(marketId, _claimId)), "testStakeExponentialDecay: E1");
+        assertEq(_bobWeightedStake, s.userStake(alice, s.claimKey(marketId, _claimId)) / 2, "testStakeExponentialDecay: E2");
+        assertEq(_yossiWeightedStake, s.userStake(bob, s.claimKey(marketId, _claimId)) / 2, "testStakeExponentialDecay: E3");
+        assertEq(s.claims(marketId)[_claimId].stake.yea, _yossiWeightedStake + s.userStake(alice, s.claimKey(marketId, _claimId)), "testStakeExponentialDecay: E4");
+        assertEq(s.claims(marketId)[_claimId].stake.nay, _bobWeightedStake, "testStakeExponentialDecay: E5");
+        assertEq(_bobBalanceBefore - _amount, s.userBalance(bob), "testStakeExponentialDecay: E6");
+        assertEq(_yossiBalanceBefore - _amount, s.userBalance(yossi), "testStakeExponentialDecay: E7");
+    }
+
+    function testStakeTwice(uint256 _amount) public {
+        testPropose(_amount);
+
+        uint256 _claimId = s.claimsLength(marketId) - 1;
+        vm.assume(_amount >= _getMarketMinStake(_claimId) && _amount <= 100 ether);
+
+        _deposit(bob, _amount * 2);
+
+        uint256 _bobBalanceBefore = s.userBalance(bob);
+        uint256 _bobStakeBefore = s.userStake(bob, s.claimKey(marketId, _claimId));
 
         vm.prank(bob);
         claimMarket.stake(marketId, _amount, false);
-        console.log("bob stake: %s", s.userStake(bob, s.claimKey(marketId, _claimId)));
-        console.log("alice stake: %s", s.userStake(alice, s.claimKey(marketId, _claimId)));
-        revert("asd"); // @todo - here
+
+        assertEq(s.userBalance(bob), _bobBalanceBefore - _amount, "testStakeTwice: E0");
+        assertEq(s.userStake(bob, s.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStakeTwice: E1");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStakeTwice: E2");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStakeTwice: E3");
+
+        _bobBalanceBefore = s.userBalance(bob);
+        _bobStakeBefore = s.userStake(bob, s.claimKey(marketId, _claimId));
+
+        vm.prank(bob);
+        claimMarket.stake(marketId, _amount, false);
+
+        assertEq(s.userBalance(bob), _bobBalanceBefore - _amount, "testStakeTwice: E3");
+        assertEq(s.userStake(bob, s.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStakeTwice: E4");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStakeTwice: E5");
+        assertEq(s.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStakeTwice: E6");
     }
 
-    // function testGetPrice
-    // function testStakeInvalidAmount
-    // function InvalidMarketType
-    // function testStakeNotStakingPeriod
-    // function testStakeInvalidStake
+    function testStakeInvalidAmount(uint256 _invalidAmount) public {
+        testPropose(MIN_STAKE);
+
+        uint256 _claimId = s.claimsLength(marketId) - 1;
+        vm.assume(_invalidAmount < _getMarketMinStake(_claimId));
+
+        vm.prank(bob);
+        vm.expectRevert(IMarket.InvalidAmount.selector);
+        claimMarket.stake(marketId, _invalidAmount, true);
+    }
+
+    function testStakeInvalidMarketType(uint256 _invalidMarketId) public {
+        vm.assume(_invalidMarketId != marketId);
+        vm.prank(bob);
+        vm.expectRevert(IMarket.InvalidMarketType.selector);
+        claimMarket.stake(_invalidMarketId, MIN_STAKE, true);
+    }
+
+    function testStakeNotStakingPeriod() public {
+        testPropose(MIN_STAKE);
+
+        uint256 _claimId = s.claimsLength(marketId) - 1;
+        uint256 _expiration = s.claims(marketId)[_claimId].stake.expiration;
+        skip(_expiration - block.timestamp + 1);
+
+        vm.prank(bob);
+        vm.expectRevert(IMarket.NotStakingPeriod.selector);
+        claimMarket.stake(marketId, MIN_STAKE, true);
+    }
+
+    function testStakeInvalidStake() public {
+        testPropose(MIN_STAKE);
+
+        _deposit(bob, MIN_STAKE);
+        vm.prank(bob);
+        claimMarket.stake(marketId, MIN_STAKE, true);
+
+        vm.prank(bob);
+        vm.expectRevert(IMarket.InvalidStake.selector);
+        claimMarket.stake(marketId, MIN_STAKE, false);
+
+        _deposit(yossi, MIN_STAKE);
+        vm.prank(yossi);
+        claimMarket.stake(marketId, MIN_STAKE, false);
+
+        vm.prank(yossi);
+        vm.expectRevert(IMarket.InvalidStake.selector);
+        claimMarket.stake(marketId, MIN_STAKE, true);
+    }
 
     // ==============================================================
     // PrepareVote
     // ==============================================================
+
+    // function prepareVote( // @todo - here
+    //     address[] calldata _yeaVoters,
+    //     address[] calldata _nayVoters,
+    //     uint256 _marketId
+    // ) external {
+    //     if (msg.sender != randomizer) revert OnlyRandomizer();
+    //     if (!isMarket[_marketId]) revert InvalidMarketType();
+
+    //     uint256 _claimId = s.claimsLength(_marketId) - 1;
+    //     DataTypes.Claim memory _claim = s.claims(_marketId)[_claimId];
+    //     if (_claim.expiration > block.timestamp) revert ClaimNotExpired();
+    //     if (_claim.status != DataTypes.ClaimStatus.Active) revert ClaimNotActive();
+
+    //     s.setVoteExpiration(uint40(block.timestamp) + votingDuration, _marketId, _claimId);
+    //     s.setVoters(_yeaVoters, _nayVoters, _marketId, _claimId);
+    //     s.setClaimStatus(DataTypes.ClaimStatus.PendingVote, _marketId, _claimId);
+
+    //     emit PrepareVote(_marketId);
+    // }
 
     // ==============================================================
     // Vote

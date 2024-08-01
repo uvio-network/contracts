@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import {IMarket} from "../src/interfaces/IMarket.sol";
 
 import {Randomizer} from "../src/utils/Randomizer.sol";
+import {PriceProvider} from "../src/utils/PriceProvider.sol";
 
 import {Storage} from "../src/Storage.sol";
 import {ClaimMarket} from "../src/ClaimMarket.sol";
@@ -18,6 +19,7 @@ contract Deploy is Script {
     address public deployer;
 
     Randomizer public randomizer;
+    PriceProvider public priceProvider;
 
     Storage public s;
     ClaimMarket public claimMarket;
@@ -28,10 +30,10 @@ contract Deploy is Script {
     uint256 public constant MAX_CLAIMS = 4;
     uint256 public constant MIN_STAKE = 0.1 ether;
     uint256 public constant MIN_STAKE_INCREASE = 10_000;
-    uint256 public constant MIN_CLAIM_DURATION = 1 weeks;
+    uint40 public constant MIN_CLAIM_DURATION = 1 weeks;
     uint256 public constant VOTERS_LIMIT = 5;
-    uint256 public constant VOTING_DURATION = 3 days;
-    uint256 public constant DISPUTE_DURATION = 3 days;
+    uint40 public constant VOTING_DURATION = 3 days;
+    uint40 public constant DISPUTE_DURATION = 3 days;
     uint256 public constant FEE = 1_000; // 10%
     uint256 public constant HALVES = 10;
 
@@ -58,19 +60,21 @@ contract Deploy is Script {
             asset
         );
 
+        priceProvider = new PriceProvider();
+
         IMarket.Initialize memory _init = IMarket.Initialize(
             MAX_CLAIMS,
             MIN_STAKE,
             MIN_STAKE_INCREASE,
-            MIN_CLAIM_DURATION,
             VOTERS_LIMIT,
+            MIN_CLAIM_DURATION,
             VOTING_DURATION,
             DISPUTE_DURATION,
             FEE,
-            HALVES,
             address(s),
             _deployer, // owner
-            address(0) // randomizer
+            address(0), // randomizer
+            address(priceProvider)
         );
         nullifyMarket = new NullifyMarket(_init);
         claimMarket = new ClaimMarket(_init, address(nullifyMarket));
@@ -90,6 +94,7 @@ contract Deploy is Script {
         console.log("ClaimMarket: ", address(claimMarket));
         console.log("NullifyMarket: ", address(nullifyMarket));
         console.log("Randomizer: ", address(randomizer));
+        console.log("PriceProvider: ", address(priceProvider));
         console.log("--------------------");
         console.log("--------------------");
     }
@@ -99,5 +104,6 @@ contract Deploy is Script {
         vm.label({ account: address(claimMarket), newLabel: "ClaimMarket" });
         vm.label({ account: address(nullifyMarket), newLabel: "NullifyMarket" });
         vm.label({ account: address(randomizer), newLabel: "Randomizer" });
+        vm.label({ account: address(priceProvider), newLabel: "PriceProvider" });
     }
 }

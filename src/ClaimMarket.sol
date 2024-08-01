@@ -3,7 +3,7 @@ pragma solidity 0.8.25;
 
 import {INullifyMarket} from "./interfaces/INullifyMarket.sol";
 
-import {BaseMarket, IStorage} from "./BaseMarket.sol";
+import {BaseMarket, DataTypes} from "./BaseMarket.sol";
 
 contract ClaimMarket is BaseMarket {
 
@@ -17,13 +17,13 @@ contract ClaimMarket is BaseMarket {
     }
 
     function _isNullified(uint256 _marketId) override internal view returns (bool isNullified_) {
-        IStorage.ClaimStatus _nullifyMarketStatus = nullifyMarket.status(_marketId);
-        if (_nullifyMarketStatus != IStorage.ClaimStatus.None) {
-            if (_nullifyMarketStatus == IStorage.ClaimStatus.ResolvedYea) {
+        DataTypes.ClaimStatus _nullifyMarketStatus = nullifyMarket.status(_marketId);
+        if (_nullifyMarketStatus != DataTypes.ClaimStatus.None) {
+            if (_nullifyMarketStatus == DataTypes.ClaimStatus.ResolvedYea) {
                 return true;
             } else if (
-                _nullifyMarketStatus == IStorage.ClaimStatus.ResolvedNay ||
-                _nullifyMarketStatus == IStorage.ClaimStatus.Nullified
+                _nullifyMarketStatus == DataTypes.ClaimStatus.ResolvedNay ||
+                _nullifyMarketStatus == DataTypes.ClaimStatus.Nullified
             ) {
                 return false;
             } else {

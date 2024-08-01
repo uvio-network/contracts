@@ -3,6 +3,8 @@ pragma solidity 0.8.25;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import {DataTypes} from "../src/utils/DataTypes.sol";
+
 import {IStorage} from "../src/interfaces/IStorage.sol";
 
 import "../script/Deploy.s.sol";

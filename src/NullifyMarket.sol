@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {BaseMarket, IStorage} from "./BaseMarket.sol";
+import {BaseMarket, DataTypes} from "./BaseMarket.sol";
 
 contract NullifyMarket is BaseMarket {
 
@@ -11,9 +11,9 @@ contract NullifyMarket is BaseMarket {
 
     constructor(Initialize memory _init) BaseMarket(_init) {}
 
-    function status(uint256 _refMarketId) external view returns (IStorage.ClaimStatus) {
+    function status(uint256 _refMarketId) external view returns (DataTypes.ClaimStatus) {
         uint256 _marketId = refMarketToMarket[_refMarketId];
-        if (_marketId == 0) return IStorage.ClaimStatus.None;
+        if (_marketId == 0) return DataTypes.ClaimStatus.None;
         return s.claims(_marketId)[s.claimsLength(_marketId) - 1].status;
     }
 

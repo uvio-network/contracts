@@ -4,6 +4,8 @@ pragma solidity 0.8.25;
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
+import {DataTypes} from "./utils/DataTypes.sol";
+
 import {IStorage} from "./interfaces/IStorage.sol";
 
 contract Storage is IStorage, Ownable2Step {
@@ -19,8 +21,8 @@ contract Storage is IStorage, Ownable2Step {
     mapping(uint256 marketId => uint256 length) public claimsLength;
 
     uint256 public constant MAX_CLAIMS = 10;
-    mapping(uint256 marketId => Claim[MAX_CLAIMS] claims) private _claims;
-    mapping(address user => User userInfo) private _users;
+    mapping(uint256 marketId => DataTypes.Claim[MAX_CLAIMS] claims) private _claims;
+    mapping(address user => DataTypes.User userInfo) private _users;
 
     IERC20 public immutable asset;
 
@@ -59,15 +61,15 @@ contract Storage is IStorage, Ownable2Step {
         return _users[_user].isWhitelisted;
     }
 
-    function userStakeStatus(address _user, bytes32 _claimKey) external view returns (VoteStatus) {
+    function userStakeStatus(address _user, bytes32 _claimKey) external view returns (DataTypes.VoteStatus) {
         return _users[_user].status[_claimKey].stakeStatus;
     }
 
-    function userVoteStatus(address _user, bytes32 _userVoteKey) external view returns (VoteStatus) {
+    function userVoteStatus(address _user, bytes32 _userVoteKey) external view returns (DataTypes.VoteStatus) {
         return _users[_user].status[_userVoteKey].voteStatus;
     }
 
-    function claims(uint256 _marketId) external view returns (Claim[10] memory) {
+    function claims(uint256 _marketId) external view returns (DataTypes.Claim[10] memory) {
         return _claims[_marketId];
     }
 
@@ -121,16 +123,16 @@ contract Storage is IStorage, Ownable2Step {
         return marketId++;
     }
 
-    function createClaim(Claim calldata _claim, uint256 _marketId) external onlyMarket {
+    function createClaim(DataTypes.Claim calldata _claim, uint256 _marketId) external onlyMarket {
         uint256 _length = claimsLength[_marketId];
         if (_length >= MAX_CLAIMS - 1) revert MaxClaimsReached();
-        if (_claims[_marketId][_length].status != ClaimStatus.None) revert AlreadySet();
+        if (_claims[_marketId][_length].status != DataTypes.ClaimStatus.None) revert AlreadySet();
 
         _claims[_marketId][_length] = _claim;
         claimsLength[_marketId] = _length + 1;
     }
 
-    function setClaimStatus(ClaimStatus _status, uint256 _marketId, uint256 _claimId) external onlyMarket {
+    function setClaimStatus(DataTypes.ClaimStatus _status, uint256 _marketId, uint256 _claimId) external onlyMarket {
         if (uint8(_claims[_marketId][_claimId].status) <= uint8(_status)) revert AlreadySet();
         _claims[_marketId][_claimId].status = _status;
     }
@@ -142,7 +144,7 @@ contract Storage is IStorage, Ownable2Step {
     }
 
     function shiftClaimStakes(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _from) external onlyMarket {
-        if (_claims[_marketId][_claimId].status != ClaimStatus.PendingVote) revert InvalidStatus();
+        if (_claims[_marketId][_claimId].status != DataTypes.ClaimStatus.PendingVote) revert InvalidStatus();
         if (_from) {
             _claims[_marketId][_claimId].stake.yea -= _amount;
             _claims[_marketId][_claimId].stake.nay += _amount;
@@ -160,8 +162,8 @@ contract Storage is IStorage, Ownable2Step {
 
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external onlyMarket {
         bytes32 _claimKey = claimKey(_marketId, _claimId);
-        if (_users[_staker].status[_claimKey].stakeStatus != VoteStatus.None) revert AlreadySet();
-        _users[_staker].status[_claimKey].stakeStatus = _yea ? VoteStatus.Yea : VoteStatus.Nay;
+        if (_users[_staker].status[_claimKey].stakeStatus != DataTypes.VoteStatus.None) revert AlreadySet();
+        _users[_staker].status[_claimKey].stakeStatus = _yea ? DataTypes.VoteStatus.Yea : DataTypes.VoteStatus.Nay;
         _yea ? _claims[_marketId][_claimId].stake.yeaStakers.push(_staker) : _claims[_marketId][_claimId].stake.nayStakers.push(_staker);
     }
 
@@ -171,18 +173,18 @@ contract Storage is IStorage, Ownable2Step {
         _yea ? _claims[_marketId][_claimId].vote.yea++ : _claims[_marketId][_claimId].vote.nay++;
     }
 
-    function setVoteExpiration(uint256 _expiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
+    function setVoteExpiration(uint40 _expiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
         if (_claims[_marketId][_claimId].vote.expiration != 0) revert AlreadySet();
         _claims[_marketId][_claimId].vote.expiration += _expiration;
     }
 
-    function setDisputeExpiration(uint256 _disputeExpiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
+    function setDisputeExpiration(uint40 _disputeExpiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
         if (_claims[_marketId][_claimId].vote.disputeExpiration != 0) revert AlreadySet();
         _claims[_marketId][_claimId].vote.disputeExpiration += _disputeExpiration;
     }
 
-    function setVoteOutcome(Outcome _outcome, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (_claims[_marketId][_claimId].vote.outcome != Outcome.None) revert AlreadySet();
+    function setVoteOutcome(DataTypes.Outcome _outcome, uint256 _marketId, uint256 _claimId) external onlyMarket {
+        if (_claims[_marketId][_claimId].vote.outcome != DataTypes.Outcome.None) revert AlreadySet();
         _claims[_marketId][_claimId].vote.outcome = _outcome;
     }
 
@@ -201,8 +203,8 @@ contract Storage is IStorage, Ownable2Step {
         _claims[_marketId][_claimId].vote.nayVoters = _nayVoters;
     }
 
-    function setUserVoteStatus(VoteStatus _voteStatus, address _user, bytes32 _userVoteKey) external onlyMarket {
-        if (_users[_user].status[_userVoteKey].voteStatus != VoteStatus.None) revert AlreadySet();
+    function setUserVoteStatus(DataTypes.VoteStatus _voteStatus, address _user, bytes32 _userVoteKey) external onlyMarket {
+        if (_users[_user].status[_userVoteKey].voteStatus != DataTypes.VoteStatus.None) revert AlreadySet();
         _users[_user].status[_userVoteKey].voteStatus = _voteStatus;
     }
 
