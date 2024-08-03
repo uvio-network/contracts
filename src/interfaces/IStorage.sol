@@ -6,7 +6,7 @@ import {DataTypes} from "../utils/DataTypes.sol";
 interface IStorage {
 
     function claimKey(uint256 _marketId, uint256 _claimId) external pure returns (bytes32);
-    function createClaim(DataTypes.Claim calldata _claim, uint256 _marketId) external;
+    function createClaim(DataTypes.Propose calldata _propose, address _proposer) external;
     function incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _user, bytes32 _claimKey) external;
     function incrementClaimStake(uint256 _amount, uint256 _marketId, uint256 _claimId, bool _yea) external;
     function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external;

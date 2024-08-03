@@ -79,12 +79,13 @@ contract Deploy is Script {
         nullifyMarket = new NullifyMarket(_init);
         claimMarket = new ClaimMarket(_init, address(nullifyMarket));
 
-        randomizer = new Randomizer(address(s), address(claimMarket), address(nullifyMarket));
+        randomizer = new Randomizer(deployer, address(s), address(claimMarket), address(nullifyMarket));
 
         nullifyMarket.setRandomizer(address(randomizer));
         claimMarket.setRandomizer(address(randomizer));
         s.setMarket(address(claimMarket), true);
         s.setMarket(address(nullifyMarket), true);
+        randomizer.setKeeper(deployer, true);
     }
 
     function _printAddresses() internal view {

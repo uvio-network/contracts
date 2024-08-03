@@ -72,4 +72,14 @@ library DataTypes {
         Vote vote;
         ClaimStatus status;
     }
+
+    struct Propose {
+        string metadataURI;
+        uint256 marketId;
+        uint256 amount;
+        uint40 claimExpiration;
+        uint40 stakingExpiration;
+        bool yea;
+        DataTypes.Price price;
+    }
 }

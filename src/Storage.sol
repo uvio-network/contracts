@@ -123,17 +123,40 @@ contract Storage is IStorage, Ownable2Step {
         return marketId++;
     }
 
-    function createClaim(DataTypes.Claim calldata _claim, uint256 _marketId) external onlyMarket {
-        uint256 _length = claimsLength[_marketId];
-        if (_length >= MAX_CLAIMS - 1) revert MaxClaimsReached();
-        if (_claims[_marketId][_length].status != DataTypes.ClaimStatus.None) revert AlreadySet();
+    function createClaim(DataTypes.Propose calldata _propose, address _proposer) external onlyMarket {
+        uint256 _claimId = claimsLength[_propose.marketId];
+        if (_claimId >= MAX_CLAIMS - 1) revert MaxClaimsReached();
+        if (_claims[_propose.marketId][_claimId].status != DataTypes.ClaimStatus.None) revert AlreadySet();
 
-        _claims[_marketId][_length] = _claim;
-        claimsLength[_marketId] = _length + 1;
+        DataTypes.Claim memory _claim;
+        {
+            DataTypes.Stake memory _stake;
+            _propose.yea ? _stake.yea += _propose.amount : _stake.nay += _propose.amount;
+            _stake.expiration = _propose.stakingExpiration;
+            _stake.start = uint40(block.timestamp);
+            _stake.price = _propose.price;
+
+            DataTypes.Vote memory _vote;
+
+            _claim = DataTypes.Claim({
+                metadataURI: _propose.metadataURI,
+                expiration: _propose.claimExpiration,
+                proposer: _proposer,
+                stake: _stake,
+                vote: _vote,
+                status: DataTypes.ClaimStatus.Active
+            });
+        }
+
+        _claims[_propose.marketId][_claimId] = _claim;
+        claimsLength[_propose.marketId] = _claimId + 1;
+
+        pushStaker(_propose.marketId, _claimId, _proposer, _propose.yea);
+        incrementUserStake(_propose.amount, _propose.amount, _proposer, claimKey(_propose.marketId, _claimId));
     }
 
     function setClaimStatus(DataTypes.ClaimStatus _status, uint256 _marketId, uint256 _claimId) external onlyMarket {
-        if (uint8(_claims[_marketId][_claimId].status) <= uint8(_status)) revert AlreadySet();
+        if (uint8(_status) <= uint8(_claims[_marketId][_claimId].status)) revert AlreadySet();
         _claims[_marketId][_claimId].status = _status;
     }
 
@@ -154,13 +177,13 @@ contract Storage is IStorage, Ownable2Step {
         }
     }
 
-    function incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _user, bytes32 _claimKey) external onlyMarket {
+    function incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _user, bytes32 _claimKey) public onlyMarket {
         if (whitelistActive && !_users[_user].isWhitelisted) revert NotWhitelisted();
         _users[_user].balance -= _amount;
         _users[_user].status[_claimKey].stakeAmount += _timeWeightedAmount;
     }
 
-    function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) external onlyMarket {
+    function pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea) public onlyMarket {
         bytes32 _claimKey = claimKey(_marketId, _claimId);
         if (_users[_staker].status[_claimKey].stakeStatus != DataTypes.VoteStatus.None) revert AlreadySet();
         _users[_staker].status[_claimKey].stakeStatus = _yea ? DataTypes.VoteStatus.Yea : DataTypes.VoteStatus.Nay;
@@ -175,12 +198,12 @@ contract Storage is IStorage, Ownable2Step {
 
     function setVoteExpiration(uint40 _expiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
         if (_claims[_marketId][_claimId].vote.expiration != 0) revert AlreadySet();
-        _claims[_marketId][_claimId].vote.expiration += _expiration;
+        _claims[_marketId][_claimId].vote.expiration = _expiration;
     }
 
     function setDisputeExpiration(uint40 _disputeExpiration, uint256 _marketId, uint256 _claimId) external onlyMarket {
         if (_claims[_marketId][_claimId].vote.disputeExpiration != 0) revert AlreadySet();
-        _claims[_marketId][_claimId].vote.disputeExpiration += _disputeExpiration;
+        _claims[_marketId][_claimId].vote.disputeExpiration = _disputeExpiration;
     }
 
     function setVoteOutcome(DataTypes.Outcome _outcome, uint256 _marketId, uint256 _claimId) external onlyMarket {

@@ -19,18 +19,7 @@ interface IMarket {
         address priceProvider;
     }
 
-    struct Propose {
-        string metadataURI;
-        uint256 marketId;
-        uint256 refMarketId;
-        uint256 amount;
-        uint256 marketMinStake;
-        uint40 claimExpiration;
-        uint40 stakingExpiration;
-        bool yea;
-        DataTypes.Price price;
-    }
-    function propose(Propose memory _propose) external;
+    function propose(DataTypes.Propose memory _propose, uint256 _refMarketId) external;
     function prepareVote(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId) external;
     function votersLimit() external view returns (uint256);
     function isMarket(uint256 _marketId) external view returns (bool);
@@ -40,7 +29,7 @@ interface IMarket {
     // Events
     // ==============================================================
 
-    event Proposed(Propose propose, address indexed proposer, uint256 indexed claimId);
+    event Proposed(DataTypes.Propose propose, address indexed proposer, uint256 indexed claimId);
     event Stake(address indexed staker, uint256 indexed marketId, uint256 indexed claimId, uint256 amount, uint256 timeWeightedAmount, bool yea);
     event PrepareVote(uint256 indexed marketId);
     event Vote(address indexed voter, uint256 indexed marketId, uint256 indexed claimId, bool yea, bool yeaGroup);
@@ -64,6 +53,7 @@ interface IMarket {
     error ClaimNotExpired();
     error ClaimNotActive();
     error NotVotingPeriod();
+    error VotePeriodNotExpired();
     error AlreadyVoted();
     error NotPendingVote();
     error NotPendingResolution();
@@ -76,7 +66,6 @@ interface IMarket {
     error InvalidVoters();
     error OnlyRandomizer();
     error InvalidStake();
-    error InvalidMinStake();
     error InvalidAddress();
     error InvalidReferenceMarkedId();
     error InvalidMarketType();

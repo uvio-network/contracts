@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
+import {IPriceProvider} from "./interfaces/IPriceProvider.sol";
+
 import {DataTypes} from "./DataTypes.sol";
 
-contract PriceProvider {
-
-    error InvalidCurveType();
+contract PriceProvider is IPriceProvider {
 
     uint256 public constant MIN_HALVES = 1;
     uint256 public constant MAX_HALVES = 10;
