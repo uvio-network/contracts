@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {IPriceProvider} from "./interfaces/IPriceProvider.sol";
+import {IMarkets} from "../interfaces/IMarkets.sol";
 
-import {DataTypes} from "./DataTypes.sol";
+import {IPriceProvider} from "./interfaces/IPriceProvider.sol";
 
 contract PriceProvider is IPriceProvider {
 
@@ -11,12 +11,12 @@ contract PriceProvider is IPriceProvider {
     uint256 public constant MAX_HALVES = 10;
     uint256 public constant PRICE_PRECISION = 1 ether;
 
-    function checkPriceParams(DataTypes.Price calldata _price) external pure returns (bool) {
+    function checkPriceParams(IMarkets.Price calldata _price) external pure returns (bool) {
         if (_price.curveType != 0 || _price.steepness < MIN_HALVES || _price.steepness > MAX_HALVES) return false;
         return true;
     }
 
-    function getPrice(DataTypes.Price calldata _price, uint256 _timeElapsed, uint256 _duration) external pure returns (uint256) {
+    function getPrice(IMarkets.Price calldata _price, uint256 _timeElapsed, uint256 _duration) external pure returns (uint256) {
         if (_price.curveType == 0) {
             return getExponentialPrice(_price.steepness, _timeElapsed, _duration);
         } else {

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {IStorage} from "../../interfaces/IStorage.sol";
-import {IMarket} from "../../interfaces/IMarket.sol";
+import {IMarkets} from "../../interfaces/IMarkets.sol";
 
 interface IRandomizer {
 
@@ -11,9 +10,6 @@ interface IRandomizer {
     // ==============================================================
 
     function isUniqueVoter(bytes32) external view returns (bool);
-    function s() external view returns (IStorage);
-    function claimMarket() external view returns (IMarket);
-    function nullifyMarket() external view returns (IMarket);
 
     // ==============================================================
     // Views
@@ -25,7 +21,7 @@ interface IRandomizer {
     // Mutative
     // ==============================================================
 
-    function prepareVote(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId, bool _isClaimMarket) external;
+    function prepareVote(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId) external;
 
     // ==============================================================
     // Errors
@@ -37,4 +33,5 @@ interface IRandomizer {
     error ArrayLengthExceedsLimit();
     error NotStaker();
     error NotUnique();
+    error InvalidLimit();
 }
