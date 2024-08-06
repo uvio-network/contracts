@@ -1,110 +1,90 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity 0.8.25;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.25;
 
-// import {IMarket} from "../src/interfaces/IMarket.sol";
+import {IMarkets} from "../src/interfaces/IMarkets.sol";
 
-// import {Randomizer} from "../src/utils/Randomizer.sol";
-// import {PriceProvider} from "../src/utils/PriceProvider.sol";
+import {Randomizer} from "../src/utils/Randomizer.sol";
+import {PriceProvider} from "../src/utils/PriceProvider.sol";
 
-// import {Storage} from "../src/Storage.sol";
-// import {ClaimMarket} from "../src/ClaimMarket.sol";
-// import {NullifyMarket} from "../src/NullifyMarket.sol";
-// import {BaseMarket} from "../src/BaseMarket.sol";
+import {Markets} from "../src/Markets.sol";
 
-// import "forge-std/Script.sol";
-// import "forge-std/console.sol";
+import "forge-std/Script.sol";
+import "forge-std/console.sol";
 
-// contract Deploy is Script {
+contract Deploy is Script {
 
-//     address public deployer;
+    address public deployer;
 
-//     Randomizer public randomizer;
-//     PriceProvider public priceProvider;
+    Randomizer public randomizer;
+    PriceProvider public priceProvider;
 
-//     Storage public s;
-//     ClaimMarket public claimMarket;
-//     NullifyMarket public nullifyMarket;
+    Markets public m;
 
-//     address public asset = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // WETH
+    address public asset = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // WETH
 
-//     uint256 public constant MAX_CLAIMS = 4;
-//     uint256 public constant MIN_STAKE = 0.1 ether;
-//     uint256 public constant MIN_STAKE_INCREASE = 10_000;
-//     uint40 public constant MIN_CLAIM_DURATION = 1 weeks;
-//     uint256 public constant VOTERS_LIMIT = 5;
-//     uint40 public constant VOTING_DURATION = 3 days;
-//     uint40 public constant DISPUTE_DURATION = 3 days;
-//     uint256 public constant FEE = 1_000; // 10%
-//     uint256 public constant HALVES = 10;
+    uint256 public constant MAX_CLAIMS = 4;
+    uint256 public constant MIN_STAKE = 0.1 ether;
+    uint256 public constant MIN_STAKE_INCREASE = 10_000;
+    uint40 public constant MIN_CLAIM_DURATION = 1 weeks;
+    uint256 public constant VOTERS_LIMIT = 5;
+    uint40 public constant VOTING_DURATION = 3 days;
+    uint40 public constant DISPUTE_DURATION = 3 days;
+    uint256 public constant FEE = 1_000; // 10%
+    uint256 public constant HALVES = 10;
 
-//     function run() public {
+    function run() public {
 
-//         uint256 _pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
-//         VmSafe.Wallet memory _wallet = vm.createWallet(_pk);
-//         deployer = _wallet.addr;
+        uint256 _pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        VmSafe.Wallet memory _wallet = vm.createWallet(_pk);
+        deployer = _wallet.addr;
 
-//         vm.startBroadcast(_pk);
+        vm.startBroadcast(_pk);
 
-//         _deployContracts(deployer);
+        _deployContracts(deployer);
 
-//         vm.stopBroadcast();
+        vm.stopBroadcast();
 
-//         // _printAddresses();
-//         _labelContracts();
-//     }
+        // _printAddresses();
+        _labelContracts();
+    }
 
-//     function _deployContracts(address _deployer) internal {
+    function _deployContracts(address _deployer) internal {
 
-//         s = new Storage(
-//             _deployer, // owner
-//             asset
-//         );
+        priceProvider = new PriceProvider();
 
-//         priceProvider = new PriceProvider();
+        IMarkets.Initialize memory _init = IMarkets.Initialize(
+            MIN_STAKE,
+            MIN_STAKE_INCREASE,
+            FEE,
+            MIN_CLAIM_DURATION,
+            VOTING_DURATION,
+            DISPUTE_DURATION,
+            _deployer, // owner
+            asset,
+            address(0), // randomizer
+            address(priceProvider)
+        );
+        m = new Markets(_init);
 
-//         IMarket.Initialize memory _init = IMarket.Initialize(
-//             MAX_CLAIMS,
-//             MIN_STAKE,
-//             MIN_STAKE_INCREASE,
-//             VOTERS_LIMIT,
-//             MIN_CLAIM_DURATION,
-//             VOTING_DURATION,
-//             DISPUTE_DURATION,
-//             FEE,
-//             address(s),
-//             _deployer, // owner
-//             address(0), // randomizer
-//             address(priceProvider)
-//         );
-//         nullifyMarket = new NullifyMarket(_init);
-//         claimMarket = new ClaimMarket(_init, address(nullifyMarket));
+        randomizer = new Randomizer(deployer, address(m));
 
-//         randomizer = new Randomizer(deployer, address(s), address(claimMarket), address(nullifyMarket));
+        randomizer.setKeeper(deployer, true);
+        m.setRandomizer(address(randomizer));
+    }
 
-//         nullifyMarket.setRandomizer(address(randomizer));
-//         claimMarket.setRandomizer(address(randomizer));
-//         s.setMarket(address(claimMarket), true);
-//         s.setMarket(address(nullifyMarket), true);
-//         randomizer.setKeeper(deployer, true);
-//     }
+    function _printAddresses() internal view {
+        console.log("--------------------");
+        console.log("--------------------");
+        console.log("Markets: ", address(m));
+        console.log("Randomizer: ", address(randomizer));
+        console.log("PriceProvider: ", address(priceProvider));
+        console.log("--------------------");
+        console.log("--------------------");
+    }
 
-//     function _printAddresses() internal view {
-//         console.log("--------------------");
-//         console.log("--------------------");
-//         console.log("Storage: ", address(s));
-//         console.log("ClaimMarket: ", address(claimMarket));
-//         console.log("NullifyMarket: ", address(nullifyMarket));
-//         console.log("Randomizer: ", address(randomizer));
-//         console.log("PriceProvider: ", address(priceProvider));
-//         console.log("--------------------");
-//         console.log("--------------------");
-//     }
-
-//     function _labelContracts() internal {
-//         vm.label({ account: address(s), newLabel: "Storage" });
-//         vm.label({ account: address(claimMarket), newLabel: "ClaimMarket" });
-//         vm.label({ account: address(nullifyMarket), newLabel: "NullifyMarket" });
-//         vm.label({ account: address(randomizer), newLabel: "Randomizer" });
-//         vm.label({ account: address(priceProvider), newLabel: "PriceProvider" });
-//     }
-// }
+    function _labelContracts() internal {
+        vm.label({ account: address(m), newLabel: "Markets" });
+        vm.label({ account: address(randomizer), newLabel: "Randomizer" });
+        vm.label({ account: address(priceProvider), newLabel: "PriceProvider" });
+    }
+}

@@ -12,12 +12,12 @@ contract Markets is IMarkets, Ownable2Step {
 
     using SafeERC20 for IERC20;
 
+    uint256 public marketId;
+    uint256 public totalAssets;
     uint256 public minStake;
     uint256 public minStakeIncrease;
     uint256 public fee;
     uint256 public proposerFee;
-    uint256 public marketId;
-    uint256 public totalAssets;
     uint40 public minClaimDuration;
     uint40 public votingDuration;
     uint40 public disputeDuration;
@@ -60,10 +60,10 @@ contract Markets is IMarkets, Ownable2Step {
         minStake = _init.minStake;
         minStakeIncrease = _init.minStakeIncrease;
         fee = _init.fee;
+        proposerFee = 0;
         minClaimDuration = _init.minClaimDuration;
         votingDuration = _init.votingDuration;
         disputeDuration = _init.disputeDuration;
-        proposerFee = 0;
 
         asset = IERC20(_init.asset);
         randomizer = _init.randomizer;
@@ -343,7 +343,7 @@ contract Markets is IMarkets, Ownable2Step {
             }
         }
 
-        while (_claimId >= 0) {
+        while(_claimId >= 0) {
             Claim storage _claim = _claims[_marketId][_claimId];
             if (_isNullified) {
                 _claim.status = ClaimStatus.Nullified;
@@ -356,6 +356,7 @@ contract Markets is IMarkets, Ownable2Step {
                     _claim.status = ClaimStatus.PendingCommitteeResolution;
                 }
             }
+            if (_claimId == 0) break;
             --_claimId;
         }
 
@@ -379,6 +380,7 @@ contract Markets is IMarkets, Ownable2Step {
             } else {
                 _claim.status = ClaimStatus.Nullified;
             }
+            if (_claimId == 0) break;
             --_claimId;
         }
 
@@ -393,6 +395,7 @@ contract Markets is IMarkets, Ownable2Step {
     }
 
     function claimProceeds(uint256 _marketId, uint256 _claimId, address _user) public {
+        if (_user == address(0)) revert InvalidAddress();
 
         bytes32 _claimKey = claimKey(_marketId, _claimId);
         UserStatus memory _userStatus = _users[_user].status[_claimKey];
@@ -421,24 +424,24 @@ contract Markets is IMarkets, Ownable2Step {
             revert InvalidClaimStatus();
         }
 
-        {
+        if (_fee > 0) {
             uint256 _feeToProposer;
             uint256 _proposerFee = proposerFee;
             if (_proposerFee > 0) {
                 _feeToProposer = _fee * _proposerFee / PRECISION;
-                _incerementUserBalance(_feeToProposer, _claim.proposer);
+                _users[_claim.proposer].balance += _feeToProposer;
             }
-            _incerementUserBalance(_fee - _feeToProposer, owner());
+            _users[owner()].balance += (_fee - _feeToProposer);
         }
 
         uint256 _proceeds = _userStatus.stakeAmount + _earned - _fee;
-        _incerementUserBalance(_proceeds, _user);
+        _users[_user].balance += _proceeds;
 
         emit ClaimProceeds(_user, _proceeds, _fee, _earned, _marketId, _claimId);
     }
 
     // ==============================================================
-    // Mutative - Admin
+    // Mutative - Owner
     // ==============================================================
 
     function disableWhitelist() external onlyOwner {
@@ -551,10 +554,5 @@ contract Markets is IMarkets, Ownable2Step {
             if (_voters[i] == _voter) return;
         }
         revert NotVoter();
-    }
-
-    function _incerementUserBalance(uint256 _amount, address _user) private {
-        if (asset.balanceOf(address(this)) < totalAssets + _amount) revert InsufficientFunds();
-        _users[_user].balance += _amount;
     }
 }

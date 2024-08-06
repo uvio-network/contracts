@@ -232,7 +232,6 @@ interface IMarkets {
     error WhitelistDisabled();
     error NoStake();
     error InvalidClaimStatus();
-    error InsufficientFunds();
     error InvalidExpiration();
     error NotVoter();
     error AlreadyClaimed();
