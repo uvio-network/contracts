@@ -9,19 +9,6 @@ contract MarketsTest is Base {
 
     function setUp() public override {
         Base.setUp();
-
-        vm.prank(alice);
-        IERC20(asset).approve(address(m), type(uint256).max);
-        vm.prank(bob);
-        IERC20(asset).approve(address(m), type(uint256).max);
-        vm.prank(yossi);
-        IERC20(asset).approve(address(m), type(uint256).max);
-
-        vm.startPrank(deployer);
-        m.whitelistUser(alice);
-        m.whitelistUser(bob);
-        m.whitelistUser(yossi);
-        vm.stopPrank();
     }
 
     // ==============================================================
@@ -43,14 +30,6 @@ contract MarketsTest is Base {
         assertEq(m.marketId(), 1, "testSetup: E11");
         assertEq(m.owner(), deployer, "testSetup: E12");
     }
-
-    // ==============================================================
-    // Deposit
-    // ==============================================================
-
-    // ==============================================================
-    // Withdraw
-    // ==============================================================
 
     // ==============================================================
     // Propose
@@ -503,6 +482,39 @@ contract MarketsTest is Base {
         assertEq(m.userStake(bob, m.claimKey(marketId, _claimId)), _bobStakeBefore + _amount, "testStakeTwice: E4");
         assertEq(m.claims(marketId)[_claimId].stake.nayStakers.length, 1, "testStakeTwice: E5");
         assertEq(m.claims(marketId)[_claimId].stake.nayStakers[0], bob, "testStakeTwice: E6");
+    }
+
+    function testStakeWithDifferentExpirationThanClaim(uint40 _difference) public {
+        vm.assume(_difference < 52 weeks * 100);
+
+        IMarkets.Propose memory _propose = IMarkets.Propose(
+            "metadataURI",
+            marketId,
+            0, // nullifyMarketId
+            1 ether,
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + _difference, // stakingExpiration
+            true, // yea
+            false, // dispute
+            IMarkets.Price(0, HALVES)
+        );
+
+        vm.prank(alice);
+        m.propose(_propose);
+
+        uint256 _claimId = m.claimsLength(marketId) - 1;
+        uint256 _expiration = m.claims(marketId)[_claimId].expiration;
+        skip(_expiration - block.timestamp);
+
+        _deposit(bob, MIN_STAKE);
+        vm.prank(bob);
+        vm.expectRevert(IMarkets.InvalidExpiration.selector);
+        m.stake(marketId, MIN_STAKE, true);
+
+        skip(_difference);
+
+        vm.prank(bob);
+        m.stake(marketId, MIN_STAKE, true);
     }
 
     function testStakeInvalidAmount(uint256 _invalidAmount) public {
@@ -1037,7 +1049,7 @@ contract MarketsTest is Base {
     // ClaimProceeds
     // ==============================================================
 
-    function testClaimProceedsYea(uint256 _amount) public {
+    function testClaimProceedsYea(uint256 _amount, bool _isMulti) public {
         testCommitteeResolveYea(_amount); // alice staked yea, bob staked nay. both vote for their stake. committee resolves to yea
         //                                   so bob's stake is distributed to alice
 
@@ -1047,17 +1059,24 @@ contract MarketsTest is Base {
         uint256 _userStakeBefore = m.userStake(alice, _claimKey);
         uint256 _expectedFee = _amount * m.fee() / m.PRECISION();
 
-        m.claimProceeds(marketId, _claimId, alice);
+        if (_isMulti) {
+            uint256[] memory _claimIds = new uint256[](1);
+            _claimIds[0] = _claimId;
+            m.claimProceedsMulti(_claimIds, marketId, alice);
+        } else {
+            m.claimProceeds(marketId, _claimId, alice);
+        }
 
         assertEq(m.userBalance(alice), _userBalanceBalanceBefore + _amount + (_amount - _expectedFee), "testClaimProceedsYea: E0");
         assertEq(m.userStake(alice, _claimKey), _userStakeBefore, "testClaimProceedsYea: E1");
         assertEq(m.userBalance(m.owner()), _expectedFee, "testClaimProceedsYea: E2");
+        assertTrue(m.userClaimed(alice, _claimKey), "testClaimProceedsYea: E3");
 
         vm.expectRevert(IMarkets.InvalidClaimStatus.selector);
         m.claimProceeds(marketId, _claimId, bob);
     }
 
-    function testClaimProceedsNay(uint256 _amount) public {
+    function testClaimProceedsNay(uint256 _amount, bool _isMulti) public {
         testCommitteeResolveNay(_amount); // alice staked yea, bob staked nay. both vote for their stake. committee resolves to nay
         //                                   so alice's stake is distributed to bob
 
@@ -1067,11 +1086,18 @@ contract MarketsTest is Base {
         uint256 _userStakeBefore = m.userStake(bob, _claimKey);
         uint256 _expectedFee = _amount * m.fee() / m.PRECISION();
 
-        m.claimProceeds(marketId, _claimId, bob);
+        if (_isMulti) {
+            uint256[] memory _claimIds = new uint256[](1);
+            _claimIds[0] = _claimId;
+            m.claimProceedsMulti(_claimIds, marketId, bob);
+        } else {
+            m.claimProceeds(marketId, _claimId, bob);
+        }
 
         assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount + (_amount - _expectedFee), "testClaimProceedsNay: E0");
         assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsNay: E1");
         assertEq(m.userBalance(m.owner()), _expectedFee, "testClaimProceedsNay: E2");
+        assertTrue(m.userClaimed(bob, _claimKey), "testClaimProceedsNay: E3");
 
         vm.expectRevert(IMarkets.InvalidClaimStatus.selector);
         m.claimProceeds(marketId, _claimId, alice);
@@ -1092,15 +1118,17 @@ contract MarketsTest is Base {
         assertEq(m.userBalance(alice), _userBalanceBalanceBefore + _amount - _expectedFee, "testClaimProceedsNullified: E0");
         assertEq(m.userStake(alice, _claimKey), _userStakeBefore, "testClaimProceedsNullified: E1");
         assertEq(m.userBalance(m.owner()), _expectedFee, "testClaimProceedsNullified: E2");
+        assertTrue(m.userClaimed(alice, _claimKey), "testClaimProceedsNullified: E3");
 
         _userBalanceBalanceBefore = m.userBalance(bob);
         _userStakeBefore = m.userStake(bob, _claimKey);
 
         m.claimProceeds(marketId, _claimId, bob);
 
-        assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount - _expectedFee, "testClaimProceedsNullified: E3");
-        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsNullified: E4");
-        assertEq(m.userBalance(m.owner()), 2 * _expectedFee, "testClaimProceedsNullified: E5");
+        assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount - _expectedFee, "testClaimProceedsNullified: E4");
+        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsNullified: E5");
+        assertEq(m.userBalance(m.owner()), 2 * _expectedFee, "testClaimProceedsNullified: E6");
+        assertTrue(m.userClaimed(bob, _claimKey), "testClaimProceedsNullified: E7");
     }
 
     function testClaimProceedsYeaNoEarnings(uint256 _amount) public {
@@ -1116,15 +1144,17 @@ contract MarketsTest is Base {
         assertEq(m.userBalance(alice), _userBalanceBalanceBefore + _amount, "testClaimProceedsYea: E0");
         assertEq(m.userStake(alice, _claimKey), _userStakeBefore, "testClaimProceedsYea: E1");
         assertEq(m.userBalance(m.owner()), 0, "testClaimProceedsYea: E2");
+        assertTrue(m.userClaimed(alice, _claimKey), "testClaimProceedsYea: E3");
 
         _userBalanceBalanceBefore = m.userBalance(bob);
         _userStakeBefore = m.userStake(bob, _claimKey);
 
         m.claimProceeds(marketId, _claimId, bob);
 
-        assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount, "testClaimProceedsYea: E3");
-        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsYea: E4");
-        assertEq(m.userBalance(m.owner()), 0, "testClaimProceedsYea: E5");
+        assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount, "testClaimProceedsYea: E4");
+        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsYea: E5");
+        assertEq(m.userBalance(m.owner()), 0, "testClaimProceedsYea: E6");
+        assertTrue(m.userClaimed(bob, _claimKey), "testClaimProceedsYea: E7");
     }
 
     function testClaimProceedsNayNoEarnings(uint256 _amount) public {
@@ -1140,61 +1170,18 @@ contract MarketsTest is Base {
         assertEq(m.userBalance(alice), _userBalanceBalanceBefore + _amount, "testClaimProceedsNay: E0");
         assertEq(m.userStake(alice, _claimKey), _userStakeBefore, "testClaimProceedsNay: E1");
         assertEq(m.userBalance(m.owner()), 0, "testClaimProceedsNay: E2");
+        assertTrue(m.userClaimed(alice, _claimKey), "testClaimProceedsNay: E3");
 
         _userBalanceBalanceBefore = m.userBalance(bob);
         _userStakeBefore = m.userStake(bob, _claimKey);
 
         m.claimProceeds(marketId, _claimId, bob);
 
-        assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount, "testClaimProceedsNay: E3");
-        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsNay: E4");
-        assertEq(m.userBalance(m.owner()), 0, "testClaimProceedsNay: E5");
+        assertEq(m.userBalance(bob), _userBalanceBalanceBefore + _amount, "testClaimProceedsNay: E4");
+        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsNay: E5");
+        assertEq(m.userBalance(m.owner()), 0, "testClaimProceedsNay: E6");
+        assertTrue(m.userClaimed(bob, _claimKey), "testClaimProceedsNay: E7");
     }
-
-    // function claimProceeds(uint256 _marketId, uint256 _claimId, address _user) public {
-
-    //     bytes32 _claimKey = claimKey(_marketId, _claimId);
-    //     UserStatus memory _userStatus = _users[_user].status[_claimKey];
-    //     if (_userStatus.isClaimed) revert AlreadyClaimed();
-    //     if (_userStatus.stakeAmount == 0) revert NoStake();
-
-    //     _users[_user].status[_claimKey].isClaimed = true;
-
-    //     VoteStatus _userVoteStatus = _userStatus.voteStatus;
-    //     if (_userVoteStatus == VoteStatus.None) _userVoteStatus = _userStatus.stakeStatus;
-
-    //     Claim memory _claim = _claims[_marketId][_claimId];
-
-    //     uint256 _fee;
-    //     uint256 _earned;
-    //     if (_claim.status == ClaimStatus.ResolvedYea && _userVoteStatus == VoteStatus.Yea) {
-    //         _earned = _userStatus.stakeAmount * _claim.stake.nay / _claim.stake.yea;
-    //         _fee = _earned * fee / PRECISION;
-    //     } else if (_claim.status == ClaimStatus.ResolvedNay && _userVoteStatus == VoteStatus.Nay) {
-    //         _earned = _userStatus.stakeAmount * _claim.stake.yea / _claim.stake.nay;
-    //         _fee = _earned * fee / PRECISION;
-    //     } else if (_claim.status == ClaimStatus.Nullified) {
-    //         _earned = 0;
-    //         _fee = _userStatus.stakeAmount * fee / PRECISION;
-    //     } else {
-    //         revert InvalidClaimStatus();
-    //     }
-
-    //     {
-    //         uint256 _feeToProposer;
-    //         uint256 _proposerFee = proposerFee;
-    //         if (_proposerFee > 0) {
-    //             _feeToProposer = _fee * _proposerFee / PRECISION;
-    //             _incerementUserBalance(_feeToProposer, _claim.proposer);
-    //         }
-    //         _incerementUserBalance(_fee - _feeToProposer, owner());
-    //     }
-
-    //     uint256 _proceeds = _userStatus.stakeAmount + _earned - _fee;
-    //     _incerementUserBalance(_proceeds, _user);
-
-    //     emit ClaimProceeds(_user, _proceeds, _fee, _earned, _marketId, _claimId);
-    // }
 
     function testClaimProceedsNoVoteStatus(uint256 _amount) public {
         testStakeYea(_amount); // alice and bob stake yea. yossi stakes nay
@@ -1242,34 +1229,94 @@ contract MarketsTest is Base {
         assertApproxEqAbs(m.userBalance(alice), _userBalanceBalanceBefore + _amount + ((_amount - _expectedFee) / 2), 1, "testClaimProceedsNoVoteStatus: E1");
         assertEq(m.userStake(alice, m.claimKey(marketId, _claimId)), _userStakeBefore, "testClaimProceedsNoVoteStatus: E2");
         assertEq(m.userBalance(m.owner()), _expectedFee / 2, "testClaimProceedsNoVoteStatus: E3");
+        assertTrue(m.userClaimed(alice, m.claimKey(marketId, _claimId)), "testClaimProceedsNoVoteStatus: E4");
 
         _userBalanceBalanceBefore = m.userBalance(bob);
         _userStakeBefore = m.userStake(bob, m.claimKey(marketId, _claimId));
 
         m.claimProceeds(marketId, _claimId, bob);
 
-        assertApproxEqAbs(m.userBalance(bob), _userBalanceBalanceBefore + _amount + ((_amount - _expectedFee) / 2), 1, "testClaimProceedsNoVoteStatus: E4");
-        assertEq(m.userStake(bob, m.claimKey(marketId, _claimId)), _userStakeBefore, "testClaimProceedsNoVoteStatus: E5");
-        assertApproxEqAbs(m.userBalance(m.owner()), _expectedFee, 1, "testClaimProceedsNoVoteStatus: E6");
+        assertApproxEqAbs(m.userBalance(bob), _userBalanceBalanceBefore + _amount + ((_amount - _expectedFee) / 2), 1, "testClaimProceedsNoVoteStatus: E5");
+        assertEq(m.userStake(bob, m.claimKey(marketId, _claimId)), _userStakeBefore, "testClaimProceedsNoVoteStatus: E6");
+        assertApproxEqAbs(m.userBalance(m.owner()), _expectedFee, 1, "testClaimProceedsNoVoteStatus: E7");
+        assertTrue(m.userClaimed(bob, m.claimKey(marketId, _claimId)), "testClaimProceedsNoVoteStatus: E8");
 
         vm.expectRevert(IMarkets.InvalidClaimStatus.selector);
         m.claimProceeds(marketId, _claimId, yossi);
     }
 
-    // function testClaimProceedsProposerFee // @todo - here
-    // function testClaimProceedsInvalidAddress
-    // function testClaimProceedsAlreadyClaimed
-    // function testClaimProceedsNoStake
-    // function testClaimProceedsInvalidClaimStatus
-    // function testClaimProceedsWrongMarketId
-    // function testClaimProceedsWrongClaimId
+    function testClaimProceedsProposerFee(uint256 _amount) public {
+        testCommitteeResolveNullified(_amount); // alice staked yea, bob staked nay. both vote for their stake. committee resolves to nullified
+        //                                        so both alice's and bob's get their stake back minus the fee
 
-    // ==============================================================
-    // claimProceedsMulti
-    // ==============================================================
+        vm.prank(deployer);
+        m.setProposerFee(5000); // 50%
 
-    // ==============================================================
-    // Dispute
-    // ==============================================================
-    // test reverts
+        uint256 _claimId = m.claimsLength(marketId) - 1;
+        bytes32 _claimKey = m.claimKey(marketId, _claimId);
+        uint256 _userBalanceBalanceBefore = m.userBalance(alice);
+        uint256 _userStakeBefore = m.userStake(alice, _claimKey);
+        uint256 _expectedFee = _amount * m.fee() / m.PRECISION() / 2;
+
+        m.claimProceeds(marketId, _claimId, alice);
+
+        assertApproxEqAbs(m.userBalance(alice), _userBalanceBalanceBefore + _amount - _expectedFee, 1, "testClaimProceedsProposerFee: E0");
+        assertEq(m.userStake(alice, _claimKey), _userStakeBefore, "testClaimProceedsProposerFee: E1");
+        assertApproxEqAbs(m.userBalance(m.owner()), _expectedFee, 1, "testClaimProceedsProposerFee: E2");
+        assertTrue(m.userClaimed(alice, _claimKey), "testClaimProceedsProposerFee: E3");
+
+        _userBalanceBalanceBefore = m.userBalance(bob);
+        _userStakeBefore = m.userStake(bob, _claimKey);
+
+        m.claimProceeds(marketId, _claimId, bob);
+
+        assertApproxEqAbs(m.userBalance(bob), _userBalanceBalanceBefore + _amount - (_expectedFee * 2), 1, "testClaimProceedsProposerFee: E4");
+        assertEq(m.userStake(bob, _claimKey), _userStakeBefore, "testClaimProceedsProposerFee: E5");
+        assertApproxEqAbs(m.userBalance(m.owner()), _expectedFee * 2, 2, "testClaimProceedsProposerFee: E6");
+        assertApproxEqAbs(m.userBalance(alice), _userBalanceBalanceBefore + _amount, 1, "testClaimProceedsProposerFee: E7");
+        assertTrue(m.userClaimed(bob, _claimKey), "testClaimProceedsProposerFee: E8");
+    }
+
+    function testClaimProceedsInvalidAddress() public {
+        vm.expectRevert(IMarkets.InvalidAddress.selector);
+        m.claimProceeds(marketId, 0, address(0));
+    }
+
+    function testClaimProceedsAlreadyClaimed(uint256 _amount) public {
+        testCommitteeResolveNullified(_amount);
+
+        uint256 _claimId = m.claimsLength(marketId) - 1;
+        m.claimProceeds(marketId, _claimId, alice);
+
+        vm.expectRevert(IMarkets.AlreadyClaimed.selector);
+        m.claimProceeds(marketId, _claimId, alice);
+    }
+
+    function testClaimProceedsNoStake(uint256 _amount) public {
+        testCommitteeResolveNullified(_amount);
+
+        uint256 _claimId = m.claimsLength(marketId) - 1;
+        vm.expectRevert(IMarkets.NoStake.selector);
+        m.claimProceeds(marketId, _claimId, yossi);
+    }
+
+    function testClaimProceedsWrongMarketId(uint256 _wrongMarketId) public {
+        vm.assume(_wrongMarketId != marketId);
+
+        testCommitteeResolveNullified(MIN_STAKE);
+
+        uint256 _claimId = m.claimsLength(marketId) - 1;
+
+        vm.expectRevert();
+        m.claimProceeds(_wrongMarketId, _claimId, alice);
+    }
+
+    function testClaimProceedsWrongClaimId(uint256 _wrongClaimId) public {
+        vm.assume(_wrongClaimId != 0);
+
+        testCommitteeResolveNullified(MIN_STAKE);
+
+        vm.expectRevert();
+        m.claimProceeds(marketId, _wrongClaimId, alice);
+    }
 }

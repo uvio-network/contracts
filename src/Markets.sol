@@ -119,6 +119,7 @@ contract Markets is IMarkets, Ownable2Step {
 
     function deposit(uint256 _amount, address _reciever) external {
         if (isWhitelistActive && !_users[_reciever].isWhitelisted) revert NotWhitelisted();
+        if (_reciever == address(0) || _reciever == address(this)) revert InvalidAddress();
         if (_amount == 0) revert ZeroAmount();
 
         totalAssets += _amount;
@@ -129,6 +130,7 @@ contract Markets is IMarkets, Ownable2Step {
     }
 
     function withdraw(uint256 _amount, address _reciever) external {
+        if (_reciever == address(0) || _reciever == address(this)) revert InvalidAddress();
         if (_amount == 0) revert ZeroAmount();
 
         totalAssets -= _amount;

@@ -24,6 +24,19 @@ abstract contract Base is Deploy, Test {
         bob = _createUser("bob");
         yossi = _createUser("yossi");
         notWhitelistedUser = _createUser("notWhitelistedUser");
+
+        vm.startPrank(deployer);
+        m.whitelistUser(alice);
+        m.whitelistUser(bob);
+        m.whitelistUser(yossi);
+        vm.stopPrank();
+
+        vm.prank(alice);
+        IERC20(asset).approve(address(m), type(uint256).max);
+        vm.prank(bob);
+        IERC20(asset).approve(address(m), type(uint256).max);
+        vm.prank(yossi);
+        IERC20(asset).approve(address(m), type(uint256).max);
     }
 
     // ==============================================================

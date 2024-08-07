@@ -44,7 +44,7 @@ contract Deploy is Script {
 
         vm.stopBroadcast();
 
-        // _printAddresses();
+        _printAddresses();
         _labelContracts();
     }
 
