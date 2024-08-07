@@ -169,7 +169,7 @@ contract Markets is IMarkets, Ownable2Step {
             if (_propose.price.steepness > 0 && !priceProvider.checkPriceParams(_propose.price)) revert InvalidPriceParams();
             if (
                 _propose.claimExpiration < uint40(block.timestamp) + minClaimDuration ||
-                _propose.stakingExpiration + MIN_STAKE_FREEZE_DURATION < _propose.claimExpiration
+                _propose.claimExpiration < _propose.stakingExpiration + MIN_STAKE_FREEZE_DURATION
             ) revert InvalidExpiration();
 
             _minStake = minStake;

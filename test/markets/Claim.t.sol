@@ -51,7 +51,7 @@ contract MarketsTest is Base {
             marketId,
             0, // nullifyMarketId
             _amount,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             true, // yea
             false, // dispute
@@ -68,7 +68,7 @@ contract MarketsTest is Base {
         assertEq(m.nullifiedMarkets(marketId), 0, "testProposeYea: E4");
         assertEq(m.marketMinStake(marketId), MIN_STAKE, "testProposeYea: E5");
         assertEq(m.claims(marketId)[0].metadataURI, "metadataURI", "testProposeYea: E6");
-        assertEq(m.claims(marketId)[0].expiration, uint40(block.timestamp) + MIN_CLAIM_DURATION, "testProposeYea: E7");
+        assertEq(m.claims(marketId)[0].expiration, uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), "testProposeYea: E7");
         assertEq(m.claims(marketId)[0].proposer, alice, "testProposeYea: E8");
         assertEq(m.claims(marketId)[0].isNullifyMarket, false, "testProposeYea: E9");
         assertEq(m.claims(marketId)[0].stake.yea, _amount, "testProposeYea: E10");
@@ -105,7 +105,7 @@ contract MarketsTest is Base {
             marketId,
             0, // nullifyMarketId
             _amount,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             false, // yea
             false, // dispute
@@ -122,7 +122,7 @@ contract MarketsTest is Base {
         assertEq(m.nullifiedMarkets(marketId), 0, "testProposeNay: E4");
         assertEq(m.marketMinStake(marketId), MIN_STAKE, "testProposeNay: E5");
         assertEq(m.claims(marketId)[0].metadataURI, "metadataURI", "testProposeNay: E6");
-        assertEq(m.claims(marketId)[0].expiration, uint40(block.timestamp) + MIN_CLAIM_DURATION, "testProposeNay: E7");
+        assertEq(m.claims(marketId)[0].expiration, uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), "testProposeNay: E7");
         assertEq(m.claims(marketId)[0].proposer, alice, "testProposeNay: E8");
         assertEq(m.claims(marketId)[0].isNullifyMarket, false, "testProposeNay: E9");
         assertEq(m.claims(marketId)[0].stake.yea, 0, "testProposeNay: E10");
@@ -151,7 +151,7 @@ contract MarketsTest is Base {
             marketId,
             0, // nullifyMarketId
             1 ether,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             false, // yea
             false, // dispute
@@ -171,7 +171,7 @@ contract MarketsTest is Base {
             marketId,
             0, // nullifyMarketId
             1 ether,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             false, // yea
             false, // dispute
@@ -205,8 +205,10 @@ contract MarketsTest is Base {
 
     function testProposeInvalidStakeExpiration(uint40 _claimExpiration, uint40 _invalidStakeExpiration) public {
         vm.assume(
+            _claimExpiration > m.MIN_STAKE_FREEZE_DURATION() &&
             _claimExpiration < (52 weeks * 100) &&
-            _invalidStakeExpiration < _claimExpiration + m.MIN_STAKE_FREEZE_DURATION()
+            _invalidStakeExpiration > _claimExpiration - m.MIN_STAKE_FREEZE_DURATION() &&
+            _invalidStakeExpiration < type(uint40).max - m.MIN_STAKE_FREEZE_DURATION()
         );
 
         IMarkets.Propose memory _propose = IMarkets.Propose(
@@ -234,7 +236,7 @@ contract MarketsTest is Base {
             marketId,
             _invalidNullifyMarketId, // nullifyMarketId
             1 ether,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             false, // yea
             false, // dispute
@@ -252,7 +254,7 @@ contract MarketsTest is Base {
             marketId,
             0, // nullifyMarketId
             1 ether,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             false, // yea
             false, // dispute
@@ -272,7 +274,7 @@ contract MarketsTest is Base {
             marketId,
             0, // nullifyMarketId
             1 ether,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + m.MIN_STAKE_FREEZE_DURATION(), // claimExpiration
             uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             false, // yea
             false, // dispute
@@ -485,15 +487,17 @@ contract MarketsTest is Base {
     }
 
     function testStakeWithDifferentExpirationThanClaim(uint40 _difference) public {
-        vm.assume(_difference < 52 weeks * 100);
+        vm.assume(_difference > m.MIN_STAKE_FREEZE_DURATION() && _difference < 52 weeks * 100);
+
+        _deposit(alice, MIN_STAKE);
 
         IMarkets.Propose memory _propose = IMarkets.Propose(
             "metadataURI",
             marketId,
             0, // nullifyMarketId
-            1 ether,
-            uint40(block.timestamp) + MIN_CLAIM_DURATION, // claimExpiration
-            uint40(block.timestamp) + MIN_CLAIM_DURATION + _difference, // stakingExpiration
+            MIN_STAKE,
+            uint40(block.timestamp) + MIN_CLAIM_DURATION + _difference, // claimExpiration
+            uint40(block.timestamp) + MIN_CLAIM_DURATION, // stakingExpiration
             true, // yea
             false, // dispute
             IMarkets.Price(0, HALVES)
@@ -502,18 +506,17 @@ contract MarketsTest is Base {
         vm.prank(alice);
         m.propose(_propose);
 
+        _deposit(bob, MIN_STAKE);
+        vm.prank(bob);
+        m.stake(marketId, MIN_STAKE, true);
+
         uint256 _claimId = m.claimsLength(marketId) - 1;
-        uint256 _expiration = m.claims(marketId)[_claimId].expiration;
-        skip(_expiration - block.timestamp);
+        uint256 _expiration = m.claims(marketId)[_claimId].stake.expiration;
+        skip(_expiration - block.timestamp + 1);
 
         _deposit(bob, MIN_STAKE);
         vm.prank(bob);
-        vm.expectRevert(IMarkets.InvalidExpiration.selector);
-        m.stake(marketId, MIN_STAKE, true);
-
-        skip(_difference);
-
-        vm.prank(bob);
+        vm.expectRevert(IMarkets.NotStakingPeriod.selector);
         m.stake(marketId, MIN_STAKE, true);
     }
 
