@@ -13,7 +13,6 @@ contract Markets is IMarkets, Ownable2Step {
     using SafeERC20 for IERC20;
 
     uint256 public marketId;
-    uint256 public totalAssets;
     uint256 public minStake;
     uint256 public minStakeIncrease;
     uint256 public fee;
@@ -27,6 +26,7 @@ contract Markets is IMarkets, Ownable2Step {
     address public randomizer;
     IPriceProvider public priceProvider;
 
+    mapping(address asset => bool) public assetWhitelist;
     mapping(uint256 marketId => uint256 length) public claimsLength;
     mapping(uint256 marketId => uint256 minStake) public marketMinStake;
     mapping(uint256 targetMarketId => uint256 nullifyMarketId) public nullifiedMarkets;
@@ -34,8 +34,6 @@ contract Markets is IMarkets, Ownable2Step {
     uint256 public constant MAX_CLAIMS = 4;
     mapping(uint256 marketId => Claim[MAX_CLAIMS] claims) private _claims;
     mapping(address user => User userInfo) private _users;
-
-    IERC20 public immutable asset;
 
     uint40 public constant MIN_CLAIM_DURATION = 1 days;
     uint40 public constant MIN_STAKE_FREEZE_DURATION = 1 days;
@@ -65,7 +63,8 @@ contract Markets is IMarkets, Ownable2Step {
         votingDuration = _init.votingDuration;
         disputeDuration = _init.disputeDuration;
 
-        asset = IERC20(_init.asset);
+        assetWhitelist[_init.asset] = true;
+
         randomizer = _init.randomizer;
         priceProvider = IPriceProvider(_init.priceProvider);
 
@@ -77,8 +76,8 @@ contract Markets is IMarkets, Ownable2Step {
     // View
     // ==============================================================
 
-    function userBalance(address _user) external view returns (uint256) {
-        return _users[_user].balance;
+    function userBalance(address _asset, address _user) external view returns (uint256) {
+        return _users[_user].balance[_asset];
     }
 
     function userWhitelisted(address _user) external view returns (bool) {
@@ -117,25 +116,25 @@ contract Markets is IMarkets, Ownable2Step {
     // Mutative
     // ==============================================================
 
-    function deposit(uint256 _amount, address _reciever) external {
-        if (isWhitelistActive && !_users[_reciever].isWhitelisted) revert NotWhitelisted();
+    function deposit(uint256 _amount, address _asset, address _reciever) external {
+        if (isWhitelistActive && !_users[_reciever].isWhitelisted) revert UserNotWhitelisted();
+        if (!assetWhitelist[_asset]) revert AssetNotWhitelisted();
         if (_reciever == address(0) || _reciever == address(this)) revert InvalidAddress();
         if (_amount == 0) revert ZeroAmount();
 
-        totalAssets += _amount;
-        _users[_reciever].balance += _amount;
-        asset.safeTransferFrom(msg.sender, address(this), _amount);
+        _users[_reciever].balance[_asset] += _amount;
+        IERC20(_asset).safeTransferFrom(msg.sender, address(this), _amount);
 
         emit Deposit(msg.sender, _reciever, _amount);
     }
 
-    function withdraw(uint256 _amount, address _reciever) external {
+    function withdraw(uint256 _amount, address _asset, address _reciever) external {
+        if (!assetWhitelist[_asset]) revert AssetNotWhitelisted();
         if (_reciever == address(0) || _reciever == address(this)) revert InvalidAddress();
         if (_amount == 0) revert ZeroAmount();
 
-        totalAssets -= _amount;
-        _users[msg.sender].balance -= _amount;
-        asset.safeTransfer(_reciever, _amount);
+        _users[msg.sender].balance[_asset] -= _amount;
+        IERC20(_asset).safeTransfer(_reciever, _amount);
 
         emit Withdraw(msg.sender, _reciever, _amount);
     }
@@ -148,11 +147,12 @@ contract Markets is IMarkets, Ownable2Step {
             if (_propose.marketId >= marketId) revert InvalidMarketId();
 
             // Make sure unused params are not set
-            if (_propose.nullifyMarketId != 0) revert InvalidNullifyMarketId(); // @todo - consider removing this check
-            if (_propose.price.steepness != 0 || _propose.price.curveType != 0) revert InvalidPriceParams(); // @todo - consider removing this check
+            if (_propose.nullifyMarketId != 0) revert InvalidNullifyMarketId();
+            if (_propose.price.steepness != 0 || _propose.price.curveType != 0) revert InvalidPriceParams();
+            if (_propose.claimExpiration != 0 || _propose.stakingExpiration != 0) revert InvalidExpiration();
+            if (_propose.asset != address(0)) revert InvalidAddress();
 
             _claimId = claimsLength[_propose.marketId];
-            if (_claimId == 0) revert SanityCheck(); // @todo - consider removing this check
             if (_claimId > MAX_CLAIMS) revert MaxClaimsReached();
 
             Claim memory _lastClaim = _claims[_propose.marketId][_claimId - 1];
@@ -163,9 +163,11 @@ contract Markets is IMarkets, Ownable2Step {
 
             _minStake = marketMinStake[_propose.marketId] * (PRECISION + minStakeIncrease) / PRECISION;
 
+            _propose.asset = _lastClaim.asset;
             _propose.claimExpiration = uint40(block.timestamp) + minClaimDuration;
             _propose.stakingExpiration = _propose.claimExpiration;
         } else {
+            if (!assetWhitelist[_propose.asset]) revert AssetNotWhitelisted();
             if (_propose.price.steepness > 0 && !priceProvider.checkPriceParams(_propose.price)) revert InvalidPriceParams();
             if (
                 _propose.claimExpiration < uint40(block.timestamp) + minClaimDuration ||
@@ -231,7 +233,7 @@ contract Markets is IMarkets, Ownable2Step {
             _claims[_marketId][_claimId].stake.yea += _timeWeightedAmount :
             _claims[_marketId][_claimId].stake.nay += _timeWeightedAmount;
 
-        _incrementUserStake(_amount, _timeWeightedAmount, msg.sender, _claimKey);
+        _incrementUserStake(_amount, _timeWeightedAmount, _claim.asset, msg.sender, _claimKey);
 
         emit Staked(msg.sender, _marketId, _claimId, _amount, _timeWeightedAmount, _yea);
 
@@ -261,7 +263,7 @@ contract Markets is IMarkets, Ownable2Step {
         emit PrepareVote(_marketId);
     }
 
-    function vote(uint256 _marketId, bool _yea, bool _yeaGroup) external {
+    function vote(uint256 _marketId, bool _yea, bool _stake) external {
 
         uint256 _claimId = claimsLength[_marketId] - 1;
         Claim memory claim_ = _claims[_marketId][_claimId];
@@ -270,7 +272,7 @@ contract Markets is IMarkets, Ownable2Step {
             claim_.status != ClaimStatus.PendingVote
         ) revert NotVotingPeriod();
 
-        _yeaGroup ? _isVoter(msg.sender, claim_.vote.yeaVoters) : _isVoter(msg.sender, claim_.vote.nayVoters);
+        _stake ? _isVoter(msg.sender, claim_.vote.yeaVoters) : _isVoter(msg.sender, claim_.vote.nayVoters);
 
         bytes32 _claimKey = claimKey(_marketId, _claimId);
         UserStatus memory user_ = _users[msg.sender].status[_claimKey];
@@ -286,9 +288,9 @@ contract Markets is IMarkets, Ownable2Step {
             _claim.vote.nay++;
         }
 
-        if (_yeaGroup != _yea) {
+        if (_stake != _yea) {
             uint256 _amount = user_.stakeAmount;
-            if (_yeaGroup) {
+            if (_stake) {
                 _claim.stake.yea -= _amount;
                 _claim.stake.nay += _amount;
             } else {
@@ -297,7 +299,7 @@ contract Markets is IMarkets, Ownable2Step {
             }
         }
 
-        emit Voted(msg.sender, _marketId, _claimId, _yea, _yeaGroup);
+        emit Voted(msg.sender, _marketId, _claimId, _yea, _stake);
     }
 
     function endVote(uint256 _marketId) external {
@@ -338,7 +340,6 @@ contract Markets is IMarkets, Ownable2Step {
         uint256 _nullifyMarketId = nullifiedMarkets[_marketId];
         if (_nullifyMarketId != 0) {
             Claim storage _nullifyClaim = _claims[_nullifyMarketId][0];
-            if (uint8(_nullifyClaim.status) == 0) revert SanityCheck(); // @todo - consider removing this check
             if (uint8(_nullifyClaim.status) < uint8(ClaimStatus.ResolvedYea)) revert NullifyMarketNotResolved();
             if (_nullifyClaim.vote.outcome == Outcome.Yea) {
                 _isNullified = true;
@@ -431,13 +432,13 @@ contract Markets is IMarkets, Ownable2Step {
             uint256 _proposerFee = proposerFee;
             if (_proposerFee > 0) {
                 _feeToProposer = _fee * _proposerFee / PRECISION;
-                _users[_claim.proposer].balance += _feeToProposer;
+                _users[_claim.proposer].balance[_claim.asset] += _feeToProposer;
             }
-            _users[owner()].balance += (_fee - _feeToProposer);
+            _users[owner()].balance[_claim.asset] += (_fee - _feeToProposer);
         }
 
         uint256 _proceeds = _userStatus.stakeAmount + _earned - _fee;
-        _users[_user].balance += _proceeds;
+        _users[_user].balance[_claim.asset] += _proceeds;
 
         emit ClaimProceeds(_user, _proceeds, _fee, _earned, _marketId, _claimId);
     }
@@ -453,6 +454,11 @@ contract Markets is IMarkets, Ownable2Step {
     function whitelistUser(address _user) external onlyOwner {
         if (!isWhitelistActive) revert WhitelistDisabled();
         _users[_user].isWhitelisted = true;
+    }
+
+    function whitelistAsset(address _asset) external onlyOwner {
+        if (_asset == address(0)) revert InvalidAddress();
+        assetWhitelist[_asset] = true;
     }
 
     function setMinStake(uint256 _minStake) external onlyOwner {
@@ -518,6 +524,7 @@ contract Markets is IMarkets, Ownable2Step {
                 metadataURI: _propose.metadataURI,
                 expiration: _propose.claimExpiration,
                 proposer: _proposer,
+                asset: _propose.asset,
                 isNullifyMarket: _propose.nullifyMarketId != 0,
                 stake: _stake,
                 vote: _vote,
@@ -530,17 +537,16 @@ contract Markets is IMarkets, Ownable2Step {
 
         bytes32 _claimKey = claimKey(_propose.marketId, _claimId);
         _pushStaker(_propose.marketId, _claimId, _proposer, _propose.yea, _claimKey);
-        _incrementUserStake(_propose.amount, _propose.amount, _proposer, _claimKey);
+        _incrementUserStake(_propose.amount, _propose.amount, _propose.asset, _proposer, _claimKey);
     }
 
-    function _incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _user, bytes32 _claimKey) private {
-        if (isWhitelistActive && !_users[_user].isWhitelisted) revert NotWhitelisted();
-        _users[_user].balance -= _amount;
+    function _incrementUserStake(uint256 _amount, uint256 _timeWeightedAmount, address _asset, address _user, bytes32 _claimKey) private {
+        if (isWhitelistActive && !_users[_user].isWhitelisted) revert UserNotWhitelisted();
+        _users[_user].balance[_asset] -= _amount;
         _users[_user].status[_claimKey].stakeAmount += _timeWeightedAmount;
     }
 
     function _pushStaker(uint256 _marketId, uint256 _claimId, address _staker, bool _yea, bytes32 _claimKey) private {
-        if (_users[_staker].status[_claimKey].stakeStatus != VoteStatus.None) revert SanityCheck(); // @todo - consider removing this check
         if (_yea) {
             _claims[_marketId][_claimId].stake.yeaStakers.push(_staker);
             _users[_staker].status[_claimKey].stakeStatus = VoteStatus.Yea;

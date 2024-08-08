@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import {IPriceProvider} from "../utils/interfaces/IPriceProvider.sol";
 
 interface IMarkets {
@@ -43,8 +41,8 @@ interface IMarkets {
     }
 
     struct User {
-        uint256 balance;
         bool isWhitelisted;
+        mapping(address asset => uint256 balance) balance;
         mapping(bytes32 claimKey => UserStatus) status;
     }
 
@@ -77,6 +75,7 @@ interface IMarkets {
         string metadataURI;
         uint40 expiration;
         address proposer;
+        address asset;
         bool isNullifyMarket;
         Stake stake;
         Vote vote;
@@ -88,6 +87,7 @@ interface IMarkets {
         uint256 marketId;
         uint256 nullifyMarketId;
         uint256 amount;
+        address asset;
         uint40 claimExpiration;
         uint40 stakingExpiration;
         bool yea;
@@ -117,18 +117,17 @@ interface IMarkets {
     function fee() external view returns (uint256);
     function proposerFee() external view returns (uint256);
     function marketId() external view returns (uint256);
-    function totalAssets() external view returns (uint256);
     function minClaimDuration() external view returns (uint40);
     function votingDuration() external view returns (uint40);
     function disputeDuration() external view returns (uint40);
     function isWhitelistActive() external view returns (bool);
     function randomizer() external view returns (address);
     function priceProvider() external view returns (IPriceProvider);
+    function assetWhitelist(address) external view returns (bool);
     function claimsLength(uint256 _marketId) external view returns (uint256);
     function marketMinStake(uint256 _marketId) external view returns (uint256);
     function nullifiedMarkets(uint256 _targetMarketId) external view returns (uint256);
     function MAX_CLAIMS() external view returns (uint256);
-    function asset() external view returns (IERC20);
     function MIN_CLAIM_DURATION() external view returns (uint40);
     function MIN_STAKE_FREEZE_DURATION() external view returns (uint40);
     function MIN_VOTING_DURATION() external view returns (uint40);
@@ -141,7 +140,7 @@ interface IMarkets {
     // View
     // ==============================================================
 
-    function userBalance(address _user) external view returns (uint256);
+    function userBalance(address _asset, address _user) external view returns (uint256);
     function userWhitelisted(address _user) external view returns (bool);
     function userStake(address _user, bytes32 _claimKey) external view returns (uint256);
     function userClaimed(address _user, bytes32 _claimKey) external view returns (bool);
@@ -159,12 +158,12 @@ interface IMarkets {
     // Mutative
     // ==============================================================
 
-    function deposit(uint256 _amount, address _reciever) external;
-    function withdraw(uint256 _amount, address _reciever) external;
+    function deposit(uint256 _amount, address _asset, address _reciever) external;
+    function withdraw(uint256 _amount, address _asset, address _reciever) external;
     function propose(Propose memory _propose) external;
     function stake(uint256 _marketId, uint256 _amount, bool _yea) external returns (uint256);
     function prepareVote(address[] calldata _yeaVoters, address[] calldata _nayVoters, uint256 _marketId) external;
-    function vote(uint256 _marketId, bool _yea, bool _yeaGroup) external;
+    function vote(uint256 _marketId, bool _yea, bool _stake) external;
     function endVote(uint256 _marketId) external;
     function resolve(uint256 _marketId) external;
     function committeeResolve(Outcome _outcome, uint256 _marketId) external;
@@ -177,6 +176,7 @@ interface IMarkets {
 
     function disableWhitelist() external;
     function whitelistUser(address _user) external;
+    function whitelistAsset(address _asset) external;
     function setMinStake(uint256 _minStake) external;
     function setMinStakeIncrease(uint256 _minStakeIncrease) external;
     function setMinClaimDuration(uint40 _minClaimDuration) external;
@@ -196,7 +196,7 @@ interface IMarkets {
     event Proposed(Propose propose, uint256 claimId);
     event Staked(address indexed staker, uint256 marketId, uint256 claimId, uint256 amount, uint256 timeWeightedAmount, bool yea);
     event PrepareVote(uint256 marketId);
-    event Voted(address indexed voter, uint256 marketId, uint256 claimId, bool yea, bool yeaGroup);
+    event Voted(address indexed voter, uint256 marketId, uint256 claimId, bool yea, bool stake);
     event EndVote(uint256 marketId);
     event Resolve(uint256 marketId);
     event CommitteeResolve(uint256 marketId);
@@ -208,12 +208,12 @@ interface IMarkets {
 
     error InvalidFee();
     error InvalidDuration();
-    error NotWhitelisted();
+    error UserNotWhitelisted();
     error ZeroAmount();
+    error AssetNotWhitelisted();
     error InvalidMarketId();
     error InvalidNullifyMarketId();
     error InvalidPriceParams();
-    error SanityCheck();
     error MaxClaimsReached();
     error NotDisputePeriod();
     error InvalidAmount();

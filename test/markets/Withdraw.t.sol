@@ -21,11 +21,18 @@ contract WithdrawTest is Base {
         _deposit(alice, _amount);
 
         vm.startPrank(alice);
-        m.withdraw(_amount, _reciever);
+        m.withdraw(_amount, asset, _reciever);
 
-        assertEq(m.totalAssets(), 0, "testWithdraw: E0");
-        assertEq(m.userBalance(alice), 0, "testWithdraw: E1");
+        assertEq(m.userBalance(asset, alice), 0, "testWithdraw: E1");
         assertEq(IERC20(asset).balanceOf(_reciever), _recieverBalanceBefore + _amount, "testWithdraw: E2");
+    }
+
+    function testAssetNotWhitelisted(address _notWhitelistedAsset) public {
+        vm.assume(_notWhitelistedAsset != asset);
+
+        vm.startPrank(alice);
+        vm.expectRevert(IMarkets.AssetNotWhitelisted.selector);
+        m.withdraw(1 ether, _notWhitelistedAsset, alice);
     }
 
     function testWithdrawZeroAmount(address _reciever) public {
@@ -35,7 +42,7 @@ contract WithdrawTest is Base {
 
         vm.startPrank(alice);
         vm.expectRevert(IMarkets.ZeroAmount.selector);
-        m.withdraw(0, _reciever);
+        m.withdraw(0, asset, _reciever);
     }
 
     function testWithdrawInvalidAddressZeroAddress(uint256 _amount) public {
@@ -45,7 +52,7 @@ contract WithdrawTest is Base {
 
         vm.startPrank(alice);
         vm.expectRevert(IMarkets.InvalidAddress.selector);
-        m.withdraw(_amount, address(0));
+        m.withdraw(_amount, asset, address(0));
     }
 
     function testWithdrawInvalidAddressThisAddress(uint256 _amount) public {
@@ -55,6 +62,6 @@ contract WithdrawTest is Base {
 
         vm.startPrank(alice);
         vm.expectRevert(IMarkets.InvalidAddress.selector);
-        m.withdraw(_amount, address(m));
+        m.withdraw(_amount, asset, address(m));
     }
 }

@@ -51,6 +51,24 @@ contract OwnerTest is Base {
         m.whitelistUser(notWhitelistedUser);
     }
 
+    function testWhitelistAsset(address _newAsset) public {
+        vm.assume(_newAsset != address(0));
+        vm.prank(deployer);
+        m.whitelistAsset(_newAsset);
+        assertTrue(m.assetWhitelist(_newAsset));
+    }
+
+    function testWhitelistAssetZero() public {
+        vm.expectRevert(IMarkets.InvalidAddress.selector);
+        vm.prank(deployer);
+        m.whitelistAsset(address(0));
+    }
+
+    function testWhitelistAssetNotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        m.whitelistAsset(asset);
+    }
+
     function testSetMinStake(uint256 _minStake) public {
         vm.assume(_minStake > 0);
         vm.prank(deployer);

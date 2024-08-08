@@ -59,7 +59,7 @@ contract Randomizer is IRandomizer, Ownable2Step {
         address[] calldata _yeaVoters,
         address[] calldata _nayVoters,
         uint256 _marketId
-    ) external {
+    ) external onlyKeeper {
 
         uint256 _yeaLength = _yeaVoters.length;
         uint256 _nayLength = _nayVoters.length;
