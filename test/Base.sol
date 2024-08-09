@@ -17,9 +17,9 @@ abstract contract Base is Deploy, Test {
     address public notWhitelistedUser;
 
     function setUp() public virtual {
-        // uint256 _blockNumber = 20428430;
-        // vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL"), _blockNumber));
-        vm.selectFork(vm.createFork(vm.envString("ARBITRUM_SEPOLIA_RPC_URL")));
+        uint256 _blockNumber = 20428430;
+        vm.selectFork(vm.createFork(vm.envString("MAINNET_RPC_URL"), _blockNumber));
+        // vm.selectFork(vm.createFork(vm.envString("ARBITRUM_SEPOLIA_RPC_URL")));
 
         run(); // deploy and initialize contracts
 

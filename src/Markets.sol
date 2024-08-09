@@ -144,7 +144,7 @@ contract Markets is IMarkets, Ownable2Step {
         uint256 _claimId;
         uint256 _minStake;
         if (_propose.dispute) {
-            if (_propose.marketId >= marketId) revert InvalidMarketId();
+            if (_propose.marketId >= marketId || _propose.marketId == 0) revert InvalidMarketId();
 
             // Make sure unused params are not set
             if (_propose.nullifyMarketId != 0) revert InvalidNullifyMarketId();
@@ -158,7 +158,7 @@ contract Markets is IMarkets, Ownable2Step {
             Claim memory _lastClaim = _claims[_propose.marketId][_claimId - 1];
             if (
                 _lastClaim.vote.disputeExpiration < block.timestamp ||
-                uint8(_lastClaim.status) >= uint8(ClaimStatus.Nullified)
+                _lastClaim.status != ClaimStatus.PendingResolution
             ) revert NotDisputePeriod();
 
             _minStake = marketMinStake[_propose.marketId] * (PRECISION + minStakeIncrease) / PRECISION;
