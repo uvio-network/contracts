@@ -1,0 +1,30 @@
+{
+  "name": "contracts",
+  "version": "v0.0.1",
+  "description": "smart contracts of the Uvio platform",
+  "scripts": {
+    "build": "./node_modules/.bin/hardhat compile",
+    "clean": "./node_modules/.bin/hardhat clean",
+    "cover": "./node_modules/.bin/hardhat coverage",
+    "test": "./node_modules/.bin/hardhat test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uvio-network/contracts.git"
+  },
+  "author": "@xh3b4sd",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/uvio-network/contracts/issues"
+  },
+  "homepage": "https://github.com/uvio-network/contracts#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.7",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.8",
+    "viem": "^2.19.8"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}
