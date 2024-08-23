@@ -11,7 +11,7 @@ describe("Claims", function () {
   describe("createPropose", function () {
     describe("revert", function () {
       it("if users have no funds", async function () {
-        const { Claims, Signer } = await loadFixture(Deploy);
+        const { Claims, Signer, Token } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(1)).createPropose(
           Claim(1),
@@ -20,14 +20,13 @@ describe("Claims", function () {
           Expiry(2, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
       });
 
       it("if users have not enough funds", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
-        await Token.mint(Address(1), Amount(5));
-        await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(5));
+        await Balance([1], 5);
 
         const txn = Claims.connect(Signer(1)).createPropose(
           Claim(1),
@@ -36,14 +35,13 @@ describe("Claims", function () {
           Expiry(2, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
       });
 
       it("if expiry is not at least 1 day in the future", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
-        await Token.mint(Address(1), Amount(10));
-        await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(10));
+        await Balance([1], 10);
 
         const txn = Claims.connect(Signer(1)).createPropose(
           Claim(1),
@@ -56,68 +54,50 @@ describe("Claims", function () {
       });
 
       it("if minimum balance not available", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
-        {
-          await Token.mint(Address(1), Amount(10));
-          await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(10));
+        await Balance([1, 2], [10, 5]);
 
-          await Claims.connect(Signer(1)).createPropose(
-            Claim(1),
-            Amount(10),
-            Side(true),
-            Expiry(2, "days"),
-          );
-        }
+        await Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
 
-        {
-          await Token.mint(Address(1), Amount(5));
-          await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(5));
+        const txn = Claims.connect(Signer(2)).createPropose(
+          Claim(1),
+          Amount(5),
+          Side(true),
+          Expiry(2, "days"),
+        );
 
-          const txn = Claims.connect(Signer(1)).createPropose(
-            Claim(1),
-            Amount(5),
-            Side(true),
-            Expiry(2, "days"),
-          );
-
-          await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-        }
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
       it("if claim already expired", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
-        {
-          await Token.mint(Address(1), Amount(10));
-          await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(10));
+        await Balance([1, 2], 10);
 
-          await Claims.connect(Signer(1)).createPropose(
-            Claim(1),
-            Amount(10),
-            Side(true),
-            Expiry(2, "days"),
-          );
-        }
+        await Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
 
-        {
-          await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-          await network.provider.send("evm_mine");
-        }
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
 
-        {
-          await Token.mint(Address(1), Amount(10));
-          await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(10));
+        const txn = Claims.connect(Signer(2)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          BigInt(0),
+        );
 
-          const txn = Claims.connect(Signer(1)).createPropose(
-            Claim(1),
-            Amount(10),
-            Side(true),
-            BigInt(0),
-          );
-
-          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
-        }
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
       });
     });
   });

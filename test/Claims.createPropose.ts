@@ -9,10 +9,9 @@ import { Side } from "./src/Side";
 describe("Claims", function () {
   describe("createPropose", function () {
     const createPropose = async () => {
-      const { Address, Claims, Signer, Token } = await loadFixture(Deploy);
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
 
-      await Token.mint(Address(1), Amount(10));
-      await Token.connect(Signer(1)).approve(await Claims.getAddress(), Amount(10));
+      await Balance([1], 10);
 
       await Claims.connect(Signer(1)).createPropose(
         Claim(1),
@@ -21,13 +20,44 @@ describe("Claims", function () {
         Expiry(2, "days"),
       );
 
-      return { Address, Claims, Signer, Token };
+      return { Address, Claims };
     }
 
-    it("should propose claim for users with funds", async function () {
-      const { Claims } = await loadFixture(createPropose);
+    const createProposeRevert = async () => {
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      {
+        await Balance([1, 2], [10, 50]);
+      }
+
+      {
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(5, "hours"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      }
+
+      {
+        await Claims.connect(Signer(2)).createPropose(
+          Claim(1),
+          Amount(50),
+          Side(true),
+          Expiry(9, "weeks"),
+        );
+      }
+
+      return { Address, Claims };
+    }
+
+    it("should create claim with lifecycle phase propose", async function () {
+      const { Address, Claims } = await loadFixture(createPropose);
 
       expect(await Claims.searchMaximum(Claim(1))).to.equal(1);
+      expect(await Claims.searchStaker(Claim(1))).to.deep.equal([Address(1)]);
     });
 
     it("should allocate a user balance", async function () {
@@ -36,6 +66,15 @@ describe("Claims", function () {
       const res = await Claims.searchBalance(Address(1));
 
       expect(res[0]).to.equal(Amount(10)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("if prior attempt failed", async function () {
+      const { Address, Claims } = await loadFixture(createProposeRevert);
+
+      const res = await Claims.searchBalance(Address(2));
+
+      expect(res[0]).to.equal(Amount(50)); // allocated
       expect(res[1]).to.equal(0);          // available
     });
   });
