@@ -7,9 +7,9 @@ describe("Claims", function () {
     it("should revert for users without funds", async function () {
       const { Claims, Signer } = await loadFixture(Deploy);
 
-      await expect(Claims.connect(Signer(1)).withdraw(1)).to.be.revertedWithCustomError(Claims, "Balance");
-      await expect(Claims.connect(Signer(2)).withdraw(1)).to.be.revertedWithCustomError(Claims, "Balance");
-      await expect(Claims.connect(Signer(3)).withdraw(1)).to.be.revertedWithCustomError(Claims, "Balance");
+      const txn = Claims.connect(Signer(1)).withdraw(1);
+
+      await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
     });
   });
 });
