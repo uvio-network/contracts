@@ -183,7 +183,7 @@ contract Claims {
         // least 1 day in the future. Once a claim was created its expiry starts
         // to run out. Users can only keep staking as long as the claim they
         // want to stake on did not yet expire.
-        if (_claimExpired[pro] + DAY_SECONDS <= Time.timestamp()) {
+        if (_claimExpired[pro] <= Time.timestamp() + DAY_SECONDS) {
             revert Expired("propose expired", _claimExpired[pro]);
         }
 
