@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
 // Uncomment this line to use console.log
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract Claims {
     //
@@ -140,15 +140,6 @@ contract Claims {
             revert Balance("below minimum", min);
         }
 
-        // Verify that the user's available token balance is sufficient enough
-        // to transfer the provided amount from the caller to this contract.
-
-        uint256 avl = IERC20(token).balanceOf(use);
-
-        if (avl < bal) {
-            revert Balance("insufficient funds", avl);
-        }
-
         _;
     }
 
@@ -174,7 +165,13 @@ contract Claims {
         _;
     }
 
-    modifier onlyCreatePropose(uint256 pro, uint48 exp) {
+    //
+    // PUBLIC
+    //
+
+    // called by anyone
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint48 exp) public onlyAmount(pro, bal, msg.sender) {
+        // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
             _claimExpired[pro] = exp;
         }
@@ -187,24 +184,46 @@ contract Claims {
             revert Expired("propose expired", _claimExpired[pro]);
         }
 
-        _;
-    }
-
-    //
-    // PUBLIC
-    //
-
-    // called by anyone
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint48 exp)
-        public
-        onlyAmount(pro, bal, msg.sender)
-        onlyCreatePropose(pro, exp)
-    {
         address use = msg.sender;
 
-        createProposeUpdateToken(use, bal);
-        createProposeUpdateVotes(pro, use, bal, vot);
-        createProposeUpdateStake(pro, use, bal);
+        // Do the transfer right at the top, because this is the last thing that
+        // can actually fail.
+        if (!IERC20(token).transferFrom(use, address(this), bal)) {
+            revert Balance("transfer failed", bal);
+        }
+
+        // Track the user's allocated balance so we can tell people where they
+        // stand any time. The allocated balances are all funds that are
+        // currently bound in active markets. The user's available balance does
+        // not change here because the user is directly staking their deposited
+        // balance when participating in a market. Only later may available
+        // balances increase, if a user may be rewarded after claims have been
+        // resolved.
+        {
+            _allocBalance[use] += bal;
+        }
+
+        // Track the stakers expressed opinion by remembering the side they
+        // picked using the boolean voting flag. True means the user agrees with
+        // the given statement. False means the user disagrees respectively. We
+        // do also account for the cumulative balances on either side of the
+        // bet, so we can write this kind of data once and read it for cheap
+        // many times later on when updating user balances.
+        if (vot) {
+            _addressVotes[pro][use].set(VOTE_STAKE_Y);
+            _stakePropose[pro][VOTE_STAKE_Y] += bal;
+        } else {
+            _addressVotes[pro][use].set(VOTE_STAKE_N);
+            _stakePropose[pro][VOTE_STAKE_N] += bal;
+        }
+
+        (bool exi, uint256 cur) = _addressStake[pro].tryGet(use);
+        if (exi) {
+            _addressStake[pro].set(use, cur + bal);
+        } else {
+            _addressStake[pro].set(use, bal);
+            _indexAddress[pro].set(_indexAddress[pro].length(), use);
+        }
     }
 
     function withdraw(uint256 bal) public {
@@ -228,7 +247,7 @@ contract Claims {
     // PUBLIC PRIVILEGED
     //
 
-    // called by some privileged bot
+    // TODO ensure this can only be called by some privileged bot
     function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public {
         {
             if (_claimExpired[res] != 0) {
@@ -320,54 +339,6 @@ contract Claims {
     //
     // PRIVATE
     //
-
-    //
-    function createProposeUpdateToken(address use, uint256 bal) private {
-        if (!IERC20(token).transferFrom(use, address(this), bal)) {
-            revert Balance("transfer failed", bal);
-        }
-
-        // Track the user's allocated balance so we can tell people where they
-        // stand any time. The allocated balances are all funds that are
-        // currently bound in active markets.
-
-        // Note that the user's available balance does not change here because
-        // the user is directly staking their deposited balance when
-        // participating in a market. Only later may available balances
-        // increase, if a user may be rewarded after claims have been resolved.
-
-        {
-            _allocBalance[use] += bal;
-        }
-    }
-
-    //
-    function createProposeUpdateStake(uint256 pro, address use, uint256 bal) private {
-        (bool exi, uint256 cur) = _addressStake[pro].tryGet(use);
-        if (exi) {
-            _addressStake[pro].set(use, cur + bal);
-        } else {
-            _addressStake[pro].set(use, bal);
-            _indexAddress[pro].set(_indexAddress[pro].length(), use);
-        }
-    }
-
-    //
-    function createProposeUpdateVotes(uint256 pro, address use, uint256 bal, bool vot) private {
-        // Track the stakers expressed opinion by remembering the side they
-        // picked using the boolean voting flag. True means the user agrees with
-        // the given statement. False means the user disagrees respectively. We
-        // do also account for the cumulative balances on either side of the
-        // bet, so we can write this kind of data once and read it for cheap
-        // many times later on when updating user balances.
-        if (vot) {
-            _addressVotes[pro][use].set(VOTE_STAKE_Y);
-            _stakePropose[pro][VOTE_STAKE_Y] += bal;
-        } else {
-            _addressVotes[pro][use].set(VOTE_STAKE_N);
-            _stakePropose[pro][VOTE_STAKE_N] += bal;
-        }
-    }
 
     // TODO this result cannot be disputed
     function updatePunish(uint256 pro, uint256 lef, uint256 rig) private returns (bool) {
@@ -516,13 +487,24 @@ contract Claims {
     }
 
     // can be called by anyone, may not return anything
-    function searchMember(uint256 pro, uint256 res) public view onlyPaired(pro, res) returns (address[] memory) {
+    function searchSample(uint256 pro, uint256 res) public view onlyPaired(pro, res) returns (address[] memory) {
         uint256[] memory ind = _claimIndices[res];
-
         address[] memory lis = new address[](ind.length);
 
         for (uint256 i = 0; i < ind.length; i++) {
-            (, lis[i]) = _indexAddress[pro].tryGet(ind[i]);
+            lis[i] = _indexAddress[pro].get(ind[i]);
+        }
+
+        return lis;
+    }
+
+    // can be called by anyone, may not return anything
+    function searchStaker(uint256 pro) public view returns (address[] memory) {
+        uint256 len = _indexAddress[pro].length();
+        address[] memory lis = new address[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            lis[i] = _indexAddress[pro].get(i);
         }
 
         return lis;
