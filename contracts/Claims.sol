@@ -28,7 +28,7 @@ contract Claims {
     //
     error Address(string why);
     //
-    error Balance(string why);
+    error Balance(string why, uint256 bal);
     //
     error Expired(string why, uint48 unx);
     //
@@ -44,6 +44,8 @@ contract Claims {
     // on top of the mentioned expiry, only then can a claim be finalized and
     // user balances be updated.
     uint48 private constant CHALLENGE_PERIOD = 604_800;
+    //
+    uint48 private constant DAY_SECONDS = 86_400;
 
     // VOTE_STAKE_Y is the boolean flag for users who expressed their opinions
     // by staking in agreement with the proposed claim.
@@ -115,7 +117,7 @@ contract Claims {
     //
     receive() external payable {
         if (msg.value != 0) {
-            revert Balance("invalid token");
+            revert Balance("invalid token", 0);
         }
     }
 
@@ -135,7 +137,7 @@ contract Claims {
         (, uint256 min) = _addressStake[pro].tryGet(fir);
 
         if (bal < min) {
-            revert Balance("below minimum");
+            revert Balance("below minimum", min);
         }
 
         // Verify that the user's available token balance is sufficient enough
@@ -144,7 +146,7 @@ contract Claims {
         uint256 avl = IERC20(token).balanceOf(use);
 
         if (avl < bal) {
-            revert Balance("insufficient funds");
+            revert Balance("insufficient funds", avl);
         }
 
         _;
@@ -177,7 +179,11 @@ contract Claims {
             _claimExpired[pro] = exp;
         }
 
-        if (_claimExpired[pro] <= Time.timestamp()) {
+        // The first user creating a claim must define an expiry that is at
+        // least 1 day in the future. Once a claim was created its expiry starts
+        // to run out. Users can only keep staking as long as the claim they
+        // want to stake on did not yet expire.
+        if (_claimExpired[pro] + DAY_SECONDS <= Time.timestamp()) {
             revert Expired("propose expired", _claimExpired[pro]);
         }
 
@@ -206,11 +212,11 @@ contract Claims {
         uint256 avl = _availBalance[use];
 
         if (avl < bal) {
-            revert Balance("insufficient funds");
+            revert Balance("insufficient funds", avl);
         }
 
         if (!IERC20(token).transferFrom(address(this), use, bal)) {
-            revert Balance("transfer failed");
+            revert Balance("transfer failed", bal);
         }
 
         {
@@ -318,16 +324,20 @@ contract Claims {
     //
     function createProposeUpdateToken(address use, uint256 bal) private {
         if (!IERC20(token).transferFrom(use, address(this), bal)) {
-            revert Balance("transfer failed");
+            revert Balance("transfer failed", bal);
         }
 
-        // Track the user's global balances so we can tell people where they
+        // Track the user's allocated balance so we can tell people where they
         // stand any time. The allocated balances are all funds that are
-        // currently bound in active markets. The available balances are all
-        // funds that users are free to withdraw any time.
+        // currently bound in active markets.
+
+        // Note that the user's available balance does not change here because
+        // the user is directly staking their deposited balance when
+        // participating in a market. Only later may available balances
+        // increase, if a user may be rewarded after claims have been resolved.
+
         {
             _allocBalance[use] += bal;
-            _availBalance[use] -= bal;
         }
     }
 
