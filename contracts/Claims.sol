@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
-import {EnumerableMap} from
-    "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
@@ -324,9 +323,7 @@ contract Claims is AccessControl {
             }
 
             if (_claimExpired[res] + CHALLENGE_PERIOD <= Time.timestamp()) {
-                revert Expired(
-                    "challenge active", _claimExpired[res] + CHALLENGE_PERIOD
-                );
+                revert Expired("challenge active", _claimExpired[res] + CHALLENGE_PERIOD);
             }
         }
 
@@ -382,14 +379,7 @@ contract Claims is AccessControl {
     //
 
     // TODO this result cannot be disputed
-    function updatePunish(
-        uint256 pro,
-        uint256 lef,
-        uint256 rig
-    )
-        private
-        returns (bool)
-    {
+    function updatePunish(uint256 pro, uint256 lef, uint256 rig) private returns (bool) {
         bool don = false;
 
         uint256 len = _indexAddress[pro].length();
@@ -412,19 +402,18 @@ contract Claims is AccessControl {
         bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
         bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
 
-        // We keep track of every user that we processed and updated
-        // balances for already. If it ever were to happen that the same
-        // user was attempted to be updated twice, then we simply
-        // acknowledge that fact here and continue with the next user,
-        // without processing any balance twice.
+        // We keep track of every user that we processed and updated balances
+        // for already. If it ever were to happen that the same user was
+        // attempted to be updated twice, then we simply acknowledge that fact
+        // here and continue with the next user, without processing any balance
+        // twice.
         if (upd) {
             return;
         }
 
-        // Every user loses their allocated balance when claims get
-        // resolved. Only those users who were right in the end regain their
-        // allocated balances in the form of available balances, plus
-        // rewards.
+        // Every user loses their allocated balance when claims get resolved.
+        // Only those users who were right in the end regain their allocated
+        // balances in the form of available balances, plus rewards.
         {
             _allocBalance[use] -= bal;
         }
@@ -489,28 +478,27 @@ contract Claims is AccessControl {
         bool vsy = _addressVotes[pro][use].get(VOTE_STAKE_Y);
         bool vsn = _addressVotes[pro][use].get(VOTE_STAKE_N);
 
-        // We keep track of every user that we processed and updated
-        // balances for already. If it ever were to happen that the same
-        // user was attempted to be updated twice, then we simply
-        // acknowledge that fact here and continue with the next user,
-        // without processing any balance twice.
+        // We keep track of every user that we processed and updated balances
+        // for already. If it ever were to happen that the same user was
+        // attempted to be updated twice, then we simply acknowledge that fact
+        // here and continue with the next user, without processing any balance
+        // twice.
         if (upd) {
             return;
         }
 
-        // Every user loses their allocated balance when claims get
-        // resolved. Only those users who were right in the end regain their
-        // allocated balances in the form of available balances, plus
-        // rewards.
+        // Every user loses their allocated balance when claims get resolved.
+        // Only those users who were right in the end regain their allocated
+        // balances in the form of available balances, plus rewards.
         {
             _allocBalance[use] -= bal;
         }
 
         // After verifying events in the real world the majority of voters
         // decided that the proposed claim turned out to be true. Everyone
-        // staking reputation in agreement with the proposed claim will now
-        // earn their share of rewards. The users' staked balances plus
-        // rewards become now part of the respective available balances.
+        // staking reputation in agreement with the proposed claim will now earn
+        // their share of rewards. The users' staked balances plus rewards
+        // become now part of the respective available balances.
         if (win && vsy) {
             uint256 shr = (bal * 100) / toy;
             uint256 rew = (shr * ton) / 100;
@@ -520,9 +508,9 @@ contract Claims is AccessControl {
 
         // After verifying events in the real world the majority of voters
         // decided that the proposed claim turned out to be false. Everyone
-        // staking reputation in disagreement with the proposed claim will
-        // now earn their share of rewards. The users' staked balances plus
-        // rewards become now part of the respective available balances.
+        // staking reputation in disagreement with the proposed claim will now
+        // earn their share of rewards. The users' staked balances plus rewards
+        // become now part of the respective available balances.
         if (!win && vsn) {
             uint256 shr = (bal * 100) / ton;
             uint256 rew = (shr * toy) / 100;
@@ -542,13 +530,7 @@ contract Claims is AccessControl {
     //
 
     // can be called by anyone, may not return anything
-    function searchBalance(
-        address use
-    )
-        public
-        view
-        returns (uint256, uint256)
-    {
+    function searchBalance(address use) public view returns (uint256, uint256) {
         return (_allocBalance[use], _availBalance[use]);
     }
 
