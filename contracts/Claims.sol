@@ -39,7 +39,11 @@ contract Claims is AccessControl {
     // CONSTANTS
     //
 
-    //
+    // BOT_ROLE is the role assigned internally to designate privileged accounts
+    // with the purpose of automating certain on behalf of the users. The goal
+    // for this automation is to enhance the user experience on the platform, by
+    // ensuring certain chores are done throughout the claim lifecycle without
+    // bothering any user with it.
     bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
     // CHALLENGE_PERIOD represents 7 days in seconds. This is the amount of time
     // that any claim of lifecycle phase "resolve" can be challenged. Only after
@@ -49,6 +53,16 @@ contract Claims is AccessControl {
     uint48 private constant CHALLENGE_PERIOD = 604_800;
     //
     uint48 private constant DAY_SECONDS = 86_400;
+    // PROPOSER_BASIS is the amount of proposer fees in basis points, which are
+    // deducted from the total pool of funds before updating user balances upon
+    // market resolution. This is the amount that users may earn by creating
+    // claims.
+    uint48 private constant PROPOSER_BASIS = 500;
+    // PROTOCOL_BASIS is the amount of protocol fees in basis points, which are
+    // deducted from the total pool of funds before updating user balances upon
+    // market resolution. This is the amount that the protocol earns by
+    // providing its services.
+    uint48 private constant PROTOCOL_BASIS = 500;
 
     // VOTE_STAKE_Y is the boolean flag for users who expressed their opinions
     // by staking in agreement with the proposed claim.
@@ -101,6 +115,9 @@ contract Claims is AccessControl {
     // VARIABLES
     //
 
+    // owner is the owner address of the privileged entity receiving protocol
+    // fees.
+    address owner = address(0);
     // token is the token address for this instance of the deployed contract.
     // That means every deployed contract is only responsible for serving claims
     // denominated in any given token address.
@@ -119,6 +136,7 @@ contract Claims is AccessControl {
         }
 
         {
+            owner = own;
             token = tok;
         }
 
@@ -167,8 +185,8 @@ contract Claims is AccessControl {
     }
 
     //
-    modifier onlySender(uint256 pro, address use) {
-        if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+    modifier onlyVoters(uint256 pro, address use) {
+        if (!_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
             revert Address("not allowed");
         }
 
@@ -277,14 +295,12 @@ contract Claims is AccessControl {
         public
         onlyRole(BOT_ROLE)
     {
-        {
-            if (_claimExpired[res] != 0) {
-                revert Expired("resolve allocated", _claimExpired[res]);
-            }
+        if (_claimExpired[res] != 0) {
+            revert Expired("resolve allocated", _claimExpired[res]);
+        }
 
-            if (_claimExpired[pro] > Time.timestamp()) {
-                revert Expired("propose active", _claimExpired[pro]);
-            }
+        if (_claimExpired[pro] > Time.timestamp()) {
+            revert Expired("propose active", _claimExpired[pro]);
         }
 
         for (uint256 i = 0; i < ind.length; i++) {
@@ -313,55 +329,70 @@ contract Claims is AccessControl {
         onlyRole(BOT_ROLE)
         returns (bool)
     {
-        {
-            if (_claimExpired[res] == 0) {
-                revert Expired("resolve unallocated", _claimExpired[res]);
-            }
-
-            if (_claimExpired[res] > Time.timestamp()) {
-                revert Expired("resolve active", _claimExpired[res]);
-            }
-
-            if (_claimExpired[res] + CHALLENGE_PERIOD <= Time.timestamp()) {
-                revert Expired("challenge active", _claimExpired[res] + CHALLENGE_PERIOD);
-            }
+        if (_claimExpired[res] == 0) {
+            revert Expired("resolve unallocated", _claimExpired[res]);
         }
 
+        if (_claimExpired[res] > Time.timestamp()) {
+            revert Expired("resolve active", _claimExpired[res]);
+        }
+
+        if (_claimExpired[res] + CHALLENGE_PERIOD <= Time.timestamp()) {
+            revert Expired("challenge active", _claimExpired[res] + CHALLENGE_PERIOD);
+        }
+
+        // Lookup the amounts of votes that we have recorded on either side. It
+        // may very well be that there are no votes or that we have a tied
+        // result. In those undesired cases, we punish those users who where
+        // selected by the random truth sampling process, simply by taking all
+        // of their staked balances away.
         uint256 yay = _truthResolve[res][VOTE_TRUTH_Y];
         uint256 nah = _truthResolve[res][VOTE_TRUTH_N];
 
+        bool don = false;
         if (yay + nah == 0 || yay == nah) {
-            return updatePunish(pro, lef, rig);
+            don = updatePunish(pro, lef, rig);
+        } else {
+            // TODO we should somehow be able to check from the outside whether a
+            // resolution was rewarded or punished
+            don = updateReward(pro, lef, rig, yay, nah);
         }
 
-        // TODO we should somehow be able to check from the outside whether a
-        // resolution was rewarded or punished
-        return updateReward(pro, lef, rig, yay, nah);
+        // Only credit the proposer and the protocol once everyone else got
+        // accounted for. The proposer is always the very first user, because
+        // they created the claim.
+        if (don) {
+            address first = _indexAddress[pro].get(0);
+            uint256 total = _stakePropose[pro][VOTE_STAKE_Y] + _stakePropose[pro][VOTE_STAKE_N];
+
+            _availBalance[first] += (total * PROPOSER_BASIS) / 100;
+            _availBalance[owner] += (total * PROTOCOL_BASIS) / 100;
+        }
+
+        return don;
     }
 
     // any whitelisted user can call
     function updateResolve(
         uint256 pro,
         uint256 res,
-        bool tru
+        bool vot
     )
         public
         onlyPaired(pro, res)
-        onlySender(pro, msg.sender)
+        onlyVoters(pro, msg.sender)
     {
-        {
-            if (_claimExpired[res] == 0) {
-                revert Expired("resolve unallocated", _claimExpired[res]);
-            }
+        if (_claimExpired[res] == 0) {
+            revert Expired("resolve unallocated", _claimExpired[res]);
+        }
 
-            if (_claimExpired[res] <= Time.timestamp()) {
-                revert Expired("resolve expired", _claimExpired[res]);
-            }
+        if (_claimExpired[res] <= Time.timestamp()) {
+            revert Expired("resolve expired", _claimExpired[res]);
         }
 
         address use = msg.sender;
 
-        if (tru) {
+        if (vot) {
             _addressVotes[pro][use].set(VOTE_TRUTH_Y);
             _truthResolve[res][VOTE_TRUTH_Y]++;
         } else {
@@ -389,48 +420,53 @@ contract Claims is AccessControl {
         }
 
         for (uint256 i = lef; i < rig; i++) {
-            updatePunishLoop(pro, i);
+            address use = _indexAddress[pro].get(i);
+            uint256 bal = _addressStake[pro].get(use);
+
+            bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
+            bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
+
+            // We keep track of every user that we processed and updated balances
+            // for already. If it ever were to happen that the same user was
+            // attempted to be updated twice, then we simply acknowledge that fact
+            // here and continue with the next user, without processing any balance
+            // twice.
+            if (upd) {
+                continue;
+            }
+
+            // Every user loses their allocated balance when claims get
+            // resolved. In the punishment case only those users who were not
+            // authorized by the random truth sampling process get their staked
+            // balance returned, minus fees.
+            {
+                _allocBalance[use] -= bal;
+            }
+
+            // Since this is the punishment case of resolving claims, every user
+            // who was selected by the random truth sampling process loses all
+            // of their staked balance. In this particular failure scenario, the
+            // protocol receives all funds taken from the users that the random
+            // truth sampling process selected. As a reminder, this punishment
+            // happens because the selected users did either not come to
+            // consensus according to events in the real world, or did not do at
+            // all what they have been asked for.
+            if (sel) {
+                _availBalance[owner] += deductFees(bal);
+            }
+
+            if (!sel) {
+                _availBalance[use] += deductFees(bal);
+            }
+
+            // At the end of the processing loop, remember which users we have
+            // updated already.
+            {
+                _addressVotes[pro][use].set(VOTE_TRUTH_U);
+            }
         }
 
         return don;
-    }
-
-    function updatePunishLoop(uint256 pro, uint256 ind) private {
-        address use = _indexAddress[pro].get(ind);
-        uint256 bal = _addressStake[pro].get(use);
-
-        bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
-        bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
-
-        // We keep track of every user that we processed and updated balances
-        // for already. If it ever were to happen that the same user was
-        // attempted to be updated twice, then we simply acknowledge that fact
-        // here and continue with the next user, without processing any balance
-        // twice.
-        if (upd) {
-            return;
-        }
-
-        // Every user loses their allocated balance when claims get resolved.
-        // Only those users who were right in the end regain their allocated
-        // balances in the form of available balances, plus rewards.
-        {
-            _allocBalance[use] -= bal;
-        }
-
-        if (sel) {
-            // TODO we need to know how much the protocol owns now
-        }
-
-        if (!sel) {
-            _availBalance[use] += bal;
-        }
-
-        // At the end of the processing loop, remember which users we have
-        // updated already.
-        {
-            _addressVotes[pro][use].set(VOTE_TRUTH_U);
-        }
     }
 
     function updateReward(
@@ -446,8 +482,13 @@ contract Claims is AccessControl {
         bool don = false;
         bool win = yay > nah;
 
-        uint256 toy = _stakePropose[pro][VOTE_STAKE_Y];
-        uint256 ton = _stakePropose[pro][VOTE_STAKE_N];
+        // Calculate the amounts for total staked assets on either side by
+        // deducting all relevant fees. The total staked assets are used as
+        // basis for calculating user rewards below, respective to their
+        // individual share of the winning pool and the captured amount from the
+        // loosing side.
+        uint256 tsy = deductFees(_stakePropose[pro][VOTE_STAKE_Y]);
+        uint256 tsn = deductFees(_stakePropose[pro][VOTE_STAKE_N]);
 
         uint256 len = _indexAddress[pro].length();
         if (rig >= len) {
@@ -456,78 +497,71 @@ contract Claims is AccessControl {
         }
 
         for (uint256 i = lef; i < rig; i++) {
-            updateRewardLoop(pro, i, win, toy, ton);
+            address use = _indexAddress[pro].get(i);
+            uint256 bal = _addressStake[pro].get(use);
+
+            bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
+            bool vsy = _addressVotes[pro][use].get(VOTE_STAKE_Y);
+            bool vsn = _addressVotes[pro][use].get(VOTE_STAKE_N);
+
+            // We keep track of every user that we processed and updated balances
+            // for already. If it ever were to happen that the same user was
+            // attempted to be updated twice, then we simply acknowledge that fact
+            // here and continue with the next user, without processing any balance
+            // twice.
+            if (upd) {
+                continue;
+            }
+
+            // Every user loses their allocated balance when claims get resolved.
+            // Only those users who were right in the end regain their allocated
+            // balances in the form of available balances, plus rewards.
+            {
+                _allocBalance[use] -= bal;
+            }
+
+            // After verifying events in the real world the majority of voters
+            // decided that the proposed claim turned out to be true. Everyone
+            // staking reputation in agreement with the proposed claim will now earn
+            // their share of rewards. The users' staked balances plus rewards
+            // become now part of the respective available balances.
+            if (win && vsy) {
+                uint256 shr = (bal * 100) / tsy;
+                uint256 rew = (shr * tsn) / 100;
+
+                _availBalance[use] += (rew + bal);
+            }
+
+            // After verifying events in the real world the majority of voters
+            // decided that the proposed claim turned out to be false. Everyone
+            // staking reputation in disagreement with the proposed claim will now
+            // earn their share of rewards. The users' staked balances plus rewards
+            // become now part of the respective available balances.
+            if (!win && vsn) {
+                uint256 shr = (bal * 100) / tsn;
+                uint256 rew = (shr * tsy) / 100;
+
+                _availBalance[use] += (rew + bal);
+            }
+
+            // At the end of the processing loop, remember which users we have
+            // updated already.
+            {
+                _addressVotes[pro][use].set(VOTE_TRUTH_U);
+            }
         }
 
         return don;
     }
 
-    function updateRewardLoop(
-        uint256 pro,
-        uint256 ind,
-        bool win,
-        uint256 toy,
-        uint256 ton
-    )
-        private
-    {
-        address use = _indexAddress[pro].get(ind);
-        uint256 bal = _addressStake[pro].get(use);
-
-        bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
-        bool vsy = _addressVotes[pro][use].get(VOTE_STAKE_Y);
-        bool vsn = _addressVotes[pro][use].get(VOTE_STAKE_N);
-
-        // We keep track of every user that we processed and updated balances
-        // for already. If it ever were to happen that the same user was
-        // attempted to be updated twice, then we simply acknowledge that fact
-        // here and continue with the next user, without processing any balance
-        // twice.
-        if (upd) {
-            return;
-        }
-
-        // Every user loses their allocated balance when claims get resolved.
-        // Only those users who were right in the end regain their allocated
-        // balances in the form of available balances, plus rewards.
-        {
-            _allocBalance[use] -= bal;
-        }
-
-        // After verifying events in the real world the majority of voters
-        // decided that the proposed claim turned out to be true. Everyone
-        // staking reputation in agreement with the proposed claim will now earn
-        // their share of rewards. The users' staked balances plus rewards
-        // become now part of the respective available balances.
-        if (win && vsy) {
-            uint256 shr = (bal * 100) / toy;
-            uint256 rew = (shr * ton) / 100;
-
-            _availBalance[use] += rew + bal;
-        }
-
-        // After verifying events in the real world the majority of voters
-        // decided that the proposed claim turned out to be false. Everyone
-        // staking reputation in disagreement with the proposed claim will now
-        // earn their share of rewards. The users' staked balances plus rewards
-        // become now part of the respective available balances.
-        if (!win && vsn) {
-            uint256 shr = (bal * 100) / ton;
-            uint256 rew = (shr * toy) / 100;
-
-            _availBalance[use] += rew + bal;
-        }
-
-        // At the end of the processing loop, remember which users we have
-        // updated already.
-        {
-            _addressVotes[pro][use].set(VOTE_TRUTH_U);
-        }
-    }
-
     //
     // PUBLIC VIEW
     //
+
+    //
+    function deductFees(uint256 tot) public pure returns (uint256) {
+        return ((tot * (10_000 - (PROPOSER_BASIS + PROTOCOL_BASIS))) / 100);
+    }
 
     // can be called by anyone, may not return anything
     function searchBalance(address use) public view returns (uint256, uint256) {
