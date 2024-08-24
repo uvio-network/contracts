@@ -55,7 +55,7 @@ describe("Claims", function () {
     it("should create claim with lifecycle phase resolve", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
 
-      await Claims.connect(Signer(0)).createResolve(
+      await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
         [Index(0), Index(4)], // index 0 and 4 are address 1 and 5

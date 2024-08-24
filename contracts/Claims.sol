@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,7 +10,7 @@ import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-contract Claims {
+contract Claims is AccessControl {
     //
     // EXTENSIONS
     //
@@ -38,6 +39,8 @@ contract Claims {
     // CONSTANTS
     //
 
+    //
+    bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
     // CHALLENGE_PERIOD represents 7 days in seconds. This is the amount of time
     // that any claim of lifecycle phase "resolve" can be challenged. Only after
     // the resolving claim expired, and only after this challenge period is over
@@ -104,13 +107,24 @@ contract Claims {
     address token = address(0);
 
     //
-    constructor(address tok) {
+    constructor(address tok, address own, address bot) {
         if (tok == address(0)) {
             revert Address("invalid token");
+        }
+        if (own == address(0)) {
+            revert Address("invalid owner");
+        }
+        if (bot == address(0)) {
+            revert Address("invalid bot");
         }
 
         {
             token = tok;
+        }
+
+        {
+            _grantRole(DEFAULT_ADMIN_ROLE, own);
+            _grantRole(BOT_ROLE, bot);
         }
     }
 
@@ -170,7 +184,15 @@ contract Claims {
     //
 
     // called by anyone
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint48 exp) public onlyAmount(pro, bal, msg.sender) {
+    function createPropose(
+        uint256 pro,
+        uint256 bal,
+        bool vot,
+        uint48 exp
+    )
+        public
+        onlyAmount(pro, bal, msg.sender)
+    {
         // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
             _claimExpired[pro] = exp;
@@ -246,9 +268,15 @@ contract Claims {
     //
     // PUBLIC PRIVILEGED
     //
-
-    // TODO ensure this can only be called by some privileged bot
-    function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public {
+    function createResolve(
+        uint256 pro,
+        uint256 res,
+        uint256[] memory ind,
+        uint48 exp
+    )
+        public
+        onlyRole(BOT_ROLE)
+    {
         {
             if (_claimExpired[res] != 0) {
                 revert Expired("resolve allocated", _claimExpired[res]);
@@ -274,9 +302,15 @@ contract Claims {
     // TODO handle nullify and dispute
 
     // called by some privileged bot
-    function updateBalance(uint256 pro, uint256 res, uint256 lef, uint256 rig)
+    function updateBalance(
+        uint256 pro,
+        uint256 res,
+        uint256 lef,
+        uint256 rig
+    )
         public
         onlyPaired(pro, res)
+        onlyRole(BOT_ROLE)
         returns (bool)
     {
         {
@@ -306,7 +340,11 @@ contract Claims {
     }
 
     // any whitelisted user can call
-    function updateResolve(uint256 pro, uint256 res, bool tru)
+    function updateResolve(
+        uint256 pro,
+        uint256 res,
+        bool tru
+    )
         public
         onlyPaired(pro, res)
         onlySender(pro, msg.sender)
@@ -364,19 +402,18 @@ contract Claims {
         bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
         bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
 
-        // We keep track of every user that we processed and updated
-        // balances for already. If it ever were to happen that the same
-        // user was attempted to be updated twice, then we simply
-        // acknowledge that fact here and continue with the next user,
-        // without processing any balance twice.
+        // We keep track of every user that we processed and updated balances
+        // for already. If it ever were to happen that the same user was
+        // attempted to be updated twice, then we simply acknowledge that fact
+        // here and continue with the next user, without processing any balance
+        // twice.
         if (upd) {
             return;
         }
 
-        // Every user loses their allocated balance when claims get
-        // resolved. Only those users who were right in the end regain their
-        // allocated balances in the form of available balances, plus
-        // rewards.
+        // Every user loses their allocated balance when claims get resolved.
+        // Only those users who were right in the end regain their allocated
+        // balances in the form of available balances, plus rewards.
         {
             _allocBalance[use] -= bal;
         }
@@ -396,7 +433,16 @@ contract Claims {
         }
     }
 
-    function updateReward(uint256 pro, uint256 lef, uint256 rig, uint256 yay, uint256 nah) private returns (bool) {
+    function updateReward(
+        uint256 pro,
+        uint256 lef,
+        uint256 rig,
+        uint256 yay,
+        uint256 nah
+    )
+        private
+        returns (bool)
+    {
         bool don = false;
         bool win = yay > nah;
 
@@ -416,7 +462,15 @@ contract Claims {
         return don;
     }
 
-    function updateRewardLoop(uint256 pro, uint256 ind, bool win, uint256 toy, uint256 ton) private {
+    function updateRewardLoop(
+        uint256 pro,
+        uint256 ind,
+        bool win,
+        uint256 toy,
+        uint256 ton
+    )
+        private
+    {
         address use = _indexAddress[pro].get(ind);
         uint256 bal = _addressStake[pro].get(use);
 
@@ -424,43 +478,42 @@ contract Claims {
         bool vsy = _addressVotes[pro][use].get(VOTE_STAKE_Y);
         bool vsn = _addressVotes[pro][use].get(VOTE_STAKE_N);
 
-        // We keep track of every user that we processed and updated
-        // balances for already. If it ever were to happen that the same
-        // user was attempted to be updated twice, then we simply
-        // acknowledge that fact here and continue with the next user,
-        // without processing any balance twice.
+        // We keep track of every user that we processed and updated balances
+        // for already. If it ever were to happen that the same user was
+        // attempted to be updated twice, then we simply acknowledge that fact
+        // here and continue with the next user, without processing any balance
+        // twice.
         if (upd) {
             return;
         }
 
-        // Every user loses their allocated balance when claims get
-        // resolved. Only those users who were right in the end regain their
-        // allocated balances in the form of available balances, plus
-        // rewards.
+        // Every user loses their allocated balance when claims get resolved.
+        // Only those users who were right in the end regain their allocated
+        // balances in the form of available balances, plus rewards.
         {
             _allocBalance[use] -= bal;
         }
 
         // After verifying events in the real world the majority of voters
         // decided that the proposed claim turned out to be true. Everyone
-        // staking reputation in agreement with the proposed claim will now
-        // earn their share of rewards. The users' staked balances plus
-        // rewards become now part of the respective available balances.
+        // staking reputation in agreement with the proposed claim will now earn
+        // their share of rewards. The users' staked balances plus rewards
+        // become now part of the respective available balances.
         if (win && vsy) {
-            uint256 shr = bal * 100 / toy;
-            uint256 rew = shr * ton / 100;
+            uint256 shr = (bal * 100) / toy;
+            uint256 rew = (shr * ton) / 100;
 
             _availBalance[use] += rew + bal;
         }
 
         // After verifying events in the real world the majority of voters
         // decided that the proposed claim turned out to be false. Everyone
-        // staking reputation in disagreement with the proposed claim will
-        // now earn their share of rewards. The users' staked balances plus
-        // rewards become now part of the respective available balances.
+        // staking reputation in disagreement with the proposed claim will now
+        // earn their share of rewards. The users' staked balances plus rewards
+        // become now part of the respective available balances.
         if (!win && vsn) {
-            uint256 shr = bal * 100 / ton;
-            uint256 rew = shr * toy / 100;
+            uint256 shr = (bal * 100) / ton;
+            uint256 rew = (shr * toy) / 100;
 
             _availBalance[use] += rew + bal;
         }
@@ -487,7 +540,15 @@ contract Claims {
     }
 
     // can be called by anyone, may not return anything
-    function searchSample(uint256 pro, uint256 res) public view onlyPaired(pro, res) returns (address[] memory) {
+    function searchSample(
+        uint256 pro,
+        uint256 res
+    )
+        public
+        view
+        onlyPaired(pro, res)
+        returns (address[] memory)
+    {
         uint256[] memory ind = _claimIndices[res];
         address[] memory lis = new address[](ind.length);
 

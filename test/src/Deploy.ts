@@ -3,9 +3,10 @@ import { Amount } from "./Amount";
 import { ethers } from "hardhat";
 
 export const Deploy = async () => {
-  const tok = await ethers.deployContract("Token");
-  const cla = await ethers.deployContract("Claims", [await tok.getAddress()]);
   const sig = await ethers.getSigners();
+
+  const tok = await ethers.deployContract("Token");
+  const cla = await ethers.deployContract("Claims", [await tok.getAddress(), sig[0].address, sig[9].address]);
 
   return {
     Address: (ind: number): Address => {
