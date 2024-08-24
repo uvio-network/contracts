@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,7 +10,7 @@ import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-contract Claims {
+contract Claims is AccessControl {
     //
     // EXTENSIONS
     //
@@ -38,6 +39,8 @@ contract Claims {
     // CONSTANTS
     //
 
+    //
+    bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
     // CHALLENGE_PERIOD represents 7 days in seconds. This is the amount of time
     // that any claim of lifecycle phase "resolve" can be challenged. Only after
     // the resolving claim expired, and only after this challenge period is over
@@ -76,7 +79,8 @@ contract Claims {
     //
     mapping(uint256 => EnumerableMap.AddressToUintMap) private _addressStake;
     //
-    mapping(uint256 => mapping(address => BitMaps.BitMap)) private _addressVotes;
+    mapping(uint256 => mapping(address => BitMaps.BitMap))
+        private _addressVotes;
     //
     mapping(address => uint256) private _allocBalance;
     //
@@ -104,13 +108,24 @@ contract Claims {
     address token = address(0);
 
     //
-    constructor(address tok) {
+    constructor(address tok, address own, address bot) {
         if (tok == address(0)) {
             revert Address("invalid token");
+        }
+        if (own == address(0)) {
+            revert Address("invalid owner");
+        }
+        if (bot == address(0)) {
+            revert Address("invalid bot");
         }
 
         {
             token = tok;
+        }
+
+        {
+            _grantRole(DEFAULT_ADMIN_ROLE, own);
+            _grantRole(BOT_ROLE, bot);
         }
     }
 
@@ -126,7 +141,11 @@ contract Claims {
     //
 
     //
-    modifier onlyAmount(uint256 pro, uint256 bal, address use) {
+    modifier onlyAmount(
+        uint256 pro,
+        uint256 bal,
+        address use
+    ) {
         // Look for the very first deposit related to the given claim. If this
         // call is for the very first deposit itself, then there is no minimum
         // balance to check against. In that very first case we simply check the
@@ -170,7 +189,12 @@ contract Claims {
     //
 
     // called by anyone
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint48 exp) public onlyAmount(pro, bal, msg.sender) {
+    function createPropose(
+        uint256 pro,
+        uint256 bal,
+        bool vot,
+        uint48 exp
+    ) public onlyAmount(pro, bal, msg.sender) {
         // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
             _claimExpired[pro] = exp;
@@ -247,8 +271,12 @@ contract Claims {
     // PUBLIC PRIVILEGED
     //
 
-    // TODO ensure this can only be called by some privileged bot
-    function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public {
+    function createResolve(
+        uint256 pro,
+        uint256 res,
+        uint256[] memory ind,
+        uint48 exp
+    ) public onlyRole(BOT_ROLE) {
         {
             if (_claimExpired[res] != 0) {
                 revert Expired("resolve allocated", _claimExpired[res]);
@@ -274,11 +302,12 @@ contract Claims {
     // TODO handle nullify and dispute
 
     // called by some privileged bot
-    function updateBalance(uint256 pro, uint256 res, uint256 lef, uint256 rig)
-        public
-        onlyPaired(pro, res)
-        returns (bool)
-    {
+    function updateBalance(
+        uint256 pro,
+        uint256 res,
+        uint256 lef,
+        uint256 rig
+    ) public onlyPaired(pro, res) onlyRole(BOT_ROLE) returns (bool) {
         {
             if (_claimExpired[res] == 0) {
                 revert Expired("resolve unallocated", _claimExpired[res]);
@@ -289,7 +318,10 @@ contract Claims {
             }
 
             if (_claimExpired[res] + CHALLENGE_PERIOD <= Time.timestamp()) {
-                revert Expired("challenge active", _claimExpired[res] + CHALLENGE_PERIOD);
+                revert Expired(
+                    "challenge active",
+                    _claimExpired[res] + CHALLENGE_PERIOD
+                );
             }
         }
 
@@ -306,11 +338,11 @@ contract Claims {
     }
 
     // any whitelisted user can call
-    function updateResolve(uint256 pro, uint256 res, bool tru)
-        public
-        onlyPaired(pro, res)
-        onlySender(pro, msg.sender)
-    {
+    function updateResolve(
+        uint256 pro,
+        uint256 res,
+        bool tru
+    ) public onlyPaired(pro, res) onlySender(pro, msg.sender) {
         {
             if (_claimExpired[res] == 0) {
                 revert Expired("resolve unallocated", _claimExpired[res]);
@@ -341,7 +373,11 @@ contract Claims {
     //
 
     // TODO this result cannot be disputed
-    function updatePunish(uint256 pro, uint256 lef, uint256 rig) private returns (bool) {
+    function updatePunish(
+        uint256 pro,
+        uint256 lef,
+        uint256 rig
+    ) private returns (bool) {
         bool don = false;
 
         uint256 len = _indexAddress[pro].length();
@@ -396,7 +432,13 @@ contract Claims {
         }
     }
 
-    function updateReward(uint256 pro, uint256 lef, uint256 rig, uint256 yay, uint256 nah) private returns (bool) {
+    function updateReward(
+        uint256 pro,
+        uint256 lef,
+        uint256 rig,
+        uint256 yay,
+        uint256 nah
+    ) private returns (bool) {
         bool don = false;
         bool win = yay > nah;
 
@@ -416,7 +458,13 @@ contract Claims {
         return don;
     }
 
-    function updateRewardLoop(uint256 pro, uint256 ind, bool win, uint256 toy, uint256 ton) private {
+    function updateRewardLoop(
+        uint256 pro,
+        uint256 ind,
+        bool win,
+        uint256 toy,
+        uint256 ton
+    ) private {
         address use = _indexAddress[pro].get(ind);
         uint256 bal = _addressStake[pro].get(use);
 
@@ -447,8 +495,8 @@ contract Claims {
         // earn their share of rewards. The users' staked balances plus
         // rewards become now part of the respective available balances.
         if (win && vsy) {
-            uint256 shr = bal * 100 / toy;
-            uint256 rew = shr * ton / 100;
+            uint256 shr = (bal * 100) / toy;
+            uint256 rew = (shr * ton) / 100;
 
             _availBalance[use] += rew + bal;
         }
@@ -459,8 +507,8 @@ contract Claims {
         // now earn their share of rewards. The users' staked balances plus
         // rewards become now part of the respective available balances.
         if (!win && vsn) {
-            uint256 shr = bal * 100 / ton;
-            uint256 rew = shr * toy / 100;
+            uint256 shr = (bal * 100) / ton;
+            uint256 rew = (shr * toy) / 100;
 
             _availBalance[use] += rew + bal;
         }
@@ -487,7 +535,10 @@ contract Claims {
     }
 
     // can be called by anyone, may not return anything
-    function searchSample(uint256 pro, uint256 res) public view onlyPaired(pro, res) returns (address[] memory) {
+    function searchSample(
+        uint256 pro,
+        uint256 res
+    ) public view onlyPaired(pro, res) returns (address[] memory) {
         uint256[] memory ind = _claimIndices[res];
         address[] memory lis = new address[](ind.length);
 
