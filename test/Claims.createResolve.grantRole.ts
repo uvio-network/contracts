@@ -25,7 +25,16 @@ describe("Claims", function () {
         }
 
         {
-          expect(await Claims.hasRole(Role("BOT_ROLE"), Address(7))).to.equal(true);
+          expect(await Claims.hasRole(Role("BOT_ROLE"), Address(7))).to.equal(true); // granted
+          expect(await Claims.hasRole(Role("BOT_ROLE"), Address(9))).to.equal(false);
+        }
+
+        {
+          await Claims.connect(Signer(0)).revokeRole(Role("BOT_ROLE"), Address(7));
+        }
+
+        {
+          expect(await Claims.hasRole(Role("BOT_ROLE"), Address(7))).to.equal(false);
           expect(await Claims.hasRole(Role("BOT_ROLE"), Address(9))).to.equal(false);
         }
       });
@@ -40,6 +49,15 @@ describe("Claims", function () {
 
         {
           await Claims.connect(Signer(0)).grantRole(Role("NOT_ROLE"), Address(7));
+        }
+
+        {
+          expect(await Claims.hasRole(Role("BOT_ROLE"), Address(7))).to.equal(false);
+          expect(await Claims.hasRole(Role("BOT_ROLE"), Address(9))).to.equal(false);
+        }
+
+        {
+          await Claims.connect(Signer(0)).revokeRole(Role("NOT_ROLE"), Address(7));
         }
 
         {
