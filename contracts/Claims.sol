@@ -225,7 +225,6 @@ contract Claims is AccessControl {
     {
         // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
-            // TODO expose and test claim expiry
             _claimExpired[pro] = exp;
         }
 
@@ -326,6 +325,11 @@ contract Claims is AccessControl {
     {
         if (ind.length == 0) {
             revert Mapping("indices empty");
+        }
+
+        if (pro == res) {
+            // TODO test
+            revert Mapping("claim overwrite");
         }
 
         if (_claimExpired[res] != 0) {
@@ -642,6 +646,11 @@ contract Claims is AccessControl {
     // can be called by anyone, may not return anything
     function searchBalance(address use) public view returns (uint256, uint256) {
         return (_allocBalance[use], _availBalance[use]);
+    }
+
+    // can be called by anyone, may not return anything
+    function searchExpired(uint256 cla) public view returns (uint256) {
+        return _claimExpired[cla];
     }
 
     // can be called by anyone, may not return anything
