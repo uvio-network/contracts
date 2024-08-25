@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,7 +10,7 @@ import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-contract Claims {
+contract Claims is AccessControl {
     //
     // EXTENSIONS
     //
@@ -38,6 +39,12 @@ contract Claims {
     // CONSTANTS
     //
 
+    // BOT_ROLE is the role assigned internally to designate privileged accounts
+    // with the purpose of automating certain on behalf of the users. The goal
+    // for this automation is to enhance the user experience on the platform, by
+    // ensuring certain chores are done throughout the claim lifecycle without
+    // bothering any user with it.
+    bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
     // CHALLENGE_PERIOD represents 7 days in seconds. This is the amount of time
     // that any claim of lifecycle phase "resolve" can be challenged. Only after
     // the resolving claim expired, and only after this challenge period is over
@@ -128,6 +135,10 @@ contract Claims {
         {
             owner = own;
             token = tok;
+        }
+
+        {
+            _grantRole(DEFAULT_ADMIN_ROLE, own);
         }
     }
 
@@ -276,8 +287,16 @@ contract Claims {
     // PUBLIC PRIVILEGED
     //
 
-    // called by some privileged bot
-    function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public {
+    // must be called by some privileged bot
+    function createResolve(
+        uint256 pro,
+        uint256 res,
+        uint256[] memory ind,
+        uint48 exp
+    )
+        public
+        onlyRole(BOT_ROLE)
+    {
         if (_claimExpired[res] != 0) {
             revert Expired("resolve allocated", _claimExpired[res]);
         }
@@ -308,7 +327,7 @@ contract Claims {
 
     // TODO handle nullify and dispute
 
-    // called by some privileged bot
+    // can be called by anyone
     function updateBalance(
         uint256 pro,
         uint256 res,

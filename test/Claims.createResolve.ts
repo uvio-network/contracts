@@ -6,6 +6,7 @@ import { Expiry } from "./src/Expiry";
 import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { network } from "hardhat";
+import { Role } from "./src/Role";
 import { Side } from "./src/Side";
 
 describe("Claims", function () {
@@ -55,6 +56,8 @@ describe("Claims", function () {
     it("signer 7 can create claim with lifecycle phase resolve", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
 
+      await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
         Claim(7),
@@ -68,6 +71,8 @@ describe("Claims", function () {
 
     it("signer 9 can create claim with lifecycle phase resolve", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+      await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
