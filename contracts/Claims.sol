@@ -203,7 +203,7 @@ contract Claims is AccessControl {
         }
 
         if (_addressVotes[pro][use].get(VOTE_TRUTH_V)) {
-            revert Process("already voted");
+            revert Address("already voted");
         }
 
         _;
@@ -340,7 +340,7 @@ contract Claims is AccessControl {
             address use = _indexAddress[pro].get(ind[i]);
 
             if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
-                revert Address("already selected");
+                revert Mapping("already selected");
             }
 
             {

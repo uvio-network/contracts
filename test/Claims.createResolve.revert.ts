@@ -148,7 +148,7 @@ describe("Claims", function () {
           Expiry(7, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
       it("if indices are duplicated, 4 4", async function () {
@@ -166,7 +166,7 @@ describe("Claims", function () {
           Expiry(7, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
       it("if resolve already created, immediately", async function () {
