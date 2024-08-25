@@ -6,6 +6,8 @@ import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { Side } from "./src/Side";
 
+const EXPIRY = Expiry(2, "days");
+
 describe("Claims", function () {
   describe("createPropose", function () {
     const createPropose = async () => {
@@ -17,7 +19,7 @@ describe("Claims", function () {
         Claim(1),
         Amount(10),
         Side(true),
-        Expiry(2, "days"),
+        EXPIRY,
       );
 
       return { Address, Claims };
@@ -32,76 +34,46 @@ describe("Claims", function () {
         Claim(1),
         Amount(5),
         Side(true),
-        Expiry(2, "days"),
+        EXPIRY,
       );
       await Claims.connect(Signer(2)).createPropose(
         Claim(1),
         Amount(30),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(3)).createPropose(
         Claim(1),
         Amount(50),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
 
       await Claims.connect(Signer(1)).createPropose(
         Claim(1),
         Amount(20),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(2)).createPropose(
         Claim(1),
         Amount(5),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
 
       await Claims.connect(Signer(2)).createPropose(
         Claim(1),
         Amount(5),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(2)).createPropose(
         Claim(1),
         Amount(5),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
-
-      return { Address, Claims };
-    }
-
-    const createProposeRevert = async () => {
-      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
-
-      {
-        await Balance([1, 2], [10, 50]);
-      }
-
-      {
-        const txn = Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(5, "hours"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
-      }
-
-      {
-        await Claims.connect(Signer(2)).createPropose(
-          Claim(1),
-          Amount(50),
-          Side(true),
-          Expiry(9, "weeks"),
-        );
-      }
 
       return { Address, Claims };
     }
@@ -156,12 +128,57 @@ describe("Claims", function () {
       expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3)]);
     });
 
-    it("if prior attempt failed", async function () {
-      const { Address, Claims } = await loadFixture(createProposeRevert);
+    it("if prior attempt by signer 1 failed", async function () {
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([1, 2], [10, 50]);
+
+      const txn = Claims.connect(Signer(1)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        Expiry(5, "hours"),
+      );
+
+      await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+
+      await Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(50),
+        Side(true),
+        EXPIRY,
+      );
 
       const res = await Claims.searchBalance(Address(2));
 
       expect(res[0]).to.equal(Amount(50)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("if prior attempt by signer 2 failed", async function () {
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([1, 2], [10, 50]);
+
+      const txn = Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        Expiry(5, "hours"),
+      );
+
+      await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+
+      await Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(30),
+        Side(true),
+        EXPIRY,
+      );
+
+      const res = await Claims.searchBalance(Address(2));
+
+      expect(res[0]).to.equal(Amount(30)); // allocated
       expect(res[1]).to.equal(0);          // available
     });
   });

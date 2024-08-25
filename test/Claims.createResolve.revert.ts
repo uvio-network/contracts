@@ -133,6 +133,42 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
+      it("if indices are out of range, 5", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(5)],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "EnumerableMapNonexistentKey");
+      });
+
+      it("if indices are out of range, 11", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(11), Index(4)],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "EnumerableMapNonexistentKey");
+      });
+
       it("if indices are duplicated, 0 0", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
