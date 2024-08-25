@@ -38,6 +38,21 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
       });
 
+      it("if propose is empty", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1], 10);
+
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(0),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
       it("if expiry is not at least 1 day in the future", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 

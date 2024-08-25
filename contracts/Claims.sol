@@ -50,53 +50,53 @@ contract Claims is AccessControl {
 
     // CLAIM_BALANCE_P is the bitmap index of the boolean flag for claims that
     // got resolved by punishing users.
-    uint8 private constant CLAIM_BALANCE_P = 0;
+    uint8 public constant CLAIM_BALANCE_P = 0;
     // CLAIM_BALANCE_R is the bitmap index of the boolean flag for claims that
     // got resolved by rewarding users.
-    uint8 private constant CLAIM_BALANCE_R = 1;
+    uint8 public constant CLAIM_BALANCE_R = 1;
     // CLAIM_BALANCE_U is the bitmap index of the boolean flag for claims that
     // got already fully resolved.
-    uint8 private constant CLAIM_BALANCE_U = 2;
+    uint8 public constant CLAIM_BALANCE_U = 2;
 
     // PROPOSER_BASIS is the amount of proposer fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that users may earn by creating
     // claims.
-    uint48 private constant PROPOSER_BASIS = 500;
+    uint48 public constant PROPOSER_BASIS = 500;
     // PROTOCOL_BASIS is the amount of protocol fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that the protocol earns by
     // providing its services.
-    uint48 private constant PROTOCOL_BASIS = 500;
+    uint48 public constant PROTOCOL_BASIS = 500;
 
     // SECONDS_DAY is one day in seconds.
-    uint48 private constant SECONDS_DAY = 86_400;
+    uint48 public constant SECONDS_DAY = 86_400;
     // SECONDS_WEEK is one week in seconds.
-    uint48 private constant SECONDS_WEEK = 604_800;
+    uint48 public constant SECONDS_WEEK = 604_800;
 
     // VOTE_STAKE_Y is the bitmap index of the boolean flag for users who
     // expressed their opinions by staking in agreement with the proposed claim.
-    uint8 private constant VOTE_STAKE_Y = 0;
+    uint8 public constant VOTE_STAKE_Y = 0;
     // VOTE_STAKE_N is the bitmap index of the boolean flag for users who
     // expressed their opinions by staking in disagreement with the proposed
     // claim.
-    uint8 private constant VOTE_STAKE_N = 1;
+    uint8 public constant VOTE_STAKE_N = 1;
     // VOTE_TRUTH_Y is the bitmap index of the boolean flag for users who
     // verified real events by voting for the proposed claim to be true.
-    uint8 private constant VOTE_TRUTH_Y = 2;
+    uint8 public constant VOTE_TRUTH_Y = 2;
     // VOTE_TRUTH_N is the bitmap index of the boolean flag for users who
     // verified real events by voting for the proposed claim to be false.
-    uint8 private constant VOTE_TRUTH_N = 3;
+    uint8 public constant VOTE_TRUTH_N = 3;
     // VOTE_TRUTH_S is the bitmap index of the boolean flag for users who have
     // been selected and authorized to participate in the random truth sampling
     // process.
-    uint8 private constant VOTE_TRUTH_S = 4;
+    uint8 public constant VOTE_TRUTH_S = 4;
     // VOTE_TRUTH_V is the bitmap index of the boolean flag for users who have
     // cast their vote already.
-    uint8 private constant VOTE_TRUTH_V = 5;
+    uint8 public constant VOTE_TRUTH_V = 5;
     // VOTE_TRUTH_U is the bitmap index of the boolean flag for users who have
     // been processed and whose balances have been updated already.
-    uint8 private constant VOTE_TRUTH_U = 6;
+    uint8 public constant VOTE_TRUTH_U = 6;
 
     //
     // MAPPINGS
@@ -131,11 +131,11 @@ contract Claims is AccessControl {
 
     // owner is the owner address of the privileged entity receiving protocol
     // fees.
-    address owner = address(0);
+    address public owner = address(0);
     // token is the token address for this instance of the deployed contract.
     // That means every deployed contract is only responsible for serving claims
     // denominated in any given token address.
-    address token = address(0);
+    address public token = address(0);
 
     //
     constructor(address tok, address own) {
@@ -190,7 +190,7 @@ contract Claims is AccessControl {
         }
 
         if (_claimMapping[pro] != res) {
-            revert Mapping("not related");
+            revert Mapping("no related");
         }
 
         _;
@@ -223,6 +223,10 @@ contract Claims is AccessControl {
         public
         onlyAmount(pro, bal, msg.sender)
     {
+        if (pro == 0) {
+            revert Mapping("claim invalid");
+        }
+
         // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
             _claimExpired[pro] = exp;
@@ -232,7 +236,7 @@ contract Claims is AccessControl {
         // least 1 day in the future. Once a claim was created its expiry starts
         // to run out. Users can only keep staking as long as the claim they
         // want to stake on did not yet expire.
-        if (_claimExpired[pro] <= Time.timestamp() + SECONDS_DAY) {
+        if (_claimExpired[pro] < Time.timestamp() + SECONDS_DAY) {
             revert Expired("propose expired", _claimExpired[pro]);
         }
 
@@ -324,11 +328,18 @@ contract Claims is AccessControl {
         onlyRole(BOT_ROLE)
     {
         if (ind.length == 0) {
-            revert Mapping("indices empty");
+            revert Mapping("indices invalid");
+        }
+
+        if (_claimExpired[pro] == 0) {
+            revert Mapping("propose invalid");
+        }
+
+        if (pro == 0 || res == 0) {
+            revert Mapping("claim, invalid");
         }
 
         if (pro == res) {
-            // TODO test
             revert Mapping("claim overwrite");
         }
 
@@ -370,7 +381,6 @@ contract Claims is AccessControl {
     )
         public
         onlyPaired(pro, res)
-        returns (bool)
     {
         if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
@@ -388,7 +398,7 @@ contract Claims is AccessControl {
         // the resolving claim expired, AND only after some designated challenge
         // period passed on top of the claim's expiry, only then can a claim be
         // finalized and user balances be updated.
-        if (_claimExpired[res] + SECONDS_WEEK <= Time.timestamp()) {
+        if (_claimExpired[res] + SECONDS_WEEK > Time.timestamp()) {
             revert Expired("challenge active", _claimExpired[res] + SECONDS_WEEK);
         }
 
@@ -400,11 +410,14 @@ contract Claims is AccessControl {
         uint256 yay = _truthResolve[res][VOTE_TRUTH_Y];
         uint256 nah = _truthResolve[res][VOTE_TRUTH_N];
 
+        //
+        uint256 fee = (10_000 - (PROPOSER_BASIS + PROTOCOL_BASIS));
+
         bool don = false;
         if (yay + nah == 0 || yay == nah) {
-            don = updatePunish(pro, res, lef, rig);
+            don = updatePunish(pro, res, fee, lef, rig);
         } else {
-            don = updateReward(pro, res, lef, rig, yay, nah);
+            don = updateReward(pro, res, fee, lef, rig, yay, nah);
         }
 
         // Only credit the proposer and the protocol once everyone else got
@@ -415,18 +428,14 @@ contract Claims is AccessControl {
                 address first = _indexAddress[pro].get(0);
                 uint256 total = _stakePropose[pro][VOTE_STAKE_Y] + _stakePropose[pro][VOTE_STAKE_N];
 
-                _availBalance[first] += (total * PROPOSER_BASIS) / 100;
-                _availBalance[owner] += (total * PROTOCOL_BASIS) / 100;
+                _availBalance[first] += (total * PROPOSER_BASIS) / 10_000;
+                _availBalance[owner] += (total * PROTOCOL_BASIS) / 10_000;
             }
 
             {
-                // TODO test that balances cannot be updated anymore once
-                // everything got accounted for
                 _claimBalance[res].set(CLAIM_BALANCE_U);
             }
         }
-
-        return don;
     }
 
     // any whitelisted user can call
@@ -443,7 +452,7 @@ contract Claims is AccessControl {
             revert Expired("resolve unallocated", _claimExpired[res]);
         }
 
-        if (_claimExpired[res] <= Time.timestamp()) {
+        if (_claimExpired[res] < Time.timestamp()) {
             revert Expired("resolve expired", _claimExpired[res]);
         }
 
@@ -470,6 +479,7 @@ contract Claims is AccessControl {
     function updatePunish(
         uint256 pro,
         uint256 res,
+        uint256 fee,
         uint256 lef,
         uint256 rig
     )
@@ -523,11 +533,12 @@ contract Claims is AccessControl {
             // consensus according to events in the real world, or did not do at
             // all what they have been asked for.
             if (sel) {
-                _availBalance[owner] += deductFees(bal);
+                // TODO this is probably wrong and needs testing
+                _availBalance[owner] += (bal * fee) / 10_000;
             }
 
             if (!sel) {
-                _availBalance[use] += deductFees(bal);
+                _availBalance[use] += (bal * fee) / 10_000;
             }
 
             // At the end of the processing loop, remember which users we have
@@ -543,6 +554,7 @@ contract Claims is AccessControl {
     function updateReward(
         uint256 pro,
         uint256 res,
+        uint256 fee,
         uint256 lef,
         uint256 rig,
         uint256 yay,
@@ -559,14 +571,12 @@ contract Claims is AccessControl {
         // basis for calculating user rewards below, respective to their
         // individual share of the winning pool and the captured amount from the
         // loosing side.
-        uint256 tsy = deductFees(_stakePropose[pro][VOTE_STAKE_Y]);
-        uint256 tsn = deductFees(_stakePropose[pro][VOTE_STAKE_N]);
+        uint256 fey = (_stakePropose[pro][VOTE_STAKE_Y] * fee) / 10_000;
+        uint256 fen = (_stakePropose[pro][VOTE_STAKE_N] * fee) / 10_000;
 
         uint256 len = _indexAddress[pro].length();
         if (rig >= len) {
             {
-                // TODO we should somehow be able to check from the outside
-                // whether a resolution was rewarded or punished
                 _claimBalance[res].set(CLAIM_BALANCE_R);
             }
 
@@ -600,16 +610,21 @@ contract Claims is AccessControl {
                 _allocBalance[use] -= bal;
             }
 
+            // Since we are working with the total amounts of staked assets as
+            // deducted fee basis, we also need to deduct the fees from every
+            // single staked balance here.
+            uint256 ded = (bal * fee) / 10_000;
+
             // After verifying events in the real world the majority of voters
             // decided that the proposed claim turned out to be true. Everyone
             // staking reputation in agreement with the proposed claim will now earn
             // their share of rewards. The users' staked balances plus rewards
             // become now part of the respective available balances.
             if (win && vsy) {
-                uint256 shr = (bal * 100) / tsy;
-                uint256 rew = (shr * tsn) / 100;
+                uint256 shr = (ded * 100) / fey;
+                uint256 rew = (shr * fen) / 100;
 
-                _availBalance[use] += (rew + bal);
+                _availBalance[use] += rew + ded;
             }
 
             // After verifying events in the real world the majority of voters
@@ -618,10 +633,10 @@ contract Claims is AccessControl {
             // earn their share of rewards. The users' staked balances plus rewards
             // become now part of the respective available balances.
             if (!win && vsn) {
-                uint256 shr = (bal * 100) / tsn;
-                uint256 rew = (shr * tsy) / 100;
+                uint256 shr = (ded * 100) / fen;
+                uint256 rew = (shr * fey) / 100;
 
-                _availBalance[use] += (rew + bal);
+                _availBalance[use] += rew + ded;
             }
 
             // At the end of the processing loop, remember which users we have
@@ -640,7 +655,7 @@ contract Claims is AccessControl {
 
     //
     function deductFees(uint256 tot) public pure returns (uint256) {
-        return ((tot * (10_000 - (PROPOSER_BASIS + PROTOCOL_BASIS))) / 100);
+        return ((tot * (10_000 - (PROPOSER_BASIS + PROTOCOL_BASIS))) / 10_000);
     }
 
     // can be called by anyone, may not return anything
