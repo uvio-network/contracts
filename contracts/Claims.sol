@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -10,7 +9,7 @@ import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-contract Claims is AccessControl {
+contract Claims {
     //
     // EXTENSIONS
     //
@@ -39,12 +38,6 @@ contract Claims is AccessControl {
     // CONSTANTS
     //
 
-    // BOT_ROLE is the role assigned internally to designate privileged accounts
-    // with the purpose of automating certain on behalf of the users. The goal
-    // for this automation is to enhance the user experience on the platform, by
-    // ensuring certain chores are done throughout the claim lifecycle without
-    // bothering any user with it.
-    bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
     // CHALLENGE_PERIOD represents 7 days in seconds. This is the amount of time
     // that any claim of lifecycle phase "resolve" can be challenged. Only after
     // the resolving claim expired, and only after this challenge period is over
@@ -124,25 +117,17 @@ contract Claims is AccessControl {
     address token = address(0);
 
     //
-    constructor(address tok, address own, address bot) {
+    constructor(address tok, address own) {
         if (tok == address(0)) {
             revert Address("invalid token");
         }
         if (own == address(0)) {
             revert Address("invalid owner");
         }
-        if (bot == address(0)) {
-            revert Address("invalid bot");
-        }
 
         {
             owner = own;
             token = tok;
-        }
-
-        {
-            _grantRole(DEFAULT_ADMIN_ROLE, own);
-            _grantRole(BOT_ROLE, bot);
         }
     }
 
@@ -286,15 +271,7 @@ contract Claims is AccessControl {
     //
     // PUBLIC PRIVILEGED
     //
-    function createResolve(
-        uint256 pro,
-        uint256 res,
-        uint256[] memory ind,
-        uint48 exp
-    )
-        public
-        onlyRole(BOT_ROLE)
-    {
+    function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public {
         if (_claimExpired[res] != 0) {
             revert Expired("resolve allocated", _claimExpired[res]);
         }
@@ -326,7 +303,6 @@ contract Claims is AccessControl {
     )
         public
         onlyPaired(pro, res)
-        onlyRole(BOT_ROLE)
         returns (bool)
     {
         if (_claimExpired[res] == 0) {
@@ -368,6 +344,9 @@ contract Claims is AccessControl {
             _availBalance[first] += (total * PROPOSER_BASIS) / 100;
             _availBalance[owner] += (total * PROTOCOL_BASIS) / 100;
         }
+
+        // TODO ensure balances cannot be updated anymore once everything got
+        // accounted for
 
         return don;
     }

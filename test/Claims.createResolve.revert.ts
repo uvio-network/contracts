@@ -59,45 +59,6 @@ describe("Claims", function () {
         return { Claims, Signer };
       };
 
-      it("if owner is signer", async function () {
-        const { Claims, Signer } = await loadFixture(expirePropose);
-
-        const txn = Claims.connect(Signer(0)).createResolve(
-          Claim(1),
-          Claim(7),
-          [Index(0), Index(4)],
-          Expiry(7, "days"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
-      });
-
-      it("if voter is signer", async function () {
-        const { Claims, Signer } = await loadFixture(expirePropose);
-
-        const txn = Claims.connect(Signer(1)).createResolve(
-          Claim(1),
-          Claim(7),
-          [Index(0), Index(4)],
-          Expiry(7, "days"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
-      });
-
-      it("if staker is signer", async function () {
-        const { Claims, Signer } = await loadFixture(expirePropose);
-
-        const txn = Claims.connect(Signer(2)).createResolve(
-          Claim(1),
-          Claim(7),
-          [Index(0), Index(4)],
-          Expiry(7, "days"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
-      });
-
       it("if resolve already created, immediately", async function () {
         const { Claims, Signer } = await loadFixture(expirePropose);
 
