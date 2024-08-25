@@ -130,7 +130,7 @@ describe("Claims", function () {
           Expiry(7, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
       it("if indices are duplicated, 0 0", async function () {

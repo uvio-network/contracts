@@ -325,7 +325,7 @@ contract Claims is AccessControl {
         onlyRole(BOT_ROLE)
     {
         if (ind.length == 0) {
-            revert Address("no address");
+            revert Mapping("indices empty");
         }
 
         if (_claimExpired[res] != 0) {
