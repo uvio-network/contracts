@@ -34,6 +34,8 @@ contract Claims is AccessControl {
     error Expired(string why, uint48 unx);
     //
     error Mapping(string why);
+    //
+    error Process(string why);
 
     //
     // CONSTANTS
@@ -45,14 +47,17 @@ contract Claims is AccessControl {
     // ensuring certain chores are done throughout the claim lifecycle without
     // bothering any user with it.
     bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
-    // CHALLENGE_PERIOD represents 7 days in seconds. This is the amount of time
-    // that any claim of lifecycle phase "resolve" can be challenged. Only after
-    // the resolving claim expired, and only after this challenge period is over
-    // on top of the mentioned expiry, only then can a claim be finalized and
-    // user balances be updated.
-    uint48 private constant CHALLENGE_PERIOD = 604_800;
-    //
-    uint48 private constant DAY_SECONDS = 86_400;
+
+    // CLAIM_BALANCE_P is the bitmap index of the boolean flag for claims that
+    // got resolved by punishing users.
+    uint8 private constant CLAIM_BALANCE_P = 0;
+    // CLAIM_BALANCE_R is the bitmap index of the boolean flag for claims that
+    // got resolved by rewarding users.
+    uint8 private constant CLAIM_BALANCE_R = 1;
+    // CLAIM_BALANCE_U is the bitmap index of the boolean flag for claims that
+    // got already fully resolved.
+    uint8 private constant CLAIM_BALANCE_U = 2;
+
     // PROPOSER_BASIS is the amount of proposer fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that users may earn by creating
@@ -64,26 +69,33 @@ contract Claims is AccessControl {
     // providing its services.
     uint48 private constant PROTOCOL_BASIS = 500;
 
-    // VOTE_STAKE_Y is the boolean flag for users who expressed their opinions
-    // by staking in agreement with the proposed claim.
+    // SECONDS_DAY is one day in seconds.
+    uint48 private constant SECONDS_DAY = 86_400;
+    // SECONDS_WEEK is one week in seconds.
+    uint48 private constant SECONDS_WEEK = 604_800;
+
+    // VOTE_STAKE_Y is the bitmap index of the boolean flag for users who
+    // expressed their opinions by staking in agreement with the proposed claim.
     uint8 private constant VOTE_STAKE_Y = 0;
-    // VOTE_STAKE_N is the boolean flag for users who expressed their opinions
-    // by staking in disagreement with the proposed claim.
+    // VOTE_STAKE_N is the bitmap index of the boolean flag for users who
+    // expressed their opinions by staking in disagreement with the proposed
+    // claim.
     uint8 private constant VOTE_STAKE_N = 1;
-    // VOTE_TRUTH_Y is the boolean flag for users who verified real events by
-    // voting for the proposed claim to be true.
+    // VOTE_TRUTH_Y is the bitmap index of the boolean flag for users who
+    // verified real events by voting for the proposed claim to be true.
     uint8 private constant VOTE_TRUTH_Y = 2;
-    // VOTE_TRUTH_N is the boolean flag for users who verified real events by
-    // voting for the proposed claim to be false.
+    // VOTE_TRUTH_N is the bitmap index of the boolean flag for users who
+    // verified real events by voting for the proposed claim to be false.
     uint8 private constant VOTE_TRUTH_N = 3;
-    // VOTE_TRUTH_S is the boolean flag for users who have been selected and
-    // authorized to vote in the random truth sampling process.
+    // VOTE_TRUTH_S is the bitmap index of the boolean flag for users who have
+    // been selected and authorized to participate in the random truth sampling
+    // process.
     uint8 private constant VOTE_TRUTH_S = 4;
-    // VOTE_TRUTH_V is the boolean flag for users who have cast their vote
-    // already.
+    // VOTE_TRUTH_V is the bitmap index of the boolean flag for users who have
+    // cast their vote already.
     uint8 private constant VOTE_TRUTH_V = 5;
-    // VOTE_TRUTH_U is the boolean flag for users who have been processed and
-    // whos' balances have been updated already.
+    // VOTE_TRUTH_U is the bitmap index of the boolean flag for users who have
+    // been processed and whose balances have been updated already.
     uint8 private constant VOTE_TRUTH_U = 6;
 
     //
@@ -91,13 +103,15 @@ contract Claims is AccessControl {
     //
 
     //
-    mapping(uint256 => EnumerableMap.AddressToUintMap) private _addressStake;
+    mapping(uint256 => mapping(address => uint256)) private _addressStake;
     //
     mapping(uint256 => mapping(address => BitMaps.BitMap)) private _addressVotes;
     //
     mapping(address => uint256) private _allocBalance;
     //
     mapping(address => uint256) private _availBalance;
+    //
+    mapping(uint256 => BitMaps.BitMap) private _claimBalance;
     //
     mapping(uint256 => uint48) private _claimExpired;
     //
@@ -159,11 +173,9 @@ contract Claims is AccessControl {
         // call is for the very first deposit itself, then there is no minimum
         // balance to check against. In that very first case we simply check the
         // given balance against 0, which allows the creator of the claim to
-        // define the minimum stake required to participate in this market.
-
-        (, address fir) = _indexAddress[pro].tryGet(0);
-        (, uint256 min) = _addressStake[pro].tryGet(fir);
-
+        // define the minimum stake required to participate in this market. All
+        // following users have then to comply with the minimum balance defined.
+        uint256 min = _addressStake[pro][address(0)];
         if (bal < min) {
             revert Balance("below minimum", min);
         }
@@ -191,7 +203,7 @@ contract Claims is AccessControl {
         }
 
         if (_addressVotes[pro][use].get(VOTE_TRUTH_V)) {
-            revert Address("already voted");
+            revert Process("already voted");
         }
 
         _;
@@ -213,6 +225,7 @@ contract Claims is AccessControl {
     {
         // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
+            // TODO expose and test claim expiry
             _claimExpired[pro] = exp;
         }
 
@@ -220,7 +233,7 @@ contract Claims is AccessControl {
         // least 1 day in the future. Once a claim was created its expiry starts
         // to run out. Users can only keep staking as long as the claim they
         // want to stake on did not yet expire.
-        if (_claimExpired[pro] <= Time.timestamp() + DAY_SECONDS) {
+        if (_claimExpired[pro] <= Time.timestamp() + SECONDS_DAY) {
             revert Expired("propose expired", _claimExpired[pro]);
         }
 
@@ -257,12 +270,26 @@ contract Claims is AccessControl {
             _stakePropose[pro][VOTE_STAKE_N] += bal;
         }
 
-        (bool exi, uint256 cur) = _addressStake[pro].tryGet(use);
-        if (exi) {
-            _addressStake[pro].set(use, cur + bal);
-        } else {
-            _addressStake[pro].set(use, bal);
+        // Allocate the user stakes and keep track of the user address based on
+        // their position in our index list. Consecutive calls by the same user
+        // will maintain the user's individual index.
+        if (_addressStake[pro][use] == 0) {
+            _addressStake[pro][use] = bal;
             _indexAddress[pro].set(_indexAddress[pro].length(), use);
+        } else {
+            _addressStake[pro][use] += bal;
+        }
+
+        // In case this is the creation of a claim with lifecycle "propose",
+        // store the first balance provided under the zero address key, so that
+        // we can remember the minimum balance required for staking reputation
+        // on that claim. Using the zero address as key here allows us to use
+        // the same mapping we use for all user stakes, so that we do not have
+        // to maintain another separate data structure for the minimum balance
+        // required. This mechanism works because nobody can ever control the
+        // zero address.
+        if (_addressStake[pro][address(0)] == 0) {
+            _addressStake[pro][address(0)] = bal;
         }
     }
 
@@ -297,6 +324,10 @@ contract Claims is AccessControl {
         public
         onlyRole(BOT_ROLE)
     {
+        if (ind.length == 0) {
+            revert Address("no address");
+        }
+
         if (_claimExpired[res] != 0) {
             revert Expired("resolve allocated", _claimExpired[res]);
         }
@@ -309,7 +340,6 @@ contract Claims is AccessControl {
             address use = _indexAddress[pro].get(ind[i]);
 
             if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
-                // TODO test this
                 revert Address("already selected");
             }
 
@@ -338,6 +368,10 @@ contract Claims is AccessControl {
         onlyPaired(pro, res)
         returns (bool)
     {
+        if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
+            revert Process("already updated");
+        }
+
         if (_claimExpired[res] == 0) {
             revert Expired("resolve unallocated", _claimExpired[res]);
         }
@@ -346,8 +380,12 @@ contract Claims is AccessControl {
             revert Expired("resolve active", _claimExpired[res]);
         }
 
-        if (_claimExpired[res] + CHALLENGE_PERIOD <= Time.timestamp()) {
-            revert Expired("challenge active", _claimExpired[res] + CHALLENGE_PERIOD);
+        // Any claim of lifecycle phase "resolve" can be challenged. Only after
+        // the resolving claim expired, AND only after some designated challenge
+        // period passed on top of the claim's expiry, only then can a claim be
+        // finalized and user balances be updated.
+        if (_claimExpired[res] + SECONDS_WEEK <= Time.timestamp()) {
+            revert Expired("challenge active", _claimExpired[res] + SECONDS_WEEK);
         }
 
         // Lookup the amounts of votes that we have recorded on either side. It
@@ -360,26 +398,29 @@ contract Claims is AccessControl {
 
         bool don = false;
         if (yay + nah == 0 || yay == nah) {
-            don = updatePunish(pro, lef, rig);
+            don = updatePunish(pro, res, lef, rig);
         } else {
-            // TODO we should somehow be able to check from the outside whether a
-            // resolution was rewarded or punished
-            don = updateReward(pro, lef, rig, yay, nah);
+            don = updateReward(pro, res, lef, rig, yay, nah);
         }
 
         // Only credit the proposer and the protocol once everyone else got
         // accounted for. The proposer is always the very first user, because
         // they created the claim.
         if (don) {
-            address first = _indexAddress[pro].get(0);
-            uint256 total = _stakePropose[pro][VOTE_STAKE_Y] + _stakePropose[pro][VOTE_STAKE_N];
+            {
+                address first = _indexAddress[pro].get(0);
+                uint256 total = _stakePropose[pro][VOTE_STAKE_Y] + _stakePropose[pro][VOTE_STAKE_N];
 
-            _availBalance[first] += (total * PROPOSER_BASIS) / 100;
-            _availBalance[owner] += (total * PROTOCOL_BASIS) / 100;
+                _availBalance[first] += (total * PROPOSER_BASIS) / 100;
+                _availBalance[owner] += (total * PROTOCOL_BASIS) / 100;
+            }
+
+            {
+                // TODO test that balances cannot be updated anymore once
+                // everything got accounted for
+                _claimBalance[res].set(CLAIM_BALANCE_U);
+            }
         }
-
-        // TODO ensure balances cannot be updated anymore once everything got
-        // accounted for
 
         return don;
     }
@@ -422,18 +463,32 @@ contract Claims is AccessControl {
     //
 
     // TODO this result cannot be disputed
-    function updatePunish(uint256 pro, uint256 lef, uint256 rig) private returns (bool) {
+    function updatePunish(
+        uint256 pro,
+        uint256 res,
+        uint256 lef,
+        uint256 rig
+    )
+        private
+        returns (bool)
+    {
         bool don = false;
 
         uint256 len = _indexAddress[pro].length();
         if (rig >= len) {
-            don = true;
-            rig = len;
+            {
+                _claimBalance[res].set(CLAIM_BALANCE_P);
+            }
+
+            {
+                don = true;
+                rig = len;
+            }
         }
 
         for (uint256 i = lef; i < rig; i++) {
             address use = _indexAddress[pro].get(i);
-            uint256 bal = _addressStake[pro].get(use);
+            uint256 bal = _addressStake[pro][use];
 
             bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
             bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
@@ -483,6 +538,7 @@ contract Claims is AccessControl {
 
     function updateReward(
         uint256 pro,
+        uint256 res,
         uint256 lef,
         uint256 rig,
         uint256 yay,
@@ -504,13 +560,21 @@ contract Claims is AccessControl {
 
         uint256 len = _indexAddress[pro].length();
         if (rig >= len) {
-            don = true;
-            rig = len;
+            {
+                // TODO we should somehow be able to check from the outside
+                // whether a resolution was rewarded or punished
+                _claimBalance[res].set(CLAIM_BALANCE_R);
+            }
+
+            {
+                don = true;
+                rig = len;
+            }
         }
 
         for (uint256 i = lef; i < rig; i++) {
             address use = _indexAddress[pro].get(i);
-            uint256 bal = _addressStake[pro].get(use);
+            uint256 bal = _addressStake[pro][use];
 
             bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
             bool vsy = _addressVotes[pro][use].get(VOTE_STAKE_Y);
@@ -581,12 +645,17 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchMaximum(uint256 pro) public view returns (uint256) {
+    function searchMembers(uint256 pro) public view returns (uint256) {
         return _indexAddress[pro].length();
     }
 
     // can be called by anyone, may not return anything
-    function searchSample(
+    function searchResolve(uint256 res, uint256 ind) public view returns (bool) {
+        return _claimBalance[res].get(ind);
+    }
+
+    // can be called by anyone, may not return anything
+    function searchSamples(
         uint256 pro,
         uint256 res
     )
@@ -595,6 +664,7 @@ contract Claims is AccessControl {
         onlyPaired(pro, res)
         returns (address[] memory)
     {
+        // TODO this should be cursor based
         uint256[] memory ind = _claimIndices[res];
         address[] memory lis = new address[](ind.length);
 
@@ -606,7 +676,8 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchStaker(uint256 pro) public view returns (address[] memory) {
+    function searchStakers(uint256 pro) public view returns (address[] memory) {
+        // TODO this should be cursor based
         uint256 len = _indexAddress[pro].length();
         address[] memory lis = new address[](len);
 

@@ -156,7 +156,7 @@ describe("Claims", function () {
           Side(true),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
       it("if signer 1 tries to verify the truth twice, false true", async function () {
@@ -174,7 +174,7 @@ describe("Claims", function () {
           Side(true),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
       it("if signer 1 tries to verify the truth twice, true false", async function () {
@@ -192,7 +192,7 @@ describe("Claims", function () {
           Side(false),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
       it("if signer 1 tries to verify the truth twice, false false", async function () {
@@ -210,7 +210,7 @@ describe("Claims", function () {
           Side(false),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
       it("if signer 1 tries to verify the truth with true after expiry", async function () {

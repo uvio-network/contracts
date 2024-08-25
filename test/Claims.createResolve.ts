@@ -65,8 +65,8 @@ describe("Claims", function () {
         Expiry(7, "days"),
       );
 
-      expect(await Claims.searchStaker(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3), Address(4), Address(5)]);
-      expect(await Claims.searchSample(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
+      expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3), Address(4), Address(5)]);
+      expect(await Claims.searchSamples(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
     });
 
     it("signer 9 can create claim with lifecycle phase resolve", async function () {
@@ -81,8 +81,8 @@ describe("Claims", function () {
         Expiry(7, "days"),
       );
 
-      expect(await Claims.searchStaker(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3), Address(4), Address(5)]);
-      expect(await Claims.searchSample(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
+      expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3), Address(4), Address(5)]);
+      expect(await Claims.searchSamples(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
     });
   });
 });
