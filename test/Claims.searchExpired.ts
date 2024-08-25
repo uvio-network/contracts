@@ -15,7 +15,7 @@ const EXPIRY_M = Expiry(3, "months");
 
 describe("Claims", function () {
   describe("searchExpired", function () {
-    it("should not return the any expiry if no claim got proposed", async function () {
+    it("should not return any expiry if no claim got proposed", async function () {
       const { Claims } = await loadFixture(Deploy);
 
       expect(await Claims.searchExpired(Claim(1))).to.equal(0);
