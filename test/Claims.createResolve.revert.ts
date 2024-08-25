@@ -115,6 +115,78 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
       });
 
+      it("if propose is empty", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(0),
+          Claim(7),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if resolve is empty", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(0),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if resolve equals propose", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(1),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if propose does not exist", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(3),
+          Claim(7),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
       it("if indices are empty", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
