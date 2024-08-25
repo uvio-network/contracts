@@ -190,7 +190,7 @@ contract Claims is AccessControl {
         }
 
         if (_claimMapping[pro] != res) {
-            revert Mapping("no related");
+            revert Mapping("parent invalid");
         }
 
         _;
