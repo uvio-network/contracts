@@ -6,7 +6,6 @@ import { Expiry } from "./src/Expiry";
 import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { network } from "hardhat";
-import { Role } from "./src/Role";
 import { Side } from "./src/Side";
 
 describe("Claims", function () {
@@ -53,19 +52,10 @@ describe("Claims", function () {
       return { Address, Claims, Signer, Token };
     }
 
-    const createProposeGrantRole = async () => {
-      const { Address, Claims, Signer, Token } = await loadFixture(createPropose);
-
-      await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
-      await Claims.connect(Signer(0)).revokeRole(Role("BOT_ROLE"), Address(9));
-
-      return { Address, Claims, Signer, Token };
-    }
-
-    it("signer 9 should create claim with lifecycle phase resolve using bot role", async function () {
+    it("signer 7 can create claim with lifecycle phase resolve", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
 
-      await Claims.connect(Signer(9)).createResolve(
+      await Claims.connect(Signer(7)).createResolve(
         Claim(1),
         Claim(7),
         [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
@@ -76,10 +66,10 @@ describe("Claims", function () {
       expect(await Claims.searchSample(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
     });
 
-    it("signer 7 should create claim with lifecycle phase resolve using bot role", async function () {
-      const { Address, Claims, Signer } = await loadFixture(createProposeGrantRole);
+    it("signer 9 can create claim with lifecycle phase resolve", async function () {
+      const { Address, Claims, Signer } = await loadFixture(createPropose);
 
-      await Claims.connect(Signer(7)).createResolve(
+      await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
         [Index(0), Index(4)], // index 0 and 4 are address 1 and 5

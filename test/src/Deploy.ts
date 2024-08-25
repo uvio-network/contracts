@@ -6,7 +6,7 @@ export const Deploy = async () => {
   const sig = await ethers.getSigners();
 
   const tok = await ethers.deployContract("Token");
-  const cla = await ethers.deployContract("Claims", [await tok.getAddress(), sig[0].address, sig[9].address]);
+  const cla = await ethers.deployContract("Claims", [await tok.getAddress(), sig[0].address]);
 
   return {
     Address: (ind: number): Address => {
