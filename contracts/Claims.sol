@@ -96,7 +96,7 @@ contract Claims {
     //
     mapping(uint256 => uint256[]) private _claimIndices;
     //
-    mapping(uint256 => uint256) private _claimResolve;
+    mapping(uint256 => uint256) private _claimMapping;
     //
     mapping(uint256 => EnumerableMap.UintToAddressMap) private _indexAddress;
     //
@@ -162,7 +162,11 @@ contract Claims {
 
     //
     modifier onlyPaired(uint256 pro, uint256 res) {
-        if (_claimResolve[pro] != res) {
+        if (pro == 0 || res == 0) {
+            revert Mapping("zero claim");
+        }
+
+        if (_claimMapping[pro] != res) {
             revert Mapping("not related");
         }
 
@@ -271,6 +275,8 @@ contract Claims {
     //
     // PUBLIC PRIVILEGED
     //
+
+    // called by some privileged bot
     function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public {
         if (_claimExpired[res] != 0) {
             revert Expired("resolve allocated", _claimExpired[res]);
@@ -282,13 +288,21 @@ contract Claims {
 
         for (uint256 i = 0; i < ind.length; i++) {
             address use = _indexAddress[pro].get(ind[i]);
-            _addressVotes[pro][use].set(VOTE_TRUTH_S);
+
+            if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+                // TODO test this
+                revert Address("already selected");
+            }
+
+            {
+                _addressVotes[pro][use].set(VOTE_TRUTH_S);
+            }
         }
 
         {
             _claimExpired[res] = exp;
             _claimIndices[res] = ind;
-            _claimResolve[pro] = res;
+            _claimMapping[pro] = res;
         }
     }
 
@@ -582,5 +596,10 @@ contract Claims {
         }
 
         return lis;
+    }
+
+    // can be called by anyone, may not return anything
+    function searchVotes(uint256 res) public view returns (uint256, uint256) {
+        return (_truthResolve[res][VOTE_TRUTH_Y], _truthResolve[res][VOTE_TRUTH_N]);
     }
 }
