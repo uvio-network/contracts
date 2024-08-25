@@ -67,7 +67,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(2)).createPropose(
           Claim(1),
-          Amount(5),
+          Amount(5), // minimum is 10
           Side(true),
           Expiry(2, "days"),
         );

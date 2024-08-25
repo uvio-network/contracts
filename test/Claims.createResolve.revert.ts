@@ -115,6 +115,60 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
       });
 
+      it("if indices are empty", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [], // empty
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if indices are duplicated, 0 0", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(4), Index(0)], // 0 0
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if indices are duplicated, 4 4", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(4), Index(4)], // 4 4
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
       it("if resolve already created, immediately", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
