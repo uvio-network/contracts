@@ -6,6 +6,7 @@ import { Expiry } from "./src/Expiry";
 import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { network } from "hardhat";
+import { Role } from "./src/Role";
 import { Side } from "./src/Side";
 
 describe("Claims", function () {
@@ -49,6 +50,8 @@ describe("Claims", function () {
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
         await network.provider.send("evm_mine");
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
 
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),

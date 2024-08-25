@@ -3,16 +3,17 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
+import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { network } from "hardhat";
+import { Role } from "./src/Role";
 import { Side } from "./src/Side";
-import { Index } from "./src/Index";
 
 describe("Claims", function () {
   describe("createResolve", function () {
     describe("revert", function () {
       const createPropose = async () => {
-        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+        const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
 
         await Balance([1, 2, 3, 4, 5], 10);
 
@@ -47,20 +48,80 @@ describe("Claims", function () {
           Expiry(2, "days"),
         );
 
-        return { Claims, Signer };
+        return { Address, Claims, Signer };
       };
 
-      const expirePropose = async () => {
+      it("if bot role was not granted to owner address", async function () {
         const { Claims, Signer } = await loadFixture(createPropose);
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
         await network.provider.send("evm_mine");
 
-        return { Claims, Signer };
-      };
+        const txn = Claims.connect(Signer(0)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
+      });
+
+      it("if bot role was not granted to voter address", async function () {
+        const { Claims, Signer } = await loadFixture(createPropose);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(1)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
+      });
+
+      it("if bot role was not granted to staker address", async function () {
+        const { Claims, Signer } = await loadFixture(createPropose);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(2)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
+      });
+
+      it("if bot role was not granted to random address", async function () {
+        const { Claims, Signer } = await loadFixture(createPropose);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
+      });
 
       it("if resolve already created, immediately", async function () {
-        const { Claims, Signer } = await loadFixture(expirePropose);
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -80,7 +141,12 @@ describe("Claims", function () {
       });
 
       it("if resolve already created, later", async function () {
-        const { Claims, Signer } = await loadFixture(expirePropose);
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -103,7 +169,9 @@ describe("Claims", function () {
       });
 
       it("if propose still active", async function () {
-        const { Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         // Note that we are not expiring the propose in this test. We only move
         // 5 minutes forward and try to create a resolve before the propose
