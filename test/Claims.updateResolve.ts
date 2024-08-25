@@ -188,7 +188,7 @@ describe("Claims", function () {
       expect(res[1]).to.equal(0); // nah
     });
 
-    it("signer 5 can verify the false with false 6 days in", async function () {
+    it("signer 5 can verify the truth with false 6 days in", async function () {
       const { Claims, Signer } = await loadFixture(createResolve);
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(6, "days")]); // expiry is 7 days
