@@ -58,16 +58,19 @@ contract Claims is AccessControl {
     // got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
-    // PROPOSER_BASIS is the amount of proposer fees in basis points, which are
+    // BASIS_PROPOSER is the amount of proposer fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that users may earn by creating
     // claims.
-    uint48 public constant PROPOSER_BASIS = 500;
-    // PROTOCOL_BASIS is the amount of protocol fees in basis points, which are
+    uint48 public constant BASIS_PROPOSER = 500;
+    // BASIS_PROTOCOL is the amount of protocol fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that the protocol earns by
     // providing its services.
-    uint48 public constant PROTOCOL_BASIS = 500;
+    uint48 public constant BASIS_PROTOCOL = 500; // TODO fees should be modifiable
+    // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
+    // used to calculate fees and their remainders.
+    uint48 public constant BASIS_TOTAL = 10_000;
 
     // SECONDS_DAY is one day in seconds.
     uint48 public constant SECONDS_DAY = 86_400;
@@ -411,7 +414,7 @@ contract Claims is AccessControl {
         uint256 nah = _truthResolve[res][VOTE_TRUTH_N];
 
         //
-        uint256 fee = (10_000 - (PROPOSER_BASIS + PROTOCOL_BASIS));
+        uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
 
         bool don = false;
         if (yay + nah == 0 || yay == nah) {
@@ -428,8 +431,8 @@ contract Claims is AccessControl {
                 address first = _indexAddress[pro].get(0);
                 uint256 total = _stakePropose[pro][VOTE_STAKE_Y] + _stakePropose[pro][VOTE_STAKE_N];
 
-                _availBalance[first] += (total * PROPOSER_BASIS) / 10_000;
-                _availBalance[owner] += (total * PROTOCOL_BASIS) / 10_000;
+                _availBalance[first] += (total * BASIS_PROPOSER) / BASIS_TOTAL;
+                _availBalance[owner] += (total * BASIS_PROTOCOL) / BASIS_TOTAL;
             }
 
             {
@@ -534,11 +537,11 @@ contract Claims is AccessControl {
             // all what they have been asked for.
             if (sel) {
                 // TODO this is probably wrong and needs testing
-                _availBalance[owner] += (bal * fee) / 10_000;
+                _availBalance[owner] += (bal * fee) / BASIS_TOTAL;
             }
 
             if (!sel) {
-                _availBalance[use] += (bal * fee) / 10_000;
+                _availBalance[use] += (bal * fee) / BASIS_TOTAL;
             }
 
             // At the end of the processing loop, remember which users we have
@@ -571,8 +574,8 @@ contract Claims is AccessControl {
         // basis for calculating user rewards below, respective to their
         // individual share of the winning pool and the captured amount from the
         // loosing side.
-        uint256 fey = (_stakePropose[pro][VOTE_STAKE_Y] * fee) / 10_000;
-        uint256 fen = (_stakePropose[pro][VOTE_STAKE_N] * fee) / 10_000;
+        uint256 fey = (_stakePropose[pro][VOTE_STAKE_Y] * fee) / BASIS_TOTAL;
+        uint256 fen = (_stakePropose[pro][VOTE_STAKE_N] * fee) / BASIS_TOTAL;
 
         uint256 len = _indexAddress[pro].length();
         if (rig >= len) {
@@ -613,7 +616,7 @@ contract Claims is AccessControl {
             // Since we are working with the total amounts of staked assets as
             // deducted fee basis, we also need to deduct the fees from every
             // single staked balance here.
-            uint256 ded = (bal * fee) / 10_000;
+            uint256 ded = (bal * fee) / BASIS_TOTAL;
 
             // After verifying events in the real world the majority of voters
             // decided that the proposed claim turned out to be true. Everyone
@@ -655,7 +658,7 @@ contract Claims is AccessControl {
 
     //
     function deductFees(uint256 tot) public pure returns (uint256) {
-        return ((tot * (10_000 - (PROPOSER_BASIS + PROTOCOL_BASIS))) / 10_000);
+        return ((tot * (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL))) / BASIS_TOTAL);
     }
 
     // can be called by anyone, may not return anything
