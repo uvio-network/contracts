@@ -98,7 +98,7 @@ describe("Claims", function () {
       expect(res[1]).to.equal(1); // nah
     });
 
-    it("signer 2 can verify the truth with true", async function () {
+    it("signer 5 can verify the truth with true", async function () {
       const { Claims, Signer } = await loadFixture(createResolve);
 
       await Claims.connect(Signer(5)).updateResolve(
