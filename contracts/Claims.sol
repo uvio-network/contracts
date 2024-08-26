@@ -43,15 +43,33 @@ contract Claims is AccessControl {
     // bothering any user with it.
     bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
 
-    // CLAIM_BALANCE_P is the bitmap index of the boolean flag for claims that
-    // got resolved by punishing users.
+    // CLAIM_BALANCE_P is a bitmap index within _claimBalance. This boolean
+    // tracks claims that got resolved by punishing users.
     uint8 public constant CLAIM_BALANCE_P = 0;
-    // CLAIM_BALANCE_R is the bitmap index of the boolean flag for claims that
-    // got resolved by rewarding users.
+    // CLAIM_BALANCE_R is a bitmap index within _claimBalance. This boolean
+    // tracks claims that got resolved by rewarding users.
     uint8 public constant CLAIM_BALANCE_R = 1;
-    // CLAIM_BALANCE_U is the bitmap index of the boolean flag for claims that
-    // got already fully resolved.
+    // CLAIM_BALANCE_U is a bitmap index within _claimBalance. This boolean
+    // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
+
+    // CLAIM_STAKE_Y is a map index within _stakePropose. This number tracks the
+    // total amount of staked reputation agreeing with the associated claim.
+    uint8 public constant CLAIM_STAKE_Y = 0;
+    // CLAIM_STAKE_N is a map index within _stakePropose. This number tracks the
+    // total amount of staked reputation disagreeing with the associated claim.
+    uint8 public constant CLAIM_STAKE_N = 1;
+    // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
+    // amount of distributed stake that we carried over during multiple calls of
+    // updateBalance.
+    uint8 public constant CLAIM_STAKE_C = 2;
+
+    // CLAIM_TRUTH_Y is a map index within _truthResolve. This number tracks the
+    // total amount of votes cast saying the associated claim was true.
+    uint8 public constant CLAIM_TRUTH_Y = 0;
+    // CLAIM_TRUTH_N is a map index within _truthResolve. This number tracks the
+    // total amount of votes cast saying the associated claim was false.
+    uint8 public constant CLAIM_TRUTH_N = 1;
 
     // BASIS_PROPOSER is the amount of proposer fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
@@ -72,28 +90,31 @@ contract Claims is AccessControl {
     // SECONDS_WEEK is one week in seconds.
     uint48 public constant SECONDS_WEEK = 604_800;
 
-    // VOTE_STAKE_Y is the bitmap index of the boolean flag for users who
-    // expressed their opinions by staking in agreement with the proposed claim.
+    // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
+    // users who expressed their opinions by staking in agreement with the
+    // proposed claim.
     uint8 public constant VOTE_STAKE_Y = 0;
-    // VOTE_STAKE_N is the bitmap index of the boolean flag for users who
-    // expressed their opinions by staking in disagreement with the proposed
-    // claim.
+    // VOTE_STAKE_N is a bitmap index within _addressVotes. This boolean tracks
+    // users who expressed their opinions by staking in disagreement with the
+    // proposed claim.
     uint8 public constant VOTE_STAKE_N = 1;
-    // VOTE_TRUTH_Y is the bitmap index of the boolean flag for users who
-    // verified real events by voting for the proposed claim to be true.
+    // VOTE_TRUTH_Y is a bitmap index within _addressVotes. This boolean tracks
+    // users who verified real events by voting for the proposed claim to be
+    // true.
     uint8 public constant VOTE_TRUTH_Y = 2;
-    // VOTE_TRUTH_N is the bitmap index of the boolean flag for users who
-    // verified real events by voting for the proposed claim to be false.
+    // VOTE_TRUTH_N is a bitmap index within _addressVotes. This boolean tracks
+    // users who verified real events by voting for the proposed claim to be
+    // false.
     uint8 public constant VOTE_TRUTH_N = 3;
-    // VOTE_TRUTH_S is the bitmap index of the boolean flag for users who have
-    // been selected and authorized to participate in the random truth sampling
-    // process.
+    // VOTE_TRUTH_S is a bitmap index within _addressVotes. This boolean tracks
+    // users who have been selected and authorized to participate in the random
+    // truth sampling process.
     uint8 public constant VOTE_TRUTH_S = 4;
-    // VOTE_TRUTH_V is the bitmap index of the boolean flag for users who have
-    // cast their vote already.
+    // VOTE_TRUTH_V is a bitmap index within _addressVotes. This boolean tracks
+    // users who have cast their vote already.
     uint8 public constant VOTE_TRUTH_V = 5;
-    // VOTE_TRUTH_U is the bitmap index of the boolean flag for users who have
-    // been processed and whose balances have been updated already.
+    // VOTE_TRUTH_U is a bitmap index within _addressVotes. This boolean tracks
+    // users whose balances have been updated already.
     uint8 public constant VOTE_TRUTH_U = 6;
 
     //
@@ -120,7 +141,9 @@ contract Claims is AccessControl {
     mapping(uint256 => mapping(uint256 => address)) private _indexAddress;
     //
     mapping(uint256 => uint256) private _indexMembers;
-    //
+    // _truthResolve tracks the amount of votes cast per claim, on either side
+    // of the market. The uint8 keys are either CLAIM_TRUTH_Y or CLAIM_TRUTH_N.
+    // The uint256 values are the amounts of votes cast respectively.
     mapping(uint256 => mapping(uint8 => uint256)) private _truthResolve;
     //
     mapping(uint256 => mapping(uint8 => uint256)) private _stakePropose;
@@ -131,11 +154,11 @@ contract Claims is AccessControl {
 
     // owner is the owner address of the privileged entity receiving protocol
     // fees.
-    address public owner = address(0);
+    address public immutable owner = address(0);
     // token is the token address for this instance of the deployed contract.
     // That means every deployed contract is only responsible for serving claims
     // denominated in any given token address.
-    address public token = address(0);
+    address public immutable token = address(0);
 
     //
     constructor(address tok, address own) {
@@ -267,10 +290,10 @@ contract Claims is AccessControl {
         // many times later on when updating user balances.
         if (vot) {
             _addressVotes[pro][use].set(VOTE_STAKE_Y);
-            _stakePropose[pro][VOTE_STAKE_Y] += bal;
+            _stakePropose[pro][CLAIM_STAKE_Y] += bal;
         } else {
             _addressVotes[pro][use].set(VOTE_STAKE_N);
-            _stakePropose[pro][VOTE_STAKE_N] += bal;
+            _stakePropose[pro][CLAIM_STAKE_N] += bal;
         }
 
         // Allocate the user stakes and keep track of the user address based on
@@ -414,8 +437,8 @@ contract Claims is AccessControl {
         // result. In those undesired cases, we punish those users who where
         // selected by the random truth sampling process, simply by taking all
         // of their staked balances away.
-        uint256 yay = _truthResolve[res][VOTE_TRUTH_Y];
-        uint256 nah = _truthResolve[res][VOTE_TRUTH_N];
+        uint256 yay = _truthResolve[res][CLAIM_TRUTH_Y];
+        uint256 nah = _truthResolve[res][CLAIM_TRUTH_N];
 
         //
         if (_indexMembers[pro] == 1) {
@@ -425,22 +448,9 @@ contract Claims is AccessControl {
         uint256 dis;
         bool don;
         if (yay + nah == 0 || yay == nah) {
-            (dis, don) = updatePunish(
-                pro,
-                res,
-                (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL)),
-                lef,
-                rig
-            );
+            (dis, don) = updatePunish(pro, res, lef, rig);
         } else {
-            (dis, don) = updateReward(
-                pro,
-                res,
-                (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL)),
-                lef,
-                rig,
-                yay > nah
-            );
+            (dis, don) = updateReward(pro, res, lef, rig, yay > nah);
         }
 
         // Only credit the proposer and the protocol once everyone else got
@@ -449,11 +459,11 @@ contract Claims is AccessControl {
         if (don) {
             {
                 address first = _indexAddress[pro][0];
-                uint256 total = _stakePropose[pro][VOTE_STAKE_Y]
-                    + _stakePropose[pro][VOTE_STAKE_N];
+                uint256 total = _stakePropose[pro][CLAIM_STAKE_Y]
+                    + _stakePropose[pro][CLAIM_STAKE_N];
                 uint256 share = (total * BASIS_PROPOSER) / BASIS_TOTAL;
 
-                dis += share;
+                dis += share + _stakePropose[pro][CLAIM_STAKE_C];
 
                 _availBalance[first] += share;
                 _availBalance[owner] += total - dis;
@@ -462,6 +472,12 @@ contract Claims is AccessControl {
             {
                 _claimBalance[res].set(CLAIM_BALANCE_U);
             }
+
+            {
+                delete _stakePropose[pro][CLAIM_STAKE_C];
+            }
+        } else {
+            _stakePropose[pro][CLAIM_STAKE_C] += dis;
         }
     }
 
@@ -487,10 +503,10 @@ contract Claims is AccessControl {
 
         if (vot) {
             _addressVotes[pro][use].set(VOTE_TRUTH_Y);
-            _truthResolve[res][VOTE_TRUTH_Y]++;
+            _truthResolve[res][CLAIM_TRUTH_Y]++;
         } else {
             _addressVotes[pro][use].set(VOTE_TRUTH_N);
-            _truthResolve[res][VOTE_TRUTH_N]++;
+            _truthResolve[res][CLAIM_TRUTH_N]++;
         }
 
         {
@@ -506,7 +522,6 @@ contract Claims is AccessControl {
     function updatePunish(
         uint256 pro,
         uint256 res,
-        uint256 fee,
         uint256 lef,
         uint256 rig
     )
@@ -515,6 +530,8 @@ contract Claims is AccessControl {
     {
         uint256 dis;
         bool don;
+
+        uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
 
         if (rig >= _indexMembers[pro]) {
             {
@@ -578,7 +595,6 @@ contract Claims is AccessControl {
     function updateReward(
         uint256 pro,
         uint256 res,
-        uint256 fee,
         uint256 lef,
         uint256 rig,
         bool win
@@ -600,13 +616,15 @@ contract Claims is AccessControl {
             }
         }
 
+        uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
+
         // Calculate the amounts for total staked assets on either side by
         // deducting all relevant fees. The total staked assets are used as
         // basis for calculating user rewards below, respective to their
         // individual share of the winning pool and the captured amount from the
         // loosing side.
-        uint256 fey = (_stakePropose[pro][VOTE_STAKE_Y] * fee) / BASIS_TOTAL;
-        uint256 fen = (_stakePropose[pro][VOTE_STAKE_N] * fee) / BASIS_TOTAL;
+        uint256 fey = (_stakePropose[pro][CLAIM_STAKE_Y] * fee) / BASIS_TOTAL;
+        uint256 fen = (_stakePropose[pro][CLAIM_STAKE_N] * fee) / BASIS_TOTAL;
 
         for (uint256 i = lef; i < rig; i++) {
             address use = _indexAddress[pro][i];
@@ -754,8 +772,9 @@ contract Claims is AccessControl {
         view
         returns (uint256, uint256)
     {
-        return
-            (_stakePropose[pro][VOTE_STAKE_Y], _stakePropose[pro][VOTE_STAKE_N]);
+        return (
+            _stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_N]
+        );
     }
 
     // can be called by anyone, may not return anything
@@ -804,7 +823,8 @@ contract Claims is AccessControl {
 
     // can be called by anyone, may not return anything
     function searchVotes(uint256 res) public view returns (uint256, uint256) {
-        return
-            (_truthResolve[res][VOTE_TRUTH_Y], _truthResolve[res][VOTE_TRUTH_N]);
+        return (
+            _truthResolve[res][CLAIM_TRUTH_Y], _truthResolve[res][CLAIM_TRUTH_N]
+        );
     }
 }
