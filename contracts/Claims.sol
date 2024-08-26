@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
+import {Bits} from "./lib/Bits.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
@@ -15,7 +15,7 @@ contract Claims is AccessControl {
     //
 
     //
-    using BitMaps for BitMaps.BitMap;
+    using Bits for Bits.Map;
 
     //
     // ERRORS
@@ -57,15 +57,15 @@ contract Claims is AccessControl {
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that users may earn by creating
     // claims.
-    uint48 public constant BASIS_PROPOSER = 500;
+    uint16 public constant BASIS_PROPOSER = 500;
     // BASIS_PROTOCOL is the amount of protocol fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
     // market resolution. This is the amount that the protocol earns by
     // providing its services.
-    uint48 public constant BASIS_PROTOCOL = 500; // TODO fees should be modifiable
+    uint16 public constant BASIS_PROTOCOL = 500; // TODO fees should be modifiable
     // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
     // used to calculate fees and their remainders.
-    uint48 public constant BASIS_TOTAL = 10_000;
+    uint16 public constant BASIS_TOTAL = 10_000;
 
     // SECONDS_DAY is one day in seconds.
     uint48 public constant SECONDS_DAY = 86_400;
@@ -103,13 +103,13 @@ contract Claims is AccessControl {
     //
     mapping(uint256 => mapping(address => uint256)) private _addressStake;
     //
-    mapping(uint256 => mapping(address => BitMaps.BitMap)) private _addressVotes;
+    mapping(uint256 => mapping(address => Bits.Map)) private _addressVotes;
     //
     mapping(address => uint256) private _allocBalance;
     //
     mapping(address => uint256) private _availBalance;
     //
-    mapping(uint256 => BitMaps.BitMap) private _claimBalance;
+    mapping(uint256 => Bits.Map) private _claimBalance;
     //
     mapping(uint256 => uint48) private _claimExpired;
     //
@@ -679,7 +679,7 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchResolve(uint256 res, uint256 ind) public view returns (bool) {
+    function searchResolve(uint256 res, uint8 ind) public view returns (bool) {
         return _claimBalance[res].get(ind);
     }
 
