@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
-import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
@@ -17,10 +16,6 @@ contract Claims is AccessControl {
 
     //
     using BitMaps for BitMaps.BitMap;
-    //
-    using EnumerableMap for EnumerableMap.AddressToUintMap;
-    //
-    using EnumerableMap for EnumerableMap.UintToAddressMap;
 
     //
     // ERRORS
@@ -122,7 +117,9 @@ contract Claims is AccessControl {
     //
     mapping(uint256 => uint256) private _claimMapping;
     //
-    mapping(uint256 => EnumerableMap.UintToAddressMap) private _indexAddress;
+    mapping(uint256 => mapping(uint256 => address)) private _indexAddress;
+    //
+    mapping(uint256 => uint256) private _indexMembers;
     //
     mapping(uint256 => mapping(uint8 => uint256)) private _truthResolve;
     //
@@ -281,7 +278,8 @@ contract Claims is AccessControl {
         // will maintain the user's individual index.
         if (_addressStake[pro][use] == 0) {
             _addressStake[pro][use] = bal;
-            _indexAddress[pro].set(_indexAddress[pro].length(), use);
+            _indexAddress[pro][_indexMembers[pro]] = use;
+            _indexMembers[pro]++;
         } else {
             _addressStake[pro][use] += bal;
         }
@@ -334,16 +332,16 @@ contract Claims is AccessControl {
             revert Mapping("indices invalid");
         }
 
-        if (_claimExpired[pro] == 0) {
-            revert Mapping("propose invalid");
-        }
-
-        if (pro == 0 || res == 0) {
-            revert Mapping("claim, invalid");
-        }
-
         if (pro == res) {
             revert Mapping("claim overwrite");
+        }
+
+        if (res == 0) {
+            revert Mapping("resolve invalid");
+        }
+
+        if (_claimExpired[pro] == 0) {
+            revert Mapping("propose invalid");
         }
 
         if (_claimExpired[res] != 0) {
@@ -355,7 +353,11 @@ contract Claims is AccessControl {
         }
 
         for (uint256 i = 0; i < ind.length; i++) {
-            address use = _indexAddress[pro].get(ind[i]);
+            address use = _indexAddress[pro][ind[i]];
+
+            if (use == address(0)) {
+                revert Mapping("indices invalid");
+            }
 
             if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
                 revert Mapping("already selected");
@@ -428,7 +430,7 @@ contract Claims is AccessControl {
         // they created the claim.
         if (don) {
             {
-                address first = _indexAddress[pro].get(0);
+                address first = _indexAddress[pro][0];
                 uint256 total = _stakePropose[pro][VOTE_STAKE_Y] + _stakePropose[pro][VOTE_STAKE_N];
 
                 _availBalance[first] += (total * BASIS_PROPOSER) / BASIS_TOTAL;
@@ -491,7 +493,7 @@ contract Claims is AccessControl {
     {
         bool don = false;
 
-        uint256 len = _indexAddress[pro].length();
+        uint256 len = _indexMembers[pro];
         if (rig >= len) {
             {
                 _claimBalance[res].set(CLAIM_BALANCE_P);
@@ -504,7 +506,7 @@ contract Claims is AccessControl {
         }
 
         for (uint256 i = lef; i < rig; i++) {
-            address use = _indexAddress[pro].get(i);
+            address use = _indexAddress[pro][i];
             uint256 bal = _addressStake[pro][use];
 
             bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
@@ -577,7 +579,7 @@ contract Claims is AccessControl {
         uint256 fey = (_stakePropose[pro][VOTE_STAKE_Y] * fee) / BASIS_TOTAL;
         uint256 fen = (_stakePropose[pro][VOTE_STAKE_N] * fee) / BASIS_TOTAL;
 
-        uint256 len = _indexAddress[pro].length();
+        uint256 len = _indexMembers[pro];
         if (rig >= len) {
             {
                 _claimBalance[res].set(CLAIM_BALANCE_R);
@@ -590,7 +592,7 @@ contract Claims is AccessControl {
         }
 
         for (uint256 i = lef; i < rig; i++) {
-            address use = _indexAddress[pro].get(i);
+            address use = _indexAddress[pro][i];
             uint256 bal = _addressStake[pro][use];
 
             bool upd = _addressVotes[pro][use].get(VOTE_TRUTH_U);
@@ -673,7 +675,7 @@ contract Claims is AccessControl {
 
     // can be called by anyone, may not return anything
     function searchMembers(uint256 pro) public view returns (uint256) {
-        return _indexAddress[pro].length();
+        return _indexMembers[pro];
     }
 
     // can be called by anyone, may not return anything
@@ -696,7 +698,7 @@ contract Claims is AccessControl {
         address[] memory lis = new address[](ind.length);
 
         for (uint256 i = 0; i < ind.length; i++) {
-            lis[i] = _indexAddress[pro].get(ind[i]);
+            lis[i] = _indexAddress[pro][ind[i]];
         }
 
         return lis;
@@ -705,11 +707,11 @@ contract Claims is AccessControl {
     // can be called by anyone, may not return anything
     function searchStakers(uint256 pro) public view returns (address[] memory) {
         // TODO this should be cursor based
-        uint256 len = _indexAddress[pro].length();
+        uint256 len = _indexMembers[pro];
         address[] memory lis = new address[](len);
 
         for (uint256 i = 0; i < len; i++) {
-            lis[i] = _indexAddress[pro].get(i);
+            lis[i] = _indexAddress[pro][i];
         }
 
         return lis;
