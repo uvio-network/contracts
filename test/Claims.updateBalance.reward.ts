@@ -12,7 +12,7 @@ import { Side } from "./src/Side";
 describe("Claims", function () {
   describe("updateBalance", function () {
     describe("reward", function () {
-      describe("25 true, right", function () {
+      describe("25 true", function () {
         const updateResolve = async () => {
           const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
@@ -109,7 +109,7 @@ describe("Claims", function () {
         });
       });
 
-      describe("25 false, right", function () {
+      describe("25 false", function () {
         const updateResolve = async () => {
           const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
