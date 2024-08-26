@@ -53,7 +53,7 @@ contract Claims is AccessControl {
     // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
-    // CLAIM_STAKE_N is a map index within _stakePropose. This number tracks the
+    // CLAIM_STAKE_Y is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation agreeing with the associated claim.
     uint8 public constant CLAIM_STAKE_Y = 0;
     // CLAIM_STAKE_N is a map index within _stakePropose. This number tracks the
@@ -154,11 +154,11 @@ contract Claims is AccessControl {
 
     // owner is the owner address of the privileged entity receiving protocol
     // fees.
-    address public owner = address(0);
+    address public immutable owner = address(0);
     // token is the token address for this instance of the deployed contract.
     // That means every deployed contract is only responsible for serving claims
     // denominated in any given token address.
-    address public token = address(0);
+    address public immutable token = address(0);
 
     //
     constructor(address tok, address own) {
