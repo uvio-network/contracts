@@ -43,6 +43,10 @@ contract Claims is AccessControl {
     // bothering any user with it.
     bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
 
+    uint8 public constant CLAIM_ADDRESS_Y = 0;
+    uint8 public constant CLAIM_ADDRESS_N = 1;
+    uint8 public constant CLAIM_ADDRESS_A = 2;
+
     // CLAIM_BALANCE_P is a bitmap index within _claimBalance. This boolean
     // tracks claims that got resolved by punishing users.
     uint8 public constant CLAIM_BALANCE_P = 0;
@@ -228,19 +232,6 @@ contract Claims is AccessControl {
     }
 
     //
-    modifier onlyVoters(uint256 pro, address use) {
-        if (!_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
-            revert Address("not allowed");
-        }
-
-        if (_addressVotes[pro][use].get(VOTE_TRUTH_V)) {
-            revert Address("already voted");
-        }
-
-        _;
-    }
-
-    //
     // PUBLIC
     //
 
@@ -308,23 +299,25 @@ contract Claims is AccessControl {
         // their position in our index list. Consecutive calls by the same user
         // will maintain the user's individual index.
         if (_addressStake[pro][use] == 0) {
-            _addressStake[pro][use] = bal;
-            _indexAddress[pro][_indexMembers[pro]] = use;
-            _indexMembers[pro]++;
+            {
+                _addressStake[pro][use] = bal;
+                _indexAddress[pro][_indexMembers[pro]] = use;
+                _indexMembers[pro]++;
+            }
+
+            // In case this is the creation of a claim with lifecycle "propose",
+            // store the first balance provided under the zero address key, so that
+            // we can remember the minimum balance required for staking reputation
+            // on that claim. Using the zero address as key here allows us to use
+            // the same mapping we use for all user stakes, so that we do not have
+            // to maintain another separate data structure for the minimum balance
+            // required. This mechanism works because nobody can ever control the
+            // zero address.
+            if (_addressStake[pro][address(0)] == 0) {
+                _addressStake[pro][address(0)] = bal;
+            }
         } else {
             _addressStake[pro][use] += bal;
-        }
-
-        // In case this is the creation of a claim with lifecycle "propose",
-        // store the first balance provided under the zero address key, so that
-        // we can remember the minimum balance required for staking reputation
-        // on that claim. Using the zero address as key here allows us to use
-        // the same mapping we use for all user stakes, so that we do not have
-        // to maintain another separate data structure for the minimum balance
-        // required. This mechanism works because nobody can ever control the
-        // zero address.
-        if (_addressStake[pro][address(0)] == 0) {
-            _addressStake[pro][address(0)] = bal;
         }
     }
 
@@ -363,10 +356,6 @@ contract Claims is AccessControl {
             revert Mapping("indices invalid");
         }
 
-        if (pro == res) {
-            revert Mapping("claim overwrite");
-        }
-
         if (res == 0) {
             revert Mapping("resolve invalid");
         }
@@ -376,7 +365,7 @@ contract Claims is AccessControl {
         }
 
         if (_claimExpired[res] != 0) {
-            revert Expired("resolve allocated", _claimExpired[res]);
+            revert Mapping("claim overwrite");
         }
 
         if (_claimExpired[pro] > Time.timestamp()) {
@@ -400,7 +389,7 @@ contract Claims is AccessControl {
         }
 
         {
-            _claimExpired[res] = exp;
+            _claimExpired[res] = exp; // TODO expiry input must be validated and tested
             _claimIndices[res] = ind;
             _claimMapping[pro] = res;
         }
@@ -418,6 +407,7 @@ contract Claims is AccessControl {
         public
     {
         uint48 exp = _claimExpired[res];
+        uint48 unx = Time.timestamp();
 
         if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
@@ -428,10 +418,10 @@ contract Claims is AccessControl {
         }
 
         if (exp == 0) {
-            revert Expired("resolve unallocated", _claimExpired[res]);
+            revert Expired("resolve unallocated", exp);
         }
 
-        if (exp > Time.timestamp()) {
+        if (exp > unx) {
             revert Expired("resolve active", exp);
         }
 
@@ -439,7 +429,7 @@ contract Claims is AccessControl {
         // the resolving claim expired, AND only after some designated challenge
         // period passed on top of the claim's expiry, only then can a claim be
         // finalized and user balances be updated.
-        if (exp + SECONDS_WEEK > Time.timestamp()) {
+        if (exp + SECONDS_WEEK > unx) {
             revert Expired("challenge active", exp + SECONDS_WEEK);
         }
 
@@ -456,10 +446,10 @@ contract Claims is AccessControl {
             return updateSingle(pro, res, yay > nah);
         }
 
-        if (yay + nah == 0 || yay == nah) {
-            updatePunish(pro, res, lef, rig);
-        } else {
+        if (yay > nah || yay < nah) {
             updateReward(pro, res, lef, rig, yay > nah);
+        } else {
+            updatePunish(pro, res, lef, rig);
         }
 
         // Only credit the proposer and the protocol once everyone else got
@@ -496,17 +486,26 @@ contract Claims is AccessControl {
     )
         public
         onlyPaired(pro, res)
-        onlyVoters(pro, msg.sender)
     {
-        if (_claimExpired[res] == 0) {
-            revert Expired("resolve unallocated", _claimExpired[res]);
+        uint48 exp = _claimExpired[res];
+
+        if (exp == 0) {
+            revert Expired("resolve unallocated", exp);
         }
 
-        if (_claimExpired[res] < Time.timestamp()) {
-            revert Expired("resolve expired", _claimExpired[res]);
+        if (exp < Time.timestamp()) {
+            revert Expired("resolve expired", exp);
         }
 
         address use = msg.sender;
+
+        if (!_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+            revert Address("not allowed");
+        }
+
+        if (_addressVotes[pro][use].get(VOTE_TRUTH_V)) {
+            revert Address("already voted");
+        }
 
         if (vot) {
             _addressVotes[pro][use].set(VOTE_TRUTH_Y);

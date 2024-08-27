@@ -299,7 +299,7 @@ describe("Claims", function () {
           Expiry(7, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
       it("if resolve already created, later", async function () {
@@ -327,7 +327,7 @@ describe("Claims", function () {
           Expiry(7, "days"),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
       it("if propose still active", async function () {
