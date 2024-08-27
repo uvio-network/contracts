@@ -203,22 +203,6 @@ contract Claims is AccessControl {
     //
 
     //
-    modifier onlyAmount(uint256 pro, uint256 bal, address use) {
-        // Look for the very first deposit related to the given claim. If this
-        // call is for the very first deposit itself, then there is no minimum
-        // balance to check against. In that very first case we simply check the
-        // given balance against 0, which allows the creator of the claim to
-        // define the minimum stake required to participate in this market. All
-        // following users have then to comply with the minimum balance defined.
-        uint256 min = _addressStake[pro][address(0)];
-        if (bal < min) {
-            revert Balance("below minimum", min);
-        }
-
-        _;
-    }
-
-    //
     modifier onlyPaired(uint256 pro, uint256 res) {
         if (pro == 0 || res == 0) {
             revert Mapping("zero claim");
@@ -236,17 +220,22 @@ contract Claims is AccessControl {
     //
 
     // called by anyone
-    function createPropose(
-        uint256 pro,
-        uint256 bal,
-        bool vot,
-        uint48 exp
-    )
-        public
-        onlyAmount(pro, bal, msg.sender)
-    {
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint48 exp) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
+        }
+
+        address use = msg.sender;
+
+        // Look for the very first deposit related to the given claim. If this
+        // call is for the very first deposit itself, then there is no minimum
+        // balance to check against. In that very first case we simply check the
+        // given balance against 0, which allows the creator of the claim to
+        // define the minimum stake required to participate in this market. All
+        // following users have then to comply with the minimum balance defined.
+        uint256 min = _addressStake[pro][address(0)];
+        if (bal < min) {
+            revert Balance("below minimum", min);
         }
 
         // Set the given expiry to make the code flow below work.
@@ -261,8 +250,6 @@ contract Claims is AccessControl {
         if (_claimExpired[pro] < Time.timestamp() + SECONDS_DAY) {
             revert Expired("propose expired", _claimExpired[pro]);
         }
-
-        address use = msg.sender;
 
         // Do the transfer right at the top, because this is the last thing that
         // can actually fail.
@@ -343,15 +330,7 @@ contract Claims is AccessControl {
     //
 
     // must be called by some privileged bot
-    function createResolve(
-        uint256 pro,
-        uint256 res,
-        uint256[] memory ind,
-        uint48 exp
-    )
-        public
-        onlyRole(BOT_ROLE)
-    {
+    function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public onlyRole(BOT_ROLE) {
         if (ind.length == 0) {
             revert Mapping("indices invalid");
         }
@@ -398,14 +377,7 @@ contract Claims is AccessControl {
     // TODO handle nullify and dispute
 
     // can be called by anyone
-    function updateBalance(
-        uint256 pro,
-        uint256 res,
-        uint256 lef,
-        uint256 rig
-    )
-        public
-    {
+    function updateBalance(uint256 pro, uint256 res, uint256 lef, uint256 rig) public {
         uint48 exp = _claimExpired[res];
         uint48 unx = Time.timestamp();
 
@@ -458,13 +430,11 @@ contract Claims is AccessControl {
         if (_stakePropose[pro][CLAIM_STAKE_D] == _indexMembers[pro]) {
             {
                 address first = _indexAddress[pro][0];
-                uint256 total = _stakePropose[pro][CLAIM_STAKE_Y]
-                    + _stakePropose[pro][CLAIM_STAKE_N];
+                uint256 total = _stakePropose[pro][CLAIM_STAKE_Y] + _stakePropose[pro][CLAIM_STAKE_N];
                 uint256 share = (total * BASIS_PROPOSER) / BASIS_TOTAL;
 
                 _availBalance[first] += share;
-                _availBalance[owner] +=
-                    total - (share + _stakePropose[pro][CLAIM_STAKE_C]);
+                _availBalance[owner] += total - (share + _stakePropose[pro][CLAIM_STAKE_C]);
             }
 
             {
@@ -479,14 +449,7 @@ contract Claims is AccessControl {
     }
 
     // any whitelisted user can call
-    function updateResolve(
-        uint256 pro,
-        uint256 res,
-        bool vot
-    )
-        public
-        onlyPaired(pro, res)
-    {
+    function updateResolve(uint256 pro, uint256 res, bool vot) public onlyPaired(pro, res) {
         uint48 exp = _claimExpired[res];
 
         if (exp == 0) {
@@ -525,14 +488,7 @@ contract Claims is AccessControl {
     //
 
     // TODO this result cannot be disputed
-    function updatePunish(
-        uint256 pro,
-        uint256 res,
-        uint256 lef,
-        uint256 rig
-    )
-        private
-    {
+    function updatePunish(uint256 pro, uint256 res, uint256 lef, uint256 rig) private {
         uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
 
         if (rig >= _indexMembers[pro]) {
@@ -591,15 +547,7 @@ contract Claims is AccessControl {
         }
     }
 
-    function updateReward(
-        uint256 pro,
-        uint256 res,
-        uint256 lef,
-        uint256 rig,
-        bool win
-    )
-        private
-    {
+    function updateReward(uint256 pro, uint256 res, uint256 lef, uint256 rig, bool win) private {
         if (rig >= _indexMembers[pro] - 1) {
             {
                 _claimBalance[res].set(CLAIM_BALANCE_R);
@@ -736,13 +684,7 @@ contract Claims is AccessControl {
     //
 
     // can be called by anyone, may not return anything
-    function searchBalance(
-        address use
-    )
-        public
-        view
-        returns (uint256, uint256)
-    {
+    function searchBalance(address use) public view returns (uint256, uint256) {
         return (_allocBalance[use], _availBalance[use]);
     }
 
@@ -757,16 +699,8 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchPropose(
-        uint256 pro
-    )
-        public
-        view
-        returns (uint256, uint256)
-    {
-        return (
-            _stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_N]
-        );
+    function searchPropose(uint256 pro) public view returns (uint256, uint256) {
+        return (_stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_N]);
     }
 
     // can be called by anyone, may not return anything
@@ -775,15 +709,7 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchSamples(
-        uint256 pro,
-        uint256 res
-    )
-        public
-        view
-        onlyPaired(pro, res)
-        returns (address[] memory)
-    {
+    function searchSamples(uint256 pro, uint256 res) public view onlyPaired(pro, res) returns (address[] memory) {
         // TODO this should be cursor based
         uint256[] memory ind = _claimIndices[res];
         address[] memory lis = new address[](ind.length);
@@ -796,13 +722,7 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchStakers(
-        uint256 pro
-    )
-        public
-        view
-        returns (address[] memory)
-    {
+    function searchStakers(uint256 pro) public view returns (address[] memory) {
         // TODO this should be cursor based
         address[] memory lis = new address[](_indexMembers[pro]);
 
@@ -815,8 +735,6 @@ contract Claims is AccessControl {
 
     // can be called by anyone, may not return anything
     function searchVotes(uint256 res) public view returns (uint256, uint256) {
-        return (
-            _truthResolve[res][CLAIM_TRUTH_Y], _truthResolve[res][CLAIM_TRUTH_N]
-        );
+        return (_truthResolve[res][CLAIM_TRUTH_Y], _truthResolve[res][CLAIM_TRUTH_N]);
     }
 }
