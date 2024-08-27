@@ -59,10 +59,15 @@ contract Claims is AccessControl {
     // CLAIM_STAKE_N is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation disagreeing with the associated claim.
     uint8 public constant CLAIM_STAKE_N = 1;
+    // CLAIM_STAKE_D is a map index within _stakePropose. This number tracks the
+    // amount of users for which we distributed stake already throughout the
+    // process of updating user balances. This number must match the total
+    // amount of stakers before any claim can fully be resolved.
+    uint8 public constant CLAIM_STAKE_D = 2;
     // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
     // amount of distributed stake that we carried over during multiple calls of
     // updateBalance.
-    uint8 public constant CLAIM_STAKE_C = 2;
+    uint8 public constant CLAIM_STAKE_C = 3;
 
     // CLAIM_TRUTH_Y is a map index within _truthResolve. This number tracks the
     // total amount of votes cast saying the associated claim was true.
@@ -139,7 +144,10 @@ contract Claims is AccessControl {
     mapping(uint256 => uint256) private _claimMapping;
     // TODO the indices must be separated by vote
     mapping(uint256 => mapping(uint256 => address)) private _indexAddress;
-    //
+    // _indexMembers tracks the amount of stakers participating in any given
+    // market. The relevant claim ID here is the ID of the claim that users
+    // express opinions on. Those claims may have one of the lifecycle phase
+    // "propose" or "dispute".
     mapping(uint256 => uint256) private _indexMembers;
     // _truthResolve tracks the amount of votes cast per claim, on either side
     // of the market. The uint8 keys are either CLAIM_TRUTH_Y or CLAIM_TRUTH_N.
@@ -408,12 +416,15 @@ contract Claims is AccessControl {
         uint256 rig
     )
         public
-        onlyPaired(pro, res)
     {
         uint48 exp = _claimExpired[res];
 
         if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
+        }
+
+        if (_claimMapping[pro] != res) {
+            revert Mapping("parent invalid");
         }
 
         if (exp == 0) {
@@ -445,28 +456,25 @@ contract Claims is AccessControl {
             return updateSingle(pro, res, yay > nah);
         }
 
-        uint256 dis;
-        bool don;
         if (yay + nah == 0 || yay == nah) {
-            (dis, don) = updatePunish(pro, res, lef, rig);
+            updatePunish(pro, res, lef, rig);
         } else {
-            (dis, don) = updateReward(pro, res, lef, rig, yay > nah);
+            updateReward(pro, res, lef, rig, yay > nah);
         }
 
         // Only credit the proposer and the protocol once everyone else got
         // accounted for. The proposer is always the very first user, because
         // they created the claim.
-        if (don) {
+        if (_stakePropose[pro][CLAIM_STAKE_D] == _indexMembers[pro]) {
             {
                 address first = _indexAddress[pro][0];
                 uint256 total = _stakePropose[pro][CLAIM_STAKE_Y]
                     + _stakePropose[pro][CLAIM_STAKE_N];
                 uint256 share = (total * BASIS_PROPOSER) / BASIS_TOTAL;
 
-                dis += share + _stakePropose[pro][CLAIM_STAKE_C];
-
                 _availBalance[first] += share;
-                _availBalance[owner] += total - dis;
+                _availBalance[owner] +=
+                    total - (share + _stakePropose[pro][CLAIM_STAKE_C]);
             }
 
             {
@@ -475,9 +483,8 @@ contract Claims is AccessControl {
 
             {
                 delete _stakePropose[pro][CLAIM_STAKE_C];
+                delete _stakePropose[pro][CLAIM_STAKE_D];
             }
-        } else {
-            _stakePropose[pro][CLAIM_STAKE_C] += dis;
         }
     }
 
@@ -526,11 +533,7 @@ contract Claims is AccessControl {
         uint256 rig
     )
         private
-        returns (uint256, bool)
     {
-        uint256 dis;
-        bool don;
-
         uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
 
         if (rig >= _indexMembers[pro]) {
@@ -539,12 +542,11 @@ contract Claims is AccessControl {
             }
 
             {
-                don = true;
-                rig = _indexMembers[pro];
+                rig = _indexMembers[pro] - 1;
             }
         }
 
-        for (uint256 i = lef; i < rig; i++) {
+        for (uint256 i = lef; i <= rig; i++) {
             address use = _indexAddress[pro][i];
             uint256 bal = _addressStake[pro][use];
 
@@ -588,8 +590,6 @@ contract Claims is AccessControl {
                 _addressVotes[pro][use].set(VOTE_TRUTH_U);
             }
         }
-
-        return (dis, don);
     }
 
     function updateReward(
@@ -600,19 +600,14 @@ contract Claims is AccessControl {
         bool win
     )
         private
-        returns (uint256, bool)
     {
-        uint256 dis;
-        bool don;
-
-        if (rig >= _indexMembers[pro]) {
+        if (rig >= _indexMembers[pro] - 1) {
             {
                 _claimBalance[res].set(CLAIM_BALANCE_R);
             }
 
             {
-                don = true;
-                rig = _indexMembers[pro];
+                rig = _indexMembers[pro] - 1;
             }
         }
 
@@ -626,7 +621,7 @@ contract Claims is AccessControl {
         uint256 fey = (_stakePropose[pro][CLAIM_STAKE_Y] * fee) / BASIS_TOTAL;
         uint256 fen = (_stakePropose[pro][CLAIM_STAKE_N] * fee) / BASIS_TOTAL;
 
-        for (uint256 i = lef; i < rig; i++) {
+        for (uint256 i = lef; i <= rig; i++) {
             address use = _indexAddress[pro][i];
             uint256 bal = _addressStake[pro][use];
 
@@ -665,7 +660,7 @@ contract Claims is AccessControl {
                     uint256 sum = (rew + ded);
 
                     _availBalance[use] += sum;
-                    dis += sum;
+                    _stakePropose[pro][CLAIM_STAKE_C] += sum;
                 }
             } else {
                 // After verifying events in the real world the majority of
@@ -686,7 +681,7 @@ contract Claims is AccessControl {
                     uint256 sum = (rew + ded);
 
                     _availBalance[use] += sum;
-                    dis += sum;
+                    _stakePropose[pro][CLAIM_STAKE_C] += sum;
                 }
             }
 
@@ -695,9 +690,15 @@ contract Claims is AccessControl {
             {
                 _addressVotes[pro][use].set(VOTE_TRUTH_U);
             }
-        }
 
-        return (dis, don);
+            {
+                _stakePropose[pro][CLAIM_STAKE_D]++;
+            }
+
+            {
+                delete _addressStake[pro][use];
+            }
+        }
     }
 
     function updateSingle(uint256 pro, uint256 res, bool win) private {
@@ -734,14 +735,6 @@ contract Claims is AccessControl {
     //
     // PUBLIC VIEW
     //
-
-    //
-    function deductFees(uint256 tot) public pure returns (uint256) {
-        return (
-            (tot * (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL)))
-                / BASIS_TOTAL
-        );
-    }
 
     // can be called by anyone, may not return anything
     function searchBalance(
