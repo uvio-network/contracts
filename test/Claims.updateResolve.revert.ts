@@ -56,7 +56,7 @@ describe("Claims", function () {
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -249,6 +249,18 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(0),
           Claim(0),
+          Side(false),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if signer 3 uses the wrong claim ID", async function () {
+        const { Claims, Signer } = await loadFixture(createResolve);
+
+        const txn = Claims.connect(Signer(3)).updateResolve(
+          Claim(2),
+          Claim(7),
           Side(false),
         );
 

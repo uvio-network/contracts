@@ -27,25 +27,26 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
-          Expiry(2, "days"),
+          0,
         );
+
         await Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
-          Expiry(2, "days"),
+          0,
         );
         await Claims.connect(Signer(4)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
-          Expiry(2, "days"),
+          0,
         );
         await Claims.connect(Signer(5)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
-          Expiry(2, "days"),
+          0,
         );
 
         return { Address, Claims, Signer };
@@ -60,7 +61,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(0)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -76,7 +77,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(1)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -92,7 +93,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(2)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -108,7 +109,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -126,7 +127,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(0),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -144,7 +145,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(0),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -162,7 +163,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(1),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -180,7 +181,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(3),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -205,7 +206,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are out of range, 5", async function () {
+      it("if indices are out of range, 0", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -216,14 +217,14 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(5)],
+          [BigInt(0), Index(-1)], // index 0 is reserved for the proposer address
           Expiry(7, "days"),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are out of range, 11", async function () {
+      it("if indices are out of range, +5", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -234,14 +235,14 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(11), Index(4)],
+          [Index(+5), Index(-1)], // index +5 does not refer to any staker
           Expiry(7, "days"),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are duplicated, 0 0", async function () {
+      it("if indices are out of range, -11", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -252,14 +253,14 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4), Index(0)], // 0 0
+          [Index(+1), Index(-1), Index(-11)], // index -11 does not refer to any staker
           Expiry(7, "days"),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are duplicated, 4 4", async function () {
+      it("if indices are duplicated, +1 +1", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -270,7 +271,25 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4), Index(4)], // 4 4
+          [Index(+1), Index(+1), Index(-1)],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if indices are duplicated, -1 -1", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [Index(+1), Index(-1), Index(-1)],
           Expiry(7, "days"),
         );
 
@@ -288,14 +307,14 @@ describe("Claims", function () {
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -313,7 +332,7 @@ describe("Claims", function () {
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -323,7 +342,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -344,7 +363,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
