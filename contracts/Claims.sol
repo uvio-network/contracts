@@ -45,7 +45,6 @@ contract Claims is AccessControl {
 
     uint8 public constant CLAIM_ADDRESS_Y = 0;
     uint8 public constant CLAIM_ADDRESS_N = 1;
-    uint8 public constant CLAIM_ADDRESS_A = 2;
 
     // CLAIM_BALANCE_P is a bitmap index within _claimBalance. This boolean
     // tracks claims that got resolved by punishing users.
@@ -93,6 +92,9 @@ contract Claims is AccessControl {
     // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
     // used to calculate fees and their remainders.
     uint16 public constant BASIS_TOTAL = 10_000;
+
+    //
+    uint256 constant MAX_UINT256 = type(uint256).max;
 
     // SECONDS_DAY is one day in seconds.
     uint48 public constant SECONDS_DAY = 86_400;
@@ -152,7 +154,7 @@ contract Claims is AccessControl {
     // market. The relevant claim ID here is the ID of the claim that users
     // express opinions on. Those claims may have one of the lifecycle phase
     // "propose" or "dispute".
-    mapping(uint256 => uint256) private _indexMembers;
+    mapping(uint256 => mapping(uint8 => uint256)) private _indexMembers;
     // _truthResolve tracks the amount of votes cast per claim, on either side
     // of the market. The uint8 keys are either CLAIM_TRUTH_Y or CLAIM_TRUTH_N.
     // The uint256 values are the amounts of votes cast respectively.
@@ -264,7 +266,7 @@ contract Claims is AccessControl {
         // balance when participating in a market. Only later may available
         // balances increase, if a user may be rewarded after claims have been
         // resolved.
-        {
+        unchecked {
             _allocBalance[use] += bal;
         }
 
@@ -275,11 +277,15 @@ contract Claims is AccessControl {
         // bet, so we can write this kind of data once and read it for cheap
         // many times later on when updating user balances.
         if (vot) {
-            _addressVotes[pro][use].set(VOTE_STAKE_Y);
-            _stakePropose[pro][CLAIM_STAKE_Y] += bal;
+            unchecked {
+                _addressVotes[pro][use].set(VOTE_STAKE_Y);
+                _stakePropose[pro][CLAIM_STAKE_Y] += bal;
+            }
         } else {
-            _addressVotes[pro][use].set(VOTE_STAKE_N);
-            _stakePropose[pro][CLAIM_STAKE_N] += bal;
+            unchecked {
+                _addressVotes[pro][use].set(VOTE_STAKE_N);
+                _stakePropose[pro][CLAIM_STAKE_N] += bal;
+            }
         }
 
         // Allocate the user stakes and keep track of the user address based on
@@ -288,8 +294,6 @@ contract Claims is AccessControl {
         if (_addressStake[pro][use] == 0) {
             {
                 _addressStake[pro][use] = bal;
-                _indexAddress[pro][_indexMembers[pro]] = use;
-                _indexMembers[pro]++;
             }
 
             // In case this is the creation of a claim with lifecycle "propose",
@@ -301,10 +305,31 @@ contract Claims is AccessControl {
             // required. This mechanism works because nobody can ever control the
             // zero address.
             if (_addressStake[pro][address(0)] == 0) {
-                _addressStake[pro][address(0)] = bal;
+                {
+                    _addressStake[pro][address(0)] = bal; // minimum balance
+                    _indexAddress[pro][0] = use; // proposer address
+                }
+
+                unchecked {
+                    _indexMembers[pro][CLAIM_ADDRESS_N]--; // negative padding
+                }
+            }
+
+            if (vot) {
+                unchecked {
+                    _indexMembers[pro][CLAIM_ADDRESS_Y]++; // base is 1
+                    _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_Y]] = use;
+                }
+            } else {
+                unchecked {
+                    _indexMembers[pro][CLAIM_ADDRESS_N]--; // base is 2^256 - 2
+                    _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_N]] = use;
+                }
             }
         } else {
-            _addressStake[pro][use] += bal;
+            unchecked {
+                _addressStake[pro][use] += bal;
+            }
         }
     }
 
@@ -320,7 +345,7 @@ contract Claims is AccessControl {
             revert Balance("transfer failed", bal);
         }
 
-        {
+        unchecked {
             _availBalance[use] -= bal;
         }
     }
@@ -354,10 +379,26 @@ contract Claims is AccessControl {
         for (uint256 i = 0; i < ind.length; i++) {
             address use = _indexAddress[pro][ind[i]];
 
-            if (use == address(0)) {
-                revert Mapping("indices invalid");
+            // Index 0 is the reserved index for the proposer address. This
+            // address is only allowed to tell us who created the claim. This
+            // address will appear again as either the first staker voting true
+            // or the first staker voting false. From those indices 1 or 2^256-1
+            // the proposer address may still be selected by the random truth
+            // sampling process.
+            if (ind[i] == 0) {
+                revert Mapping("not allowed");
             }
 
+            // We we ended up with the zero address it means the provided index
+            // is out of range and random truth sampling process failed to come
+            // up with a list of valid indices.
+            if (use == address(0)) {
+                revert Mapping("not found");
+            }
+
+            // If for any reason the random truth sampling process provides us
+            // with the same index twice, then we revert the whole transaction.
+            // The rule is "one user one vote".
             if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
                 revert Mapping("already selected");
             }
@@ -369,7 +410,7 @@ contract Claims is AccessControl {
 
         {
             _claimExpired[res] = exp; // TODO expiry input must be validated and tested
-            _claimIndices[res] = ind;
+            _claimIndices[pro] = ind;
             _claimMapping[pro] = res;
         }
     }
@@ -383,6 +424,14 @@ contract Claims is AccessControl {
 
         if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
+        }
+
+        // The 0 index is reserved for the proposer address. Updating all user
+        // balances for everyone, including the proposer can be done within the
+        // range [1, 2^256-1].
+        if (lef == 0) {
+            // TODO test
+            revert Mapping("not allowed");
         }
 
         if (_claimMapping[pro] != res) {
@@ -413,8 +462,10 @@ contract Claims is AccessControl {
         uint256 yay = _truthResolve[res][CLAIM_TRUTH_Y];
         uint256 nah = _truthResolve[res][CLAIM_TRUTH_N];
 
+        uint256 len = (_indexMembers[pro][CLAIM_ADDRESS_Y]) + (MAX_UINT256 - _indexMembers[pro][CLAIM_ADDRESS_N]);
+
         //
-        if (_indexMembers[pro] == 1) {
+        if (len == 1) {
             return updateSingle(pro, res, yay > nah);
         }
 
@@ -427,7 +478,7 @@ contract Claims is AccessControl {
         // Only credit the proposer and the protocol once everyone else got
         // accounted for. The proposer is always the very first user, because
         // they created the claim.
-        if (_stakePropose[pro][CLAIM_STAKE_D] == _indexMembers[pro]) {
+        if (_stakePropose[pro][CLAIM_STAKE_D] == len) {
             {
                 address first = _indexAddress[pro][0];
                 uint256 total = _stakePropose[pro][CLAIM_STAKE_Y] + _stakePropose[pro][CLAIM_STAKE_N];
@@ -489,17 +540,15 @@ contract Claims is AccessControl {
 
     // TODO this result cannot be disputed
     function updatePunish(uint256 pro, uint256 res, uint256 lef, uint256 rig) private {
-        uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
-
-        if (rig >= _indexMembers[pro]) {
-            {
-                _claimBalance[res].set(CLAIM_BALANCE_P);
-            }
-
-            {
-                rig = _indexMembers[pro] - 1;
-            }
+        if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
+            _claimBalance[res].set(CLAIM_BALANCE_P);
         }
+
+        if (rig >= _indexMembers[pro][CLAIM_ADDRESS_Y] - 1) {
+            rig = _indexMembers[pro][CLAIM_ADDRESS_Y] - 1;
+        }
+
+        uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
 
         for (uint256 i = lef; i <= rig; i++) {
             address use = _indexAddress[pro][i];
@@ -548,14 +597,8 @@ contract Claims is AccessControl {
     }
 
     function updateReward(uint256 pro, uint256 res, uint256 lef, uint256 rig, bool win) private {
-        if (rig >= _indexMembers[pro] - 1) {
-            {
-                _claimBalance[res].set(CLAIM_BALANCE_R);
-            }
-
-            {
-                rig = _indexMembers[pro] - 1;
-            }
+        if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
+            _claimBalance[res].set(CLAIM_BALANCE_R);
         }
 
         uint256 fee = (BASIS_TOTAL - (BASIS_PROPOSER + BASIS_PROTOCOL));
@@ -585,6 +628,7 @@ contract Claims is AccessControl {
             // Only those users who were right in the end regain their allocated
             // balances in the form of available balances, plus rewards.
             {
+                // TODO test that indices out of allocated range panics naturally
                 _allocBalance[use] -= bal;
             }
 
@@ -694,8 +738,21 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchMembers(uint256 pro) public view returns (uint256) {
-        return _indexMembers[pro];
+    function searchIndices(uint256 pro) public view returns (uint256, uint256, uint256, uint256) {
+        uint256 myl = 1;
+        uint256 myr = _indexMembers[pro][CLAIM_ADDRESS_Y];
+        uint256 mnl = _indexMembers[pro][CLAIM_ADDRESS_N];
+        uint256 mnr = MAX_UINT256 - 1;
+
+        if (myr == 0) {
+            myl = 0;
+        }
+
+        if (mnl == MAX_UINT256) {
+            mnr = MAX_UINT256;
+        }
+
+        return (myl, myr, mnl, mnr);
     }
 
     // can be called by anyone, may not return anything
@@ -709,25 +766,66 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchSamples(uint256 pro, uint256 res) public view onlyPaired(pro, res) returns (address[] memory) {
-        // TODO this should be cursor based
-        uint256[] memory ind = _claimIndices[res];
-        address[] memory lis = new address[](ind.length);
+    function searchSamples(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
+        // TODO test multiple calles to searchSample with and without overlap
+        uint256[] memory ind = _claimIndices[pro];
 
-        for (uint256 i = 0; i < ind.length; i++) {
-            lis[i] = _indexAddress[pro][ind[i]];
+        if (rig >= ind.length) {
+            rig = ind.length;
+        }
+
+        address[] memory lis = new address[](rig - lef);
+
+        for (uint256 i = lef; i < rig; i++) {
+            address use = _indexAddress[pro][ind[i]];
+
+            if (use == address(0)) {
+                break;
+            } else {
+                lis[i] = use;
+            }
         }
 
         return lis;
     }
 
     // can be called by anyone, may not return anything
-    function searchStakers(uint256 pro) public view returns (address[] memory) {
-        // TODO this should be cursor based
-        address[] memory lis = new address[](_indexMembers[pro]);
+    function searchStakers(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
+        if ((lef == 0 && rig != 0) || (lef != 0 && rig == 0) || lef > rig) {
+            revert Mapping("indices invalid");
+        }
 
-        for (uint256 i = 0; i < _indexMembers[pro]; i++) {
-            lis[i] = _indexAddress[pro][i];
+        address[] memory lis = new address[](rig - lef + 1);
+
+        if (lef == 0 && rig == 0) {
+            lis[0] = _indexAddress[pro][0];
+            return lis;
+        }
+
+        uint256 max = _indexMembers[pro][CLAIM_ADDRESS_Y];
+        if (lef < max && rig > max) {
+            rig = max;
+        }
+
+        uint256 i = 0;
+        uint256 j = lef;
+        while (j <= rig) {
+            address use = _indexAddress[pro][j];
+
+            if (use == address(0)) {
+                break;
+            } else {
+                {
+                    lis[i] = use;
+                }
+
+                if (j == MAX_UINT256) {
+                    break;
+                } else {
+                    i++;
+                    j++;
+                }
+            }
         }
 
         return lis;

@@ -27,25 +27,26 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
-          Expiry(2, "days"),
+          0,
         );
+
         await Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
-          Expiry(2, "days"),
+          0,
         );
         await Claims.connect(Signer(4)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
-          Expiry(2, "days"),
+          0,
         );
         await Claims.connect(Signer(5)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
-          Expiry(2, "days"),
+          0,
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -56,7 +57,7 @@ describe("Claims", function () {
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -66,7 +67,7 @@ describe("Claims", function () {
           Side(true),
         );
 
-        await Claims.connect(Signer(5)).updateResolve(
+        await Claims.connect(Signer(3)).updateResolve(
           Claim(1),
           Claim(7),
           Side(true),
@@ -84,8 +85,15 @@ describe("Claims", function () {
         await Claims.connect(Signer(0)).updateBalance(
           Claim(1),
           Claim(7),
-          0,
-          100,
+          Index(+1),
+          Index(+2),
+        );
+
+        await Claims.connect(Signer(0)).updateBalance(
+          Claim(1),
+          Claim(7),
+          Index(-3),
+          Index(-1),
         );
 
         return { Address, Claims, Signer, Token };

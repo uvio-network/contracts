@@ -71,7 +71,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(0)], // index 0 is address 1
+        [Index(+1)], // index +1 is address 1
         EXPIRY_M,
       );
 
@@ -99,7 +99,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(0)], // index 0 is address 1
+        [Index(+1)], // index +1 is address 1
         EXPIRY_D,
       );
 

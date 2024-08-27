@@ -58,7 +58,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+            [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
             Expiry(7, "days"),
           );
 
@@ -68,7 +68,7 @@ describe("Claims", function () {
             Side(true),
           );
 
-          await Claims.connect(Signer(5)).updateResolve(
+          await Claims.connect(Signer(3)).updateResolve(
             Claim(1),
             Claim(7),
             Side(true),
@@ -90,8 +90,8 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            3,
-            5,
+            Index(-3),
+            Index(-1),
           );
 
           return { Address, Claims, Signer, Token };
@@ -107,8 +107,8 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            0,
-            2,
+            Index(+1),
+            Index(+2),
           );
 
           return { Address, Claims, Signer, Token };
@@ -276,7 +276,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+            [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 4
             Expiry(7, "days"),
           );
 
@@ -286,7 +286,7 @@ describe("Claims", function () {
             Side(true),
           );
 
-          await Claims.connect(Signer(5)).updateResolve(
+          await Claims.connect(Signer(4)).updateResolve(
             Claim(1),
             Claim(7),
             Side(true),
@@ -308,27 +308,27 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            0,
-            2,
+            Index(+1),
+            Index(+3),
           );
 
-          // ignore index 3
+          // ignore index 8
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            4,
-            6,
+            Index(-4),
+            Index(-2),
           );
 
-          // ignore index 7
+          // ignore index 4
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           return { Address, Claims, Signer, Token };
@@ -338,14 +338,14 @@ describe("Claims", function () {
           const { Address, Claims, Signer, Token } = await loadFixture(updateBalanceIgnore);
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            0,
-            7,
+            Index(-5),
+            Index(-1),
           );
 
           return { Address, Claims, Signer, Token };

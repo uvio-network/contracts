@@ -78,13 +78,6 @@ describe("Claims", function () {
       return { Address, Claims };
     }
 
-    it("should create claim with lifecycle phase propose", async function () {
-      const { Address, Claims } = await loadFixture(createPropose);
-
-      expect(await Claims.searchMembers(Claim(1))).to.equal(1);
-      expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1)]);
-    });
-
     it("should allocate a user balance", async function () {
       const { Address, Claims } = await loadFixture(createPropose);
 
@@ -119,13 +112,6 @@ describe("Claims", function () {
 
       expect(res[0]).to.equal(Amount(50)); // allocated
       expect(res[1]).to.equal(0);          // available
-    });
-
-    it("should create claim with lifecycle phase propose", async function () {
-      const { Address, Claims } = await loadFixture(createProposeMulti);
-
-      expect(await Claims.searchMembers(Claim(1))).to.equal(3);
-      expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3)]);
     });
 
     it("if prior attempt by signer 1 failed", async function () {

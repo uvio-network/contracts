@@ -33,7 +33,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(0)], // index 0 is address 1
+            [Index(+1)], // index +1 is address 1
             Expiry(7, "days"),
           );
 
@@ -55,8 +55,8 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            0,
-            100,
+            Index(+1),
+            Index(+1),
           );
 
           return { Address, Claims, Signer, Token };
@@ -130,7 +130,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(0)], // index 0 is address 1
+            [Index(-1)], // index -1 is address 1
             Expiry(7, "days"),
           );
 
@@ -152,8 +152,8 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            0,
-            100,
+            Index(-1),
+            Index(-1),
           );
 
           return { Address, Claims, Signer, Token };

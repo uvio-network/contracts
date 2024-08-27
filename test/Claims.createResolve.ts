@@ -26,25 +26,26 @@ describe("Claims", function () {
         Claim(1),
         Amount(10),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
+
       await Claims.connect(Signer(3)).createPropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(4)).createPropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(5)).createPropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(2, "days"),
+        0,
       );
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -61,12 +62,11 @@ describe("Claims", function () {
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+        [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
         Expiry(7, "days"),
       );
 
-      expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3), Address(4), Address(5)]);
-      expect(await Claims.searchSamples(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
+      expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(1), Address(3)]);
     });
 
     it("signer 9 can create claim with lifecycle phase resolve", async function () {
@@ -77,12 +77,11 @@ describe("Claims", function () {
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+        [Index(+2), Index(-2)], // index +2 and -2 are address 2 and 4
         Expiry(7, "days"),
       );
 
-      expect(await Claims.searchStakers(Claim(1))).to.deep.equal([Address(1), Address(2), Address(3), Address(4), Address(5)]);
-      expect(await Claims.searchSamples(Claim(1), Claim(7))).to.deep.equal([Address(1), Address(5)]);
+      expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(2), Address(4)]);
     });
   });
 });

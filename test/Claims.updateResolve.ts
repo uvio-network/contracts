@@ -55,7 +55,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(0), Index(4)], // index 0 and 4 are address 1 and 5
+        [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
         Expiry(7, "days"),
       );
 
@@ -101,10 +101,10 @@ describe("Claims", function () {
       expect(res[1]).to.equal(1); // nah
     });
 
-    it("signer 5 can verify the truth with true", async function () {
+    it("signer 3 can verify the truth with true", async function () {
       const { Claims, Signer } = await loadFixture(createResolve);
 
-      await Claims.connect(Signer(5)).updateResolve(
+      await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
         Claim(7),
         Side(true),
@@ -116,10 +116,10 @@ describe("Claims", function () {
       expect(res[1]).to.equal(0); // nah
     });
 
-    it("signer 5 can verify the truth with false", async function () {
+    it("signer 3 can verify the truth with false", async function () {
       const { Claims, Signer } = await loadFixture(createResolve);
 
-      await Claims.connect(Signer(5)).updateResolve(
+      await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
         Claim(7),
         Side(false),
@@ -140,7 +140,7 @@ describe("Claims", function () {
         Side(true),
       );
 
-      await Claims.connect(Signer(5)).updateResolve(
+      await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
         Claim(7),
         Side(true),
@@ -161,7 +161,7 @@ describe("Claims", function () {
         Side(false),
       );
 
-      await Claims.connect(Signer(5)).updateResolve(
+      await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
         Claim(7),
         Side(false),
@@ -191,13 +191,13 @@ describe("Claims", function () {
       expect(res[1]).to.equal(0); // nah
     });
 
-    it("signer 5 can verify the truth with false 6 days in", async function () {
+    it("signer 3 can verify the truth with false 6 days in", async function () {
       const { Claims, Signer } = await loadFixture(createResolve);
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(6, "days")]); // expiry is 7 days
       await network.provider.send("evm_mine");
 
-      await Claims.connect(Signer(5)).updateResolve(
+      await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
         Claim(7),
         Side(false),
