@@ -11,8 +11,8 @@ import { Side } from "./src/Side";
 
 describe("Claims", function () {
   describe("updateBalance", function () {
-    describe("multiple", function () {
-      describe("30 true 20 false, no overlap", function () {
+    describe("ignore", function () {
+      describe("20 true 30 false", function () {
         const updateResolve = async () => {
           const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
@@ -21,32 +21,32 @@ describe("Claims", function () {
           await Claims.connect(Signer(1)).createPropose(
             Claim(1),
             Amount(10),
-            Side(false),
+            Side(true),
             Expiry(2, "days"),
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
             Amount(10),
-            Side(false),
+            Side(true),
             0,
           );
 
           await Claims.connect(Signer(3)).createPropose(
             Claim(1),
             Amount(10),
-            Side(true),
+            Side(false),
             0,
           );
           await Claims.connect(Signer(4)).createPropose(
             Claim(1),
             Amount(10),
-            Side(true),
+            Side(false),
             0,
           );
           await Claims.connect(Signer(5)).createPropose(
             Claim(1),
             Amount(10),
-            Side(true),
+            Side(false),
             0,
           );
 
@@ -77,18 +77,11 @@ describe("Claims", function () {
           return { Address, Claims, Signer, Token };
         }
 
-        const updateBalance = async () => {
+        const updateBalanceIgnore = async () => {
           const { Address, Claims, Signer, Token } = await loadFixture(updateResolve);
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
-
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(1),
-            Claim(7),
-            0,
-            2,
-          );
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
@@ -104,8 +97,33 @@ describe("Claims", function () {
           return { Address, Claims, Signer, Token };
         }
 
-        it("should update balances by rewarding users", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+        const updateBalanceComplete = async () => {
+          const { Address, Claims, Signer, Token } = await loadFixture(updateBalanceIgnore);
+
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+
+          await Claims.connect(Signer(0)).updateBalance(
+            Claim(1),
+            Claim(7),
+            0,
+            2,
+          );
+
+          return { Address, Claims, Signer, Token };
+        }
+
+        it("should not complete updating balances if users get ignored", async function () {
+          const { Claims } = await loadFixture(updateBalanceIgnore);
+
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+        });
+
+        it("should update balances by rewarding users if all users got processed", async function () {
+          const { Claims } = await loadFixture(updateBalanceComplete);
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
@@ -113,84 +131,82 @@ describe("Claims", function () {
         });
 
         it("should have 50 tokens staked", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchPropose(Claim(1));
 
-          expect(res[0]).to.equal(Amount(30)); // yay
-          expect(res[1]).to.equal(Amount(20)); // nah
+          expect(res[0]).to.equal(Amount(20)); // yay
+          expect(res[1]).to.equal(Amount(30)); // nah
 
           expect(res[0] + res[1]).to.equal(Amount(50));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const zer = await Claims.searchBalance(Address(0));
           const one = await Claims.searchBalance(Address(1));
-          const thr = await Claims.searchBalance(Address(3));
-          const fou = await Claims.searchBalance(Address(4));
-          const fiv = await Claims.searchBalance(Address(5));
+          const two = await Claims.searchBalance(Address(2));
 
-          expect(zer[1] + one[1] + thr[1] + fou[1] + fiv[1]).to.equal(Amount(50));
+          expect(zer[1] + one[1] + two[1]).to.equal(Amount(50));
         });
 
         it("should calculate balances accurately for signer 0", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(0)); // protocol owner receiving rewards
 
           expect(res[0]).to.equal(0);                     // allocated
-          expect(res[1]).to.equal("2500000000000000018"); // available (2.50 + captured precision loss)
+          expect(res[1]).to.equal("2500000000000000000"); // available (2.50)
         });
 
         it("should calculate balances accurately for signer 1", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(1));
 
-          expect(res[0]).to.equal(0);                     // allocated
-          expect(res[1]).to.equal("2500000000000000000"); // available (2.50 proposer fees)
+          expect(res[0]).to.equal(0);                      // allocated
+          expect(res[1]).to.equal("25000000000000000000"); // available (25.00)
         });
 
         it("should calculate balances accurately for signer 2", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0);                      // allocated
+          expect(res[1]).to.equal("22500000000000000000"); // available (22.50)
+        });
+
+        it("should calculate balances accurately for signer 3", async function () {
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
+
+          const res = await Claims.searchBalance(Address(3));
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available
         });
 
-        it("should calculate balances accurately for signer 3", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
-
-          const res = await Claims.searchBalance(Address(3));
-
-          expect(res[0]).to.equal(0);                      // allocated
-          expect(res[1]).to.equal("14999999999999999994"); // available (15.00)
-        });
-
         it("should calculate balances accurately for signer 4", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(4));
 
-          expect(res[0]).to.equal(0);                      // allocated
-          expect(res[1]).to.equal("14999999999999999994"); // available (15.00)
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
         });
 
         it("should calculate balances accurately for signer 5", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(5));
 
-          expect(res[0]).to.equal(0);                      // allocated
-          expect(res[1]).to.equal("14999999999999999994"); // available (15.00)
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
         });
       });
 
-      describe("70 true 115 false, overlap", function () {
+      describe("70 true 115 false", function () {
         const updateResolve = async () => {
           const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
@@ -279,41 +295,24 @@ describe("Claims", function () {
           return { Address, Claims, Signer, Token };
         }
 
-        const updateBalance = async () => {
+        const updateBalanceIgnore = async () => {
           const { Address, Claims, Signer, Token } = await loadFixture(updateResolve);
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
 
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
             0,
-            3,
-          );
-
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
-
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(1),
-            Claim(7),
             2,
-            5,
           );
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
-
-          // do most of it all over again
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(1),
-            Claim(7),
-            1,
-            6,
-          );
+          // ignore index 3
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
@@ -323,6 +322,29 @@ describe("Claims", function () {
             Claim(1),
             Claim(7),
             4,
+            6,
+          );
+
+          // ignore index 7
+
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+
+          return { Address, Claims, Signer, Token };
+        }
+
+        const updateBalanceComplete = async () => {
+          const { Address, Claims, Signer, Token } = await loadFixture(updateBalanceIgnore);
+
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+
+          await Claims.connect(Signer(0)).updateBalance(
+            Claim(1),
+            Claim(7),
+            0,
             7,
           );
 
@@ -330,7 +352,7 @@ describe("Claims", function () {
         }
 
         it("should update balances by rewarding users", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(updateBalanceComplete);
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
@@ -338,7 +360,7 @@ describe("Claims", function () {
         });
 
         it("should have 185 tokens staked", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchPropose(Claim(1));
 
@@ -349,7 +371,7 @@ describe("Claims", function () {
         });
 
         it("should calculate available balances according to tokens staked", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const zer = await Claims.searchBalance(Address(0));
           const one = await Claims.searchBalance(Address(1));
@@ -360,7 +382,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 0", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(0)); // protocol owner receiving rewards
 
@@ -369,7 +391,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 1", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(1));
 
@@ -378,7 +400,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 2", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(2));
 
@@ -387,7 +409,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 3", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(3));
 
@@ -396,7 +418,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 4", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(4));
 
@@ -405,7 +427,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 5", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(5));
 
@@ -414,7 +436,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 6", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(6));
 
@@ -423,7 +445,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 7", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(7));
 
@@ -432,7 +454,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 8", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalanceComplete);
 
           const res = await Claims.searchBalance(Address(8));
 
