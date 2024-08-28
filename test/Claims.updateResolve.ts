@@ -69,7 +69,7 @@ describe("Claims", function () {
     it("no votes are recorded by default", async function () {
       const { Claims } = await loadFixture(createResolve);
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(0); // yay
       expect(res[1]).to.equal(0); // nah
@@ -80,11 +80,10 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(1)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(1); // yay
       expect(res[1]).to.equal(0); // nah
@@ -95,11 +94,10 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(1)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(0); // yay
       expect(res[1]).to.equal(1); // nah
@@ -110,11 +108,10 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(1); // yay
       expect(res[1]).to.equal(0); // nah
@@ -125,11 +122,10 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(0); // yay
       expect(res[1]).to.equal(1); // nah
@@ -140,17 +136,15 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(1)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(true),
       );
 
       await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(2); // yay
       expect(res[1]).to.equal(0); // nah
@@ -161,17 +155,15 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(1)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(false),
       );
 
       await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(0); // yay
       expect(res[1]).to.equal(2); // nah
@@ -185,11 +177,10 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(1)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(1); // yay
       expect(res[1]).to.equal(0); // nah
@@ -203,11 +194,10 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(3)).updateResolve(
         Claim(1),
-        Claim(7),
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(7));
+      const res = await Claims.searchVotes(Claim(1));
 
       expect(res[0]).to.equal(0); // yay
       expect(res[1]).to.equal(1); // nah

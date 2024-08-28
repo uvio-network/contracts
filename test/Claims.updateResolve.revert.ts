@@ -102,7 +102,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
@@ -114,7 +113,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
@@ -126,7 +124,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(2)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
@@ -138,7 +135,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(2)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
@@ -150,13 +146,11 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
@@ -168,13 +162,11 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
@@ -186,13 +178,11 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
@@ -204,13 +194,11 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
@@ -225,7 +213,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(true),
         );
 
@@ -240,7 +227,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(1),
-          Claim(7),
           Side(false),
         );
 
@@ -252,7 +238,17 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).updateResolve(
           Claim(0),
-          Claim(0),
+          Side(false),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if signer 1 uses the resolve ID", async function () {
+        const { Claims, Signer } = await loadFixture(createResolve);
+
+        const txn = Claims.connect(Signer(1)).updateResolve(
+          Claim(7),
           Side(false),
         );
 
@@ -264,7 +260,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(3)).updateResolve(
           Claim(2),
-          Claim(7),
           Side(false),
         );
 
@@ -276,7 +271,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(5)).updateResolve(
           Claim(2),
-          Claim(7),
           Side(false),
         );
 
