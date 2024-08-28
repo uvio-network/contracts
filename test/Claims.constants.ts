@@ -11,6 +11,8 @@ describe("Claims", function () {
       expect(await Claims.BOT_ROLE()).to.equal(Role("BOT_ROLE"));
     });
 
+    // TODO write test to verify static fee sum of 10,000
+
     it("should expose MAX_UINT256 as the upper numerical limit", async function () {
       const { Claims } = await loadFixture(Deploy);
 

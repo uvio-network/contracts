@@ -90,7 +90,7 @@ describe("Claims", function () {
         EXPIRY_W,
       );
 
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(64, "days")]);
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(65, "days")]);
       await network.provider.send("evm_mine");
 
       await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -99,11 +99,11 @@ describe("Claims", function () {
         Claim(1),
         Claim(7),
         [0], // address 1
-        EXPIRY_D,
+        Expiry(67, "days"),
       );
 
       expect(await Claims.searchExpired(Claim(1))).to.equal(EXPIRY_W);
-      expect(await Claims.searchExpired(Claim(7))).to.equal(EXPIRY_D);
+      expect(await Claims.searchExpired(Claim(7))).to.equal(Expiry(67, "days"));
     });
   });
 });
