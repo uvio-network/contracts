@@ -3,11 +3,14 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+
+const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("createResolve", function () {
@@ -21,7 +24,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
-          Expiry(2, "days"),
+          EXPIRY,
         );
         await Claims.connect(Signer(2)).createPropose(
           Claim(1),
@@ -61,7 +64,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(0)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -77,7 +80,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(1)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -93,7 +96,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(2)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -109,7 +112,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -127,7 +130,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(0),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -145,7 +148,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(0),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -163,7 +166,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(1),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -181,7 +184,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(3),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -206,24 +209,6 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are out of range, 0", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
-
-        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
-
-        const txn = Claims.connect(Signer(9)).createResolve(
-          Claim(1),
-          Claim(7),
-          [BigInt(0), Index(-1)], // index 0 is reserved for the proposer address
-          Expiry(7, "days"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
-      });
-
       it("if indices are out of range, +5", async function () {
         const { Address, Claims, Signer } = await loadFixture(createPropose);
 
@@ -235,7 +220,25 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+5), Index(-1)], // index +5 does not refer to any staker
+          [5, MAX],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if indices are out of range, -7", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [MAX - BigInt(7), MAX],
           Expiry(7, "days"),
         );
 
@@ -253,7 +256,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1), Index(-11)], // index -11 does not refer to any staker
+          [0, MAX - BigInt(11)],
           Expiry(7, "days"),
         );
 
@@ -271,7 +274,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(+1), Index(-1)],
+          [1, 1, MAX],
           Expiry(7, "days"),
         );
 
@@ -289,7 +292,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1), Index(-1)],
+          [0, MAX - BigInt(1), MAX - BigInt(1)],
           Expiry(7, "days"),
         );
 
@@ -307,14 +310,14 @@ describe("Claims", function () {
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -332,7 +335,7 @@ describe("Claims", function () {
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -342,7 +345,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 
@@ -363,7 +366,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+          [0, MAX], // address 1 and 3
           Expiry(7, "days"),
         );
 

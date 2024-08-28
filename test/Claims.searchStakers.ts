@@ -7,9 +7,10 @@ import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { maxUint256 } from "viem";
 import { Side } from "./src/Side";
 import { zeroAddress } from "viem";
-import { Index } from "./src/Index";
 
 const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
+const MID = maxUint256 / BigInt(2);
 
 describe("Claims", function () {
   describe("searchStakers", function () {
@@ -29,16 +30,18 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should keep track of proposer", async function () {
-        const { Address, Claims } = await loadFixture(createPropose);
-
-        expect(await Claims.searchStakers(Claim(1), 0, 0)).to.deep.equal([Address(1)]);
-      });
-
       it("should keep track of indices", async function () {
         const { Claims } = await loadFixture(createPropose);
 
-        expect(await Claims.searchIndices(Claim(1))).to.deep.equal([1, 1, maxUint256, maxUint256]);
+        expect(await Claims.searchIndices(Claim(1))).to.deep.equal([1, 0, 0, MID, MID, MAX, MAX, 0]);
+      });
+
+      it("should keep track of proposer", async function () {
+        const { Address, Claims } = await loadFixture(createPropose);
+
+        const res = await Claims.searchIndices(Claim(1));
+
+        expect(await Claims.searchStakers(Claim(1), res[3], res[4])).to.deep.equal([Address(1)]);
       });
 
       it("should keep track of stakers", async function () {
@@ -46,8 +49,8 @@ describe("Claims", function () {
 
         const res = await Claims.searchIndices(Claim(1));
 
-        expect(await Claims.searchStakers(Claim(1), res[0], res[1])).to.deep.equal([Address(1)]);
-        expect(await Claims.searchStakers(Claim(1), res[2], res[3])).to.deep.equal([zeroAddress]);
+        expect(await Claims.searchStakers(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+        expect(await Claims.searchStakers(Claim(1), res[5], res[6])).to.deep.equal([zeroAddress]);
       });
     });
 
@@ -55,9 +58,9 @@ describe("Claims", function () {
       const createPropose = async () => {
         const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
 
-        await Balance([1], 10);
+        await Balance([3], 10);
 
-        await Claims.connect(Signer(1)).createPropose(
+        await Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(10),
           Side(false),
@@ -67,16 +70,18 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should keep track of proposer", async function () {
-        const { Address, Claims } = await loadFixture(createPropose);
-
-        expect(await Claims.searchStakers(Claim(1), 0, 0)).to.deep.equal([Address(1)]);
-      });
-
       it("should keep track of indices", async function () {
         const { Claims } = await loadFixture(createPropose);
 
-        expect(await Claims.searchIndices(Claim(1))).to.deep.equal([BigInt(0), BigInt(0), Index(-1), Index(-1)]);
+        expect(await Claims.searchIndices(Claim(1))).to.deep.equal([0, 0, 0, MID, MID, MAX, MAX, 1]);
+      });
+
+      it("should keep track of proposer", async function () {
+        const { Address, Claims } = await loadFixture(createPropose);
+
+        const res = await Claims.searchIndices(Claim(1));
+
+        expect(await Claims.searchStakers(Claim(1), res[3], res[4])).to.deep.equal([Address(3)]);
       });
 
       it("should keep track of stakers", async function () {
@@ -84,7 +89,8 @@ describe("Claims", function () {
 
         const res = await Claims.searchIndices(Claim(1));
 
-        expect(await Claims.searchStakers(Claim(1), res[2], res[3])).to.deep.equal([Address(1)]);
+        expect(await Claims.searchStakers(Claim(1), res[1], res[2])).to.deep.equal([zeroAddress]);
+        expect(await Claims.searchStakers(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
       });
     });
 
@@ -148,16 +154,18 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should keep track of proposer", async function () {
-        const { Address, Claims } = await loadFixture(createPropose);
-
-        expect(await Claims.searchStakers(Claim(1), 0, 0)).to.deep.equal([Address(2)]);
-      });
-
       it("should keep track of indices", async function () {
         const { Claims } = await loadFixture(createPropose);
 
-        expect(await Claims.searchIndices(Claim(1))).to.deep.equal([Index(+1), Index(+3), Index(-2), Index(-1)]);
+        expect(await Claims.searchIndices(Claim(1))).to.deep.equal([3, 0, 2, MID, MID, MAX - BigInt(1), MAX, 2]);
+      });
+
+      it("should keep track of proposer", async function () {
+        const { Address, Claims } = await loadFixture(createPropose);
+
+        const res = await Claims.searchIndices(Claim(1));
+
+        expect(await Claims.searchStakers(Claim(1), res[3], res[4])).to.deep.equal([Address(2)]);
       });
 
       it("should keep track of stakers", async function () {
@@ -165,8 +173,8 @@ describe("Claims", function () {
 
         const res = await Claims.searchIndices(Claim(1));
 
-        expect(await Claims.searchStakers(Claim(1), res[0], res[1])).to.deep.equal([Address(2), Address(3), Address(1)]);
-        expect(await Claims.searchStakers(Claim(1), res[2], res[3])).to.deep.equal([Address(5), Address(4)]); // reversed order
+        expect(await Claims.searchStakers(Claim(1), res[1], res[2])).to.deep.equal([Address(2), Address(3), Address(1)]);
+        expect(await Claims.searchStakers(Claim(1), res[5], res[6])).to.deep.equal([Address(5), Address(4)]); // reversed order
       });
     });
   });

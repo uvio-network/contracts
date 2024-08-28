@@ -3,11 +3,14 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+
+const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("updateResolve", function () {
@@ -20,31 +23,32 @@ describe("Claims", function () {
         Claim(1),
         Amount(10),
         Side(true),
-        Expiry(2, "days"),
+        EXPIRY,
       );
       await Claims.connect(Signer(2)).createPropose(
         Claim(1),
         Amount(10),
         Side(true),
-        Expiry(2, "days"),
+        0,
       );
+
       await Claims.connect(Signer(3)).createPropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(4)).createPropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(2, "days"),
+        0,
       );
       await Claims.connect(Signer(5)).createPropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(2, "days"),
+        0,
       );
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -55,7 +59,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+        [0, MAX], // address 1 and 3
         Expiry(7, "days"),
       );
 
