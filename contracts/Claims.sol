@@ -428,6 +428,7 @@ contract Claims is AccessControl {
 
     // can be called by anyone
     function updateBalance(uint256 pro, uint256 res, uint256 len) public {
+        // TODO remove res arg
         uint48 exp = _claimExpired[res];
         uint48 unx = Time.timestamp();
 
@@ -745,12 +746,12 @@ contract Claims is AccessControl {
     // can be called by anyone, may not return anything
     //
     //     out[0] the total amount of first stakers in agreement
-    //     out[1] the left handsight index for first stakers in agreement
-    //     out[2] the right handsight index for first stakers in agreement
-    //     out[3] the left handsight index of the proposer address
-    //     out[4] the right handsight index of the proposer address
-    //     out[5] the left handsight index for first stakers in disagreement
-    //     out[6] the right handsight index for first stakers in disagreement
+    //     out[1] the left handside index for first stakers in agreement
+    //     out[2] the right handside index for first stakers in agreement
+    //     out[3] the left handside index of the proposer address
+    //     out[4] the right handside index of the proposer address
+    //     out[5] the left handside index for first stakers in disagreement
+    //     out[6] the right handside index for first stakers in disagreement
     //     out[7] the total amount of first stakers in disagreement
     //
     // Search for the proposer address.
