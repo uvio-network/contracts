@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
 // Uncomment this line to use console.log
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract Claims is AccessControl {
     //
@@ -237,24 +237,21 @@ contract Claims is AccessControl {
             revert Mapping("claim invalid");
         }
 
-        address use = msg.sender;
-
         // Look for the very first deposit related to the given claim. If this
         // call is for the very first deposit itself, then there is no minimum
         // balance to check against. In that very first case we simply check the
-        // given balance against 0, which allows the creator of the claim to
-        // define the minimum stake required to participate in this market. All
-        // following users have then to comply with the minimum balance defined.
+        // given balance against 0, which allows the proposer to define the
+        // minimum stake required to participate in this market. All following
+        // users have then to comply with the minimum balance defined.
         uint256 min = _addressStake[pro][address(0)];
         if (bal < min) {
             revert Balance("below minimum", min);
         }
 
+        address use = msg.sender;
+
         if (_claimExpired[pro] == 0) {
-            // The first user creating a claim must define an expiry that is at
-            // least 1 day in the future. Once a claim was created, its expiry
-            // starts to run out. Users can only keep staking as long as the
-            // claim they want to stake on did not expire.
+            // Expiries must be at least 24 hours in the future.
             if (exp < Time.timestamp() + SECONDS_DAY) {
                 revert Expired("expiry invalid", exp);
             }
@@ -262,6 +259,19 @@ contract Claims is AccessControl {
             // Set the given expiry to make the code flow below work.
             {
                 _claimExpired[pro] = exp;
+            }
+
+            // In case this is the creation of a claim with lifecycle "propose",
+            // store the first balance provided under the zero address key, so
+            // that we can remember the minimum balance required for staking
+            // reputation on this claim. Using the zero address as key here
+            // allows us to use the same mapping we use for all user stakes, so
+            // that we do not have to maintain another separate data structure
+            // for the minimum balance required. This mechanism works because
+            // nobody can ever control the zero address.
+            {
+                _addressStake[pro][address(0)] = bal; // minimum balance
+                _indexAddress[pro][MID_UINT256] = use; // proposer address
             }
         } else {
             // Ensure anyone can stake up until the defined expiry.
@@ -311,20 +321,6 @@ contract Claims is AccessControl {
                     _addressStake[pro][use] = bal;
                 }
 
-                // In case this is the creation of a claim with lifecycle
-                // "propose", store the first balance provided under the zero
-                // address key, so that we can remember the minimum balance
-                // required for staking reputation on that claim. Using the zero
-                // address as key here allows us to use the same mapping we use
-                // for all user stakes, so that we do not have to maintain
-                // another separate data structure for the minimum balance
-                // required. This mechanism works because nobody can ever
-                // control the zero address.
-                if (_addressStake[pro][address(0)] == 0) {
-                    _addressStake[pro][address(0)] = bal; // minimum balance
-                    _indexAddress[pro][MID_UINT256] = use; // proposer address
-                }
-
                 if (vot) {
                     _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_Y]] = use;
                     _indexMembers[pro][CLAIM_ADDRESS_Y]++; // base is 0
@@ -338,12 +334,12 @@ contract Claims is AccessControl {
         }
     }
 
+    // TODO test withdrawals since we implemented updating balances
     function withdraw(uint256 bal) public {
         address use = msg.sender;
-        uint256 avl = _availBalance[use];
 
-        if (avl < bal) {
-            revert Balance("insufficient funds", avl);
+        if (_availBalance[use] < bal) {
+            revert Balance("insufficient funds", _availBalance[use]);
         }
 
         if (!IERC20(token).transferFrom(address(this), use, bal)) {
@@ -381,7 +377,7 @@ contract Claims is AccessControl {
             revert Mapping("indices invalid");
         }
 
-        // Expiries must be at least be 24 hours in the future.
+        // Expiries must be at least 24 hours in the future.
         if (exp < Time.timestamp() + SECONDS_DAY) {
             revert Expired("expiry invalid", exp);
         }
