@@ -105,7 +105,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
-      it("if claim already expired", async function () {
+      it("if proposer tries to stake on an expired claim", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
         await Balance([1, 2], 10);
@@ -117,10 +117,35 @@ describe("Claims", function () {
           Expiry(2, "days"),
         );
 
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(49, "hours")]); // 2 days and 1 hour later
         await network.provider.send("evm_mine");
 
-        const txn = Claims.connect(Signer(2)).createPropose(
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          BigInt(0),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if somebody tries to stake on an expired claim", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1, 2], 10);
+
+        await Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(49, "hours")]); // 2 days and 1 hour later
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(10),
           Side(true),
