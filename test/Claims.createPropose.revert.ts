@@ -53,7 +53,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if expiry is not at least 1 day in the future", async function () {
+      it("if expiry is 5 hours", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
         await Balance([1], 10);
@@ -63,6 +63,21 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(5, "hours"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if expiry is 23 hours", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1], 10);
+
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(23, "hours"),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");

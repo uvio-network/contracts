@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
 // Uncomment this line to use console.log
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract Claims is AccessControl {
     //
@@ -250,17 +250,24 @@ contract Claims is AccessControl {
             revert Balance("below minimum", min);
         }
 
-        // Set the given expiry to make the code flow below work.
         if (_claimExpired[pro] == 0) {
-            _claimExpired[pro] = exp;
-        }
+            // The first user creating a claim must define an expiry that is at
+            // least 1 day in the future. Once a claim was created, its expiry
+            // starts to run out. Users can only keep staking as long as the
+            // claim they want to stake on did not expire.
+            if (exp < Time.timestamp() + SECONDS_DAY) {
+                revert Expired("expiry invalid", exp);
+            }
 
-        // The first user creating a claim must define an expiry that is at
-        // least 1 day in the future. Once a claim was created its expiry starts
-        // to run out. Users can only keep staking as long as the claim they
-        // want to stake on did not yet expire.
-        if (_claimExpired[pro] < Time.timestamp() + SECONDS_DAY) {
-            revert Expired("propose expired", _claimExpired[pro]);
+            // Set the given expiry to make the code flow below work.
+            {
+                _claimExpired[pro] = exp;
+            }
+        } else {
+            // Ensure anyone can stake up until the defined expiry.
+            if (_claimExpired[pro] < Time.timestamp()) {
+                revert Expired("expiry invalid", _claimExpired[pro]);
+            }
         }
 
         // Do the transfer right at the top, because this is the last thing that
@@ -354,10 +361,6 @@ contract Claims is AccessControl {
 
     // must be called by some privileged bot
     function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public onlyRole(BOT_ROLE) {
-        if (ind.length == 0) {
-            revert Mapping("indices invalid");
-        }
-
         if (res == 0) {
             revert Mapping("resolve invalid");
         }
@@ -372,6 +375,15 @@ contract Claims is AccessControl {
 
         if (_claimExpired[pro] > Time.timestamp()) {
             revert Expired("propose active", _claimExpired[pro]);
+        }
+
+        if (ind.length == 0) {
+            revert Mapping("indices invalid");
+        }
+
+        // Expiries must be at least be 24 hours in the future.
+        if (exp < Time.timestamp() + SECONDS_DAY) {
+            revert Expired("expiry invalid", exp);
         }
 
         for (uint256 i = 0; i < ind.length; i++) {
@@ -397,7 +409,7 @@ contract Claims is AccessControl {
         }
 
         {
-            _claimExpired[res] = exp; // TODO test expiry input must be validated
+            _claimExpired[res] = exp;
             _claimIndices[pro] = ind;
             _claimMapping[pro] = res;
         }

@@ -4,6 +4,7 @@ import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { network } from "hardhat";
 import { Side } from "./src/Side";
 
 const EXPIRY = Expiry(2, "days");
@@ -20,6 +21,121 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY,
+      );
+
+      return { Address, Claims };
+    }
+
+    const createProposeExpiry = async () => {
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([1, 2, 3], 100);
+
+      await Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        Expiry(7, "days"),
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "minute")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "hour")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(1)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(20, "hours")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(1)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "day")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(2, "days")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(1)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(4, "days")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(1)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(5, "days")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(6, "days")]);
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
+      );
+
+      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(167, "hours")]); // 6 days + 23 hours
+      await network.provider.send("evm_mine");
+
+      await Claims.connect(Signer(1)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        0,
       );
 
       return { Address, Claims };
@@ -78,39 +194,21 @@ describe("Claims", function () {
       return { Address, Claims };
     }
 
-    it("should allocate a user balance", async function () {
-      const { Address, Claims } = await loadFixture(createPropose);
+    it("with 25 hour expiry", async function () {
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
 
-      const res = await Claims.searchBalance(Address(1));
+      await Balance([2], 10);
 
-      expect(res[0]).to.equal(Amount(10)); // allocated
-      expect(res[1]).to.equal(0);          // available
-    });
-
-    it("should calculate balances accurately for signer 1", async function () {
-      const { Address, Claims } = await loadFixture(createProposeMulti);
-
-      const res = await Claims.searchBalance(Address(1));
-
-      expect(res[0]).to.equal(Amount(25)); // allocated
-      expect(res[1]).to.equal(0);          // available
-    });
-
-    it("should calculate balances accurately for signer 2", async function () {
-      const { Address, Claims } = await loadFixture(createProposeMulti);
+      await Claims.connect(Signer(2)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        Expiry(25, "hours"),
+      );
 
       const res = await Claims.searchBalance(Address(2));
 
-      expect(res[0]).to.equal(Amount(45)); // allocated
-      expect(res[1]).to.equal(0);          // available
-    });
-
-    it("should calculate balances accurately for signer 3", async function () {
-      const { Address, Claims } = await loadFixture(createProposeMulti);
-
-      const res = await Claims.searchBalance(Address(3));
-
-      expect(res[0]).to.equal(Amount(50)); // allocated
+      expect(res[0]).to.equal(Amount(10)); // allocated
       expect(res[1]).to.equal(0);          // available
     });
 
@@ -165,6 +263,69 @@ describe("Claims", function () {
       const res = await Claims.searchBalance(Address(2));
 
       expect(res[0]).to.equal(Amount(30)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("should allocate a user balance", async function () {
+      const { Address, Claims } = await loadFixture(createPropose);
+
+      const res = await Claims.searchBalance(Address(1));
+
+      expect(res[0]).to.equal(Amount(10)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("allow signer 1 to stake up until expiry", async function () {
+      const { Address, Claims } = await loadFixture(createProposeExpiry);
+
+      const res = await Claims.searchBalance(Address(1));
+
+      expect(res[0]).to.equal(Amount(50)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("allow signer 2 to stake up until expiry", async function () {
+      const { Address, Claims } = await loadFixture(createProposeExpiry);
+
+      const res = await Claims.searchBalance(Address(2));
+
+      expect(res[0]).to.equal(Amount(30)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("allow signer 3 to stake up until expiry", async function () {
+      const { Address, Claims } = await loadFixture(createProposeExpiry);
+
+      const res = await Claims.searchBalance(Address(3));
+
+      expect(res[0]).to.equal(Amount(30)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("should calculate balances accurately for signer 1", async function () {
+      const { Address, Claims } = await loadFixture(createProposeMulti);
+
+      const res = await Claims.searchBalance(Address(1));
+
+      expect(res[0]).to.equal(Amount(25)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("should calculate balances accurately for signer 2", async function () {
+      const { Address, Claims } = await loadFixture(createProposeMulti);
+
+      const res = await Claims.searchBalance(Address(2));
+
+      expect(res[0]).to.equal(Amount(45)); // allocated
+      expect(res[1]).to.equal(0);          // available
+    });
+
+    it("should calculate balances accurately for signer 3", async function () {
+      const { Address, Claims } = await loadFixture(createProposeMulti);
+
+      const res = await Claims.searchBalance(Address(3));
+
+      expect(res[0]).to.equal(Amount(50)); // allocated
       expect(res[1]).to.equal(0);          // available
     });
   });

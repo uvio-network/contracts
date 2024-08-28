@@ -57,6 +57,21 @@ describe("Claims", function () {
       return { Address, Claims, Signer, Token };
     }
 
+    it("resolve can be created with 25 hour expiry", async function () {
+      const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+      await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+
+      await Claims.connect(Signer(7)).createResolve(
+        Claim(1),
+        Claim(7),
+        [0, MAX], // address 1 and 3
+        Expiry(97, "hours"), // 3 days from above + 1 day + 1 hour
+      );
+
+      expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(1), Address(3)]);
+    });
+
     it("address 1 and 3 can be selected by signer 7", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
 

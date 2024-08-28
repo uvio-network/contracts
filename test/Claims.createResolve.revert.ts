@@ -55,11 +55,17 @@ describe("Claims", function () {
         return { Address, Claims, Signer };
       };
 
-      it("if bot role was not granted to owner address", async function () {
-        const { Claims, Signer } = await loadFixture(createPropose);
+      const createProposeExpire = async () => {
+        const { Address, Claims, Signer } = await loadFixture(createPropose);
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
         await network.provider.send("evm_mine");
+
+        return { Address, Claims, Signer };
+      };
+
+      it("if bot role was not granted to owner address", async function () {
+        const { Claims, Signer } = await loadFixture(createProposeExpire);
 
         const txn = Claims.connect(Signer(0)).createResolve(
           Claim(1),
@@ -72,10 +78,8 @@ describe("Claims", function () {
       });
 
       it("if bot role was not granted to voter address", async function () {
-        const { Claims, Signer } = await loadFixture(createPropose);
+        const { Claims, Signer } = await loadFixture(createProposeExpire);
 
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(1)).createResolve(
           Claim(1),
@@ -88,10 +92,7 @@ describe("Claims", function () {
       });
 
       it("if bot role was not granted to staker address", async function () {
-        const { Claims, Signer } = await loadFixture(createPropose);
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
+        const { Claims, Signer } = await loadFixture(createProposeExpire);
 
         const txn = Claims.connect(Signer(2)).createResolve(
           Claim(1),
@@ -104,10 +105,7 @@ describe("Claims", function () {
       });
 
       it("if bot role was not granted to random address", async function () {
-        const { Claims, Signer } = await loadFixture(createPropose);
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
+        const { Claims, Signer } = await loadFixture(createProposeExpire);
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -120,12 +118,9 @@ describe("Claims", function () {
       });
 
       it("if propose is empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(0),
@@ -138,12 +133,9 @@ describe("Claims", function () {
       });
 
       it("if resolve is empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -156,12 +148,9 @@ describe("Claims", function () {
       });
 
       it("if resolve equals propose", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -174,12 +163,9 @@ describe("Claims", function () {
       });
 
       it("if propose does not exist", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(3),
@@ -192,12 +178,9 @@ describe("Claims", function () {
       });
 
       it("if indices are empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -210,12 +193,9 @@ describe("Claims", function () {
       });
 
       it("if indices are out of range, +5", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -228,12 +208,9 @@ describe("Claims", function () {
       });
 
       it("if indices are out of range, -7", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -246,12 +223,9 @@ describe("Claims", function () {
       });
 
       it("if indices are out of range, -11", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -264,12 +238,9 @@ describe("Claims", function () {
       });
 
       it("if indices are duplicated, 0 0", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -282,12 +253,9 @@ describe("Claims", function () {
       });
 
       it("if indices are duplicated, +1 +1", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -300,12 +268,9 @@ describe("Claims", function () {
       });
 
       it("if indices are duplicated, -1 -1", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -318,12 +283,9 @@ describe("Claims", function () {
       });
 
       it("if resolve already created, immediately", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
@@ -342,13 +304,25 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if resolve already created, later", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+      it("if resolve created with short expiry", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [0, MAX], // address 1 and 3
+          Expiry(95, "hours"), // 3 days from above + 23 hours
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if resolve already created, later", async function () {
+        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
