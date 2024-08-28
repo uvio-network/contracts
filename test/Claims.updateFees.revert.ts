@@ -14,7 +14,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if basis makes total is less than 10,000", async function () {
+      it("if basis makes total less than 10,000", async function () {
         const { Claims, Signer } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(0)).updateFees(9_499, 0, 500);
@@ -22,7 +22,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if basis makes total is more than 10,000", async function () {
+      it("if basis makes total more than 10,000", async function () {
         const { Claims, Signer } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(0)).updateFees(9_501, 0, 500);
@@ -30,7 +30,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if proposer makes total is less than 10,000", async function () {
+      it("if proposer makes total less than 10,000", async function () {
         const { Claims, Signer } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(0)).updateFees(9_000, 499, 500);
@@ -38,7 +38,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if proposer makes total is more than 10,000", async function () {
+      it("if proposer makes total more than 10,000", async function () {
         const { Claims, Signer } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(0)).updateFees(9_000, 501, 500);
@@ -46,7 +46,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if protocol makes total is less than 10,000", async function () {
+      it("if protocol makes total less than 10,000", async function () {
         const { Claims, Signer } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(0)).updateFees(9_500, 0, 499);
@@ -54,7 +54,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if protocol makes total is more than 10,000", async function () {
+      it("if protocol makes total more than 10,000", async function () {
         const { Claims, Signer } = await loadFixture(Deploy);
 
         const txn = Claims.connect(Signer(0)).updateFees(9_500, 0, 501);
