@@ -3,11 +3,14 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+
+const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("updateBalance", function () {
@@ -22,7 +25,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(25),
             Side(true),
-            Expiry(2, "days"),
+            EXPIRY,
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -33,7 +36,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1)], // index +1 is address 1
+            [0], // address 1
             Expiry(7, "days"),
           );
 
@@ -55,8 +58,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+1),
+            100,
           );
 
           return { Address, Claims, Signer, Token };
@@ -119,7 +121,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(25),
             Side(false),
-            Expiry(2, "days"),
+            EXPIRY,
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -130,7 +132,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(-1)], // index -1 is address 1
+            [MAX], // address 1
             Expiry(7, "days"),
           );
 
@@ -152,8 +154,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-1),
-            Index(-1),
+            100,
           );
 
           return { Address, Claims, Signer, Token };
@@ -216,7 +217,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(10),
             Side(true),
-            Expiry(2, "days"),
+            EXPIRY,
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
@@ -252,7 +253,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+            [0, MAX], // address 1 and 3
             Expiry(7, "days"),
           );
 
@@ -280,15 +281,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+2),
-          );
-
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(1),
-            Claim(7),
-            Index(-3),
-            Index(-1),
+            100,
           );
 
           return { Address, Claims, Signer, Token };
@@ -388,7 +381,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(10),
             Side(false),
-            Expiry(2, "days"),
+            EXPIRY,
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
@@ -424,7 +417,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+            [0, MAX], // address 1 and 3
             Expiry(7, "days"),
           );
 
@@ -449,12 +442,10 @@ describe("Claims", function () {
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
 
-
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-2),
-            Index(-1),
+            3,
           );
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
@@ -464,8 +455,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+3),
+            2,
           );
 
           return { Address, Claims, Signer, Token };
@@ -567,7 +557,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(10),
             Side(true),
-            Expiry(2, "days"),
+            EXPIRY,
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
@@ -627,7 +617,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 4
+            [0, MAX], // address 1 and 4
             Expiry(7, "days"),
           );
 
@@ -655,15 +645,17 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+3),
+            5,
           );
+
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-5),
-            Index(-1),
+            5,
           );
 
           return { Address, Claims, Signer, Token };
@@ -791,7 +783,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(300),
             Side(false),
-            Expiry(2, "days"),
+            EXPIRY,
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
@@ -851,7 +843,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1), Index(-1)], // index +1 and -1 are address 4 and 1
+            [0, MAX], // address 4 and 1
             Expiry(7, "days"),
           );
 
@@ -879,15 +871,17 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+5),
+            4,
           );
+
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-3),
-            Index(-1),
+            4,
           );
 
           return { Address, Claims, Signer, Token };

@@ -3,11 +3,14 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+
+const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("updateBalance", function () {
@@ -22,7 +25,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(25),
             Side(true),
-            Expiry(2, "days"),
+            EXPIRY,
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -33,7 +36,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1)], // index +1 is address 1
+            [0], // address 1
             Expiry(7, "days"),
           );
 
@@ -55,8 +58,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+1),
+            1,
           );
 
           return { Address, Claims, Signer, Token };
@@ -130,7 +132,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(-1)], // index -1 is address 1
+            [MAX], // address 1
             Expiry(7, "days"),
           );
 
@@ -152,8 +154,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-1),
-            Index(-1),
+            1,
           );
 
           return { Address, Claims, Signer, Token };

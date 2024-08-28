@@ -3,7 +3,6 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
@@ -71,7 +70,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(+1)], // index +1 is address 1
+        [0], // address 1
         EXPIRY_M,
       );
 
@@ -99,7 +98,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(+1)], // index +1 is address 1
+        [0], // address 1
         EXPIRY_D,
       );
 

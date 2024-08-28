@@ -3,11 +3,14 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+
+const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("createResolve", function () {
@@ -20,7 +23,7 @@ describe("Claims", function () {
         Claim(1),
         Amount(10),
         Side(true),
-        Expiry(2, "days"),
+        EXPIRY,
       );
       await Claims.connect(Signer(2)).createPropose(
         Claim(1),
@@ -54,7 +57,7 @@ describe("Claims", function () {
       return { Address, Claims, Signer, Token };
     }
 
-    it("signer 7 can create claim with lifecycle phase resolve", async function () {
+    it("address 1 and 3 can be selected by signer 7", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
 
       await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
@@ -62,14 +65,14 @@ describe("Claims", function () {
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 3
+        [0, MAX], // address 1 and 3
         Expiry(7, "days"),
       );
 
       expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(1), Address(3)]);
     });
 
-    it("signer 9 can create claim with lifecycle phase resolve", async function () {
+    it("address 2 and 4 can be selected by signer 9", async function () {
       const { Address, Claims, Signer } = await loadFixture(createPropose);
 
       await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -77,7 +80,7 @@ describe("Claims", function () {
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
         Claim(7),
-        [Index(+2), Index(-2)], // index +2 and -2 are address 2 and 4
+        [1, MAX - BigInt(1)], // address 2 and 4
         Expiry(7, "days"),
       );
 

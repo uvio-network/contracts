@@ -3,11 +3,14 @@ import { Claim } from "./src/Claim";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
-import { Index } from "./src/Index";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+
+const EXPIRY = Expiry(2, "days");
+const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("updateBalance", function () {
@@ -22,7 +25,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(10),
             Side(false),
-            Expiry(2, "days"),
+            EXPIRY,
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
@@ -58,7 +61,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1), Index(-1)], // index +1 and -1 are address 3 and 1
+            [0, MAX], // address 3 and 1
             Expiry(7, "days"),
           );
 
@@ -86,8 +89,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-2),
-            Index(-1),
+            2,
           );
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
@@ -97,8 +99,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+1),
+            2,
           );
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
@@ -108,8 +109,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+2),
-            Index(+3),
+            1,
           );
 
           return { Address, Claims, Signer, Token };
@@ -211,7 +211,7 @@ describe("Claims", function () {
             Claim(1),
             Amount(10),
             Side(true),
-            Expiry(2, "days"),
+            EXPIRY,
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
@@ -271,7 +271,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(7)).createResolve(
             Claim(1),
             Claim(7),
-            [Index(+1), Index(-1)], // index +1 and -1 are address 1 and 4
+            [0, MAX], // address 1 and 4
             Expiry(7, "days"),
           );
 
@@ -299,8 +299,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+2),
+            3,
           );
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
@@ -310,20 +309,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(+1),
-            Index(+3),
-          );
-
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
-
-          // do most of it all over again
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(1),
-            Claim(7),
-            Index(-5),
-            Index(-2),
+            3,
           );
 
           expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
@@ -333,8 +319,7 @@ describe("Claims", function () {
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             Claim(7),
-            Index(-3),
-            Index(-1),
+            8,
           );
 
           return { Address, Claims, Signer, Token };
