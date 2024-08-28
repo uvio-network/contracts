@@ -5,13 +5,17 @@ import { Role } from "./src/Role";
 
 describe("Claims", function () {
   describe("constants", function () {
+    it("should expose BASIS_TOTAL as the total amount of basis points", async function () {
+      const { Claims } = await loadFixture(Deploy);
+
+      expect(await Claims.BASIS_TOTAL()).to.equal(10_000);
+    });
+
     it("should expose BOT_ROLE encoded hash", async function () {
       const { Claims } = await loadFixture(Deploy);
 
       expect(await Claims.BOT_ROLE()).to.equal(Role("BOT_ROLE"));
     });
-
-    // TODO write test to verify static fee sum of 10,000
 
     it("should expose MAX_UINT256 as the upper numerical limit", async function () {
       const { Claims } = await loadFixture(Deploy);

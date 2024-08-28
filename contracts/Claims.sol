@@ -36,6 +36,10 @@ contract Claims is AccessControl {
     // CONSTANTS
     //
 
+    // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
+    // used to calculate fees and their remainders.
+    uint16 public constant BASIS_TOTAL = 10_000;
+
     // BOT_ROLE is the role assigned internally to designate privileged accounts
     // with the purpose of automating certain on behalf of the users. The goal
     // for this automation is to enhance the user experience on the platform, by
@@ -84,22 +88,6 @@ contract Claims is AccessControl {
     // CLAIM_TRUTH_N is a map index within _truthResolve. This number tracks the
     // total amount of votes cast saying the associated claim was false.
     uint8 public constant CLAIM_TRUTH_N = 1;
-
-    //
-    uint256 public constant BASIS_FEE = 9_000;
-    // BASIS_PROPOSER is the amount of proposer fees in basis points, which are
-    // deducted from the total pool of funds before updating user balances upon
-    // market resolution. This is the amount that users may earn by creating
-    // claims.
-    uint16 public constant BASIS_PROPOSER = 500;
-    // BASIS_PROTOCOL is the amount of protocol fees in basis points, which are
-    // deducted from the total pool of funds before updating user balances upon
-    // market resolution. This is the amount that the protocol earns by
-    // providing its services.
-    uint16 public constant BASIS_PROTOCOL = 500; // TODO fees should be modifiable
-    // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
-    // used to calculate fees and their remainders.
-    uint16 public constant BASIS_TOTAL = 10_000;
 
     //
     uint256 public constant MAX_UINT256 = type(uint256).max;
@@ -193,9 +181,22 @@ contract Claims is AccessControl {
     // VARIABLES
     //
 
+    //
+    uint16 public basisFee = 9_000;
+    // basisProposer is the amount of proposer fees in basis points, which are
+    // deducted from the total pool of funds before updating user balances upon
+    // market resolution. This is the amount that users may earn by creating
+    // claims.
+    uint16 public basisProposer = 500;
+    // basisProtocol is the amount of protocol fees in basis points, which are
+    // deducted from the total pool of funds before updating user balances upon
+    // market resolution. This is the amount that the protocol earns by
+    // providing its services.
+    uint16 public basisProtocol = 500;
+
     // owner is the owner address of the privileged entity receiving protocol
     // fees.
-    address public immutable owner = address(0);
+    address public owner = address(0);
     // token is the token address for this instance of the deployed contract.
     // That means every deployed contract is only responsible for serving claims
     // denominated in any given token address.
@@ -334,6 +335,86 @@ contract Claims is AccessControl {
         }
     }
 
+    // TODO handle nullify and dispute
+
+    // can be called by anyone
+    function updateBalance(uint256 pro, uint256 len) public {
+        uint256 res = _claimMapping[pro];
+        uint48 exp = _claimExpired[res];
+        uint48 unx = Time.timestamp();
+
+        if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
+            revert Process("already updated");
+        }
+
+        if (exp == 0) {
+            revert Expired("resolve unallocated", exp);
+        }
+
+        if (exp > unx) {
+            revert Expired("resolve active", exp);
+        }
+
+        // Any claim of lifecycle phase "resolve" can be challenged. Only after
+        // the resolving claim expired, AND only after some designated challenge
+        // period passed on top of the claim's expiry, only then can a claim be
+        // finalized and user balances be updated.
+        if (exp + SECONDS_WEEK > unx) {
+            revert Expired("challenge active", exp + SECONDS_WEEK);
+        }
+
+        // Lookup the amounts of votes that we have recorded on either side. It
+        // may very well be that there are no votes or that we have a tied
+        // result. In those undesired cases, we punish those users who where
+        // selected by the random truth sampling process, simply by taking all
+        // of their staked balances away.
+        uint256 yay = _truthResolve[res][CLAIM_TRUTH_Y];
+        uint256 nah = _truthResolve[res][CLAIM_TRUTH_N];
+
+        //
+        uint256 mnl = _indexMembers[pro][CLAIM_ADDRESS_N];
+
+        unchecked {
+            mnl--;
+        }
+
+        uint256 all = _indexMembers[pro][CLAIM_ADDRESS_Y] + (MAX_UINT256 - mnl);
+
+        //
+        if (all == 1) {
+            return updateSingle(pro, res, yay > nah);
+        }
+
+        if (yay > nah || yay < nah) {
+            updateReward(pro, res, len, yay > nah);
+        } else {
+            updatePunish(pro, res, len);
+        }
+
+        // Only credit the proposer and the protocol once everyone else got
+        // accounted for. The proposer is always the very first user, because
+        // they created the claim.
+        if (_stakePropose[pro][CLAIM_STAKE_D] == all) {
+            unchecked {
+                address first = _indexAddress[pro][MID_UINT256];
+                uint256 total = _stakePropose[pro][CLAIM_STAKE_Y] + _stakePropose[pro][CLAIM_STAKE_N];
+                uint256 share = (total * basisProposer) / BASIS_TOTAL;
+
+                _availBalance[first] += share;
+                _availBalance[owner] += total - (share + _stakePropose[pro][CLAIM_STAKE_C]);
+            }
+
+            {
+                _claimBalance[res].set(CLAIM_BALANCE_U);
+            }
+
+            {
+                delete _stakePropose[pro][CLAIM_STAKE_C];
+                delete _stakePropose[pro][CLAIM_STAKE_D];
+            }
+        }
+    }
+
     // TODO test withdrawals since we implemented updating balances
     function withdraw(uint256 bal) public {
         address use = msg.sender;
@@ -411,87 +492,27 @@ contract Claims is AccessControl {
         }
     }
 
-    // TODO handle nullify and dispute
-
-    // can be called by anyone
-    function updateBalance(uint256 pro, uint256 len) public {
-        uint256 res = _claimMapping[pro];
-        uint48 exp = _claimExpired[res];
-        uint48 unx = Time.timestamp();
-
-        if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
-            revert Process("already updated");
+    // updateFees allows the owner to change the fee structure of this contract.
+    // All fees must be provided in basis points. Fees taken must not be greater
+    // than 50%. All basis points must always sum to 10,000.
+    function updateFees(uint16 fee, uint16 psr, uint16 ptc) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (fee < 5_000 || fee + psr + ptc != BASIS_TOTAL) {
+            revert Process("fees invalid");
         }
 
-        if (exp == 0) {
-            revert Expired("resolve unallocated", exp);
-        }
-
-        if (exp > unx) {
-            revert Expired("resolve active", exp);
-        }
-
-        // Any claim of lifecycle phase "resolve" can be challenged. Only after
-        // the resolving claim expired, AND only after some designated challenge
-        // period passed on top of the claim's expiry, only then can a claim be
-        // finalized and user balances be updated.
-        if (exp + SECONDS_WEEK > unx) {
-            revert Expired("challenge active", exp + SECONDS_WEEK);
-        }
-
-        // Lookup the amounts of votes that we have recorded on either side. It
-        // may very well be that there are no votes or that we have a tied
-        // result. In those undesired cases, we punish those users who where
-        // selected by the random truth sampling process, simply by taking all
-        // of their staked balances away.
-        uint256 yay = _truthResolve[res][CLAIM_TRUTH_Y];
-        uint256 nah = _truthResolve[res][CLAIM_TRUTH_N];
-
-        //
-        uint256 mnl = _indexMembers[pro][CLAIM_ADDRESS_N];
-
-        unchecked {
-            mnl--;
-        }
-
-        uint256 all = _indexMembers[pro][CLAIM_ADDRESS_Y] + (MAX_UINT256 - mnl);
-
-        //
-        if (all == 1) {
-            return updateSingle(pro, res, yay > nah);
-        }
-
-        if (yay > nah || yay < nah) {
-            updateReward(pro, res, len, yay > nah);
-        } else {
-            updatePunish(pro, res, len);
-        }
-
-        // Only credit the proposer and the protocol once everyone else got
-        // accounted for. The proposer is always the very first user, because
-        // they created the claim.
-        if (_stakePropose[pro][CLAIM_STAKE_D] == all) {
-            unchecked {
-                address first = _indexAddress[pro][MID_UINT256];
-                uint256 total = _stakePropose[pro][CLAIM_STAKE_Y] + _stakePropose[pro][CLAIM_STAKE_N];
-                uint256 share = (total * BASIS_PROPOSER) / BASIS_TOTAL;
-
-                _availBalance[first] += share;
-                _availBalance[owner] += total - (share + _stakePropose[pro][CLAIM_STAKE_C]);
-            }
-
-            {
-                _claimBalance[res].set(CLAIM_BALANCE_U);
-            }
-
-            {
-                delete _stakePropose[pro][CLAIM_STAKE_C];
-                delete _stakePropose[pro][CLAIM_STAKE_D];
-            }
+        {
+            basisFee = fee;
+            basisProposer = psr;
+            basisProtocol = ptc;
         }
     }
 
-    // any whitelisted user can call
+    // updateResolve allows any whitelisted user to verify the truth with
+    // respect to the associated claim. Whitelisting happens through the process
+    // of random truth sampling, where an equal number of agreeing and
+    // disagreeing users is selected to verify events as happened in the real
+    // world on behalf of all market participants. All voting happens on a "one
+    // user one vote" basis.
     function updateResolve(uint256 pro, bool vot) public {
         uint256 res = _claimMapping[pro];
         uint48 exp = _claimExpired[res];
@@ -563,9 +584,9 @@ contract Claims is AccessControl {
             // all what they have been asked for.
             if (sel) {
                 // TODO test this because it is probably completely wrong
-                _availBalance[owner] += (bal * BASIS_FEE) / BASIS_TOTAL;
+                _availBalance[owner] += (bal * basisFee) / BASIS_TOTAL;
             } else {
-                _availBalance[use] += (bal * BASIS_FEE) / BASIS_TOTAL;
+                _availBalance[use] += (bal * basisFee) / BASIS_TOTAL;
             }
 
             unchecked {
@@ -590,8 +611,8 @@ contract Claims is AccessControl {
         // basis for calculating user rewards below, respective to their
         // individual share of the winning pool and the captured amount from the
         // loosing side.
-        uint256 fey = (_stakePropose[pro][CLAIM_STAKE_Y] * BASIS_FEE) / BASIS_TOTAL;
-        uint256 fen = (_stakePropose[pro][CLAIM_STAKE_N] * BASIS_FEE) / BASIS_TOTAL;
+        uint256 fey = (_stakePropose[pro][CLAIM_STAKE_Y] * basisFee) / BASIS_TOTAL;
+        uint256 fen = (_stakePropose[pro][CLAIM_STAKE_N] * basisFee) / BASIS_TOTAL;
 
         //
         uint256 lef = _indexMembers[pro][CLAIM_ADDRESS_N];
@@ -628,7 +649,7 @@ contract Claims is AccessControl {
                     // user's share would inflate artificially relative to the
                     // deducted total that we use as a basis below.
                     unchecked {
-                        uint256 ded = (bal * BASIS_FEE) / BASIS_TOTAL;
+                        uint256 ded = (bal * basisFee) / BASIS_TOTAL;
                         uint256 shr = (ded * 1e18) / fey;
                         uint256 rew = (shr * fen) / 1e18;
                         uint256 sum = (rew + ded);
@@ -651,7 +672,7 @@ contract Claims is AccessControl {
                     // user's share would inflate artificially relative to the
                     // deducted total that we use as a basis below.
                     unchecked {
-                        uint256 ded = (bal * BASIS_FEE) / BASIS_TOTAL;
+                        uint256 ded = (bal * basisFee) / BASIS_TOTAL;
                         uint256 shr = (ded * 1e18) / fen;
                         uint256 rew = (shr * fey) / 1e18;
                         uint256 sum = (rew + ded);
@@ -721,17 +742,40 @@ contract Claims is AccessControl {
     // PUBLIC VIEW
     //
 
-    // can be called by anyone, may not return anything
+    // searchBalance allows anyone to search for the allocated and available
+    // balances of any user. The allocated user balance represents all funds
+    // currently staked. Those funds are bound until the respective market
+    // resolution distributes them accordingly. Allocated balances grow by
+    // staking reputation. The available user balance represents all funds
+    // distributed to users who have been found right after final market
+    // resolution. Those funds are won because somebody else was wrong in their
+    // opinion. Available balances grow by being right. Only available balances
+    // can be withdrawn any time.
+    //
+    //     out[0] the allocated user balance
+    //     out[1] the available user balance
+    //
     function searchBalance(address use) public view returns (uint256, uint256) {
         return (_allocBalance[use], _availBalance[use]);
     }
 
-    // can be called by anyone, may not return anything
+    // searchExpired returns the unix timestamp in seconds of the given claim's
+    // expiry. For instance the propose expiry ensures that any user may stake
+    // reputation on the associated claim as long as said expiry has not run
+    // out. Only after the expiration of a propose expiry is it possible to
+    // initiate the market resolution, which allows users to verify events in
+    // the real world. Verifying the truth in those resolve claims is then only
+    // possible as long as the resolve expiry has not run out.
+    //
+    //     out[0] the propose or resolve expiry, depending on the provided claim ID
+    //
     function searchExpired(uint256 cla) public view returns (uint256) {
         return _claimExpired[cla];
     }
 
-    // can be called by anyone, may not return anything
+    // searchIndices allows anyone to search for the staker addresses indices of
+    // any given claim. The provided claim ID must be the ID of the claim with
+    // lifecycle "propose". See the examples below.
     //
     //     out[0] the total amount of first stakers in agreement
     //     out[1] the left handside index for first stakers in agreement
