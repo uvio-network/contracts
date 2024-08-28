@@ -42,7 +42,6 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(1)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
@@ -57,7 +56,6 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             100,
           );
 
@@ -67,9 +65,9 @@ describe("Claims", function () {
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
         });
 
         it("should have 25 tokens staked", async function () {
@@ -138,7 +136,6 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(1)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(false),
           );
 
@@ -153,7 +150,6 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             100,
           );
 
@@ -163,9 +159,9 @@ describe("Claims", function () {
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
         });
 
         it("should have 25 tokens staked", async function () {
@@ -259,13 +255,11 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(1)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
           await Claims.connect(Signer(3)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
@@ -280,7 +274,6 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             100,
           );
 
@@ -290,9 +283,9 @@ describe("Claims", function () {
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
         });
 
         it("should have 50 tokens staked", async function () {
@@ -423,13 +416,11 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(1)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
           await Claims.connect(Signer(3)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
@@ -444,17 +435,15 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             3,
           );
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             2,
           );
 
@@ -464,9 +453,9 @@ describe("Claims", function () {
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
         });
 
         it("should have 50 tokens staked", async function () {
@@ -623,13 +612,11 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(1)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
           await Claims.connect(Signer(4)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(true),
           );
 
@@ -644,17 +631,15 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             5,
           );
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             5,
           );
 
@@ -664,9 +649,9 @@ describe("Claims", function () {
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
         });
 
         it("should have 185 tokens staked", async function () {
@@ -849,13 +834,11 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(4)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(false),
           );
 
           await Claims.connect(Signer(1)).updateResolve(
             Claim(1),
-            Claim(7),
             Side(false),
           );
 
@@ -870,17 +853,15 @@ describe("Claims", function () {
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             4,
           );
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
-            Claim(7),
             4,
           );
 
@@ -890,9 +871,9 @@ describe("Claims", function () {
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(7), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
         });
 
         it("should have 185 tokens staked", async function () {
