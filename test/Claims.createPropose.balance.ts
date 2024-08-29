@@ -138,9 +138,19 @@ describe("Claims", function () {
           await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
         }
 
+        // Make sure the user has no token balance right now.
+        {
+          expect(await Token.balanceOf(Address(1))).to.equal(0);
+        }
+
         // Mint and allow for the missing token.
         {
           await Balance([1], 1);
+        }
+
+        // Make sure the user got their 1 additional token.
+        {
+          expect(await Token.balanceOf(Address(1))).to.equal(Amount(1));
         }
 
         await Claims.connect(Signer(1)).createPropose(
@@ -150,11 +160,10 @@ describe("Claims", function () {
           Expiry(16, "days"),
         );
 
+        // Make sure the user has no token balance anymore, because it was sent
+        // to the Claims contract.
         {
-          const res = await Claims.searchBalance(Address(1));
-
-          expect(res[0]).to.equal(Amount(96)); // allocated
-          expect(res[1]).to.equal(0);          // available
+          expect(await Token.balanceOf(Address(1))).to.equal(0);
         }
 
         // The protocol has 5 tokens available, earned as fees. The user has now
@@ -162,6 +171,13 @@ describe("Claims", function () {
         // contract itself should now own 101 tokens.
         {
           expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(101));
+        }
+
+        {
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(Amount(96)); // allocated
+          expect(res[1]).to.equal(0);          // available
         }
       });
     });
