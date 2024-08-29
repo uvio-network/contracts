@@ -69,7 +69,10 @@ describe("Claims", function () {
         Expiry(97, "hours"), // 3 days from above + 1 day + 1 hour
       );
 
-      expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(1), Address(3)]);
+      const res = await Claims.searchIndices(Claim(1));
+
+      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
 
     it("address 1 and 3 can be selected by signer 7", async function () {
@@ -84,7 +87,10 @@ describe("Claims", function () {
         Expiry(7, "days"),
       );
 
-      expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(1), Address(3)]);
+      const res = await Claims.searchIndices(Claim(1));
+
+      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
 
     it("address 2 and 4 can be selected by signer 9", async function () {
@@ -99,7 +105,10 @@ describe("Claims", function () {
         Expiry(7, "days"),
       );
 
-      expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([Address(2), Address(4)]);
+      const res = await Claims.searchIndices(Claim(1));
+
+      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(2)]);
+      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(4)]);
     });
   });
 });
