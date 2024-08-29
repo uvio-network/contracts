@@ -281,13 +281,26 @@ contract Claims is AccessControl {
             }
         }
 
-        // Do the transfer right at the top, because this is the last thing that
-        // can actually fail.
-        if (!IERC20(token).transferFrom(use, address(this), bal)) {
-            revert Balance("transfer failed", bal);
-        }
-
         unchecked {
+            uint256 avl = _availBalance[use];
+            if (avl >= bal) {
+                _availBalance[use] -= bal;
+            } else {
+                if (avl > 0) {
+                    {
+                        _availBalance[use] = 0;
+                    }
+
+                    if (!IERC20(token).transferFrom(use, address(this), (bal - avl))) {
+                        revert Balance("transfer failed", (bal - avl));
+                    }
+                } else {
+                    if (!IERC20(token).transferFrom(use, address(this), bal)) {
+                        revert Balance("transfer failed", bal);
+                    }
+                }
+            }
+
             // Track the user's allocated balance so we can tell people where
             // they stand any time. The allocated balances are all funds that
             // are currently bound in active markets. The user's available
