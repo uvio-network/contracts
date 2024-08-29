@@ -282,6 +282,12 @@ contract Claims is AccessControl {
         }
 
         unchecked {
+            // Account for the balance required in order to stake reputation
+            // according to the requested amount. We try to prevent token
+            // transfers if the available user balance is sufficient. Any tokens
+            // missing will be requested from the configured token contract. The
+            // caller then needs to provide an allowance that is able to cover
+            // the difference transferred.
             uint256 avl = _availBalance[use];
             if (avl >= bal) {
                 _availBalance[use] -= bal;
@@ -786,17 +792,17 @@ contract Claims is AccessControl {
         return _claimExpired[cla];
     }
 
-    // searchIndices allows anyone to search for the staker addresses indices of
-    // any given claim. The provided claim ID must be the ID of the claim with
-    // lifecycle "propose". See the examples below.
+    // searchIndices allows anyone to search for the addresses of staker and
+    // voter indices of any given claim. The provided claim ID must be the ID of
+    // the claim with lifecycle "propose". See the examples below.
     //
     //     out[0] the total amount of first stakers in agreement
-    //     out[1] the left handside index for first stakers in agreement
-    //     out[2] the right handside index for first stakers in agreement
+    //     out[1] the left handside index for addresses on the agreeing side
+    //     out[2] the right handside index for addresses on the agreeing side
     //     out[3] the left handside index of the proposer address
     //     out[4] the right handside index of the proposer address
-    //     out[5] the left handside index for first stakers in disagreement
-    //     out[6] the right handside index for first stakers in disagreement
+    //     out[1] the left handside index for addresses on the disagreeing side
+    //     out[2] the right handside index for addresses on the disagreeing side
     //     out[7] the total amount of first stakers in disagreement
     //
     // Search for the proposer address.
@@ -810,6 +816,14 @@ contract Claims is AccessControl {
     // Search for all addresses having first staked in disaggrement.
     //
     //     searchStakers(CLAIM, out[6], out[7])
+    //
+    // Search for all addresses selected to vote for the agreeing side.
+    //
+    //     searchSamples(CLAIM, out[1], out[2])
+    //
+    // Search for all addresses selected to vote for the disagreeing side.
+    //
+    //     searchSamples(CLAIM, out[6], out[7])
     //
     function searchIndices(
         uint256 pro
@@ -853,38 +867,103 @@ contract Claims is AccessControl {
         return _claimBalance[res].get(ind);
     }
 
-    // can be called by anyone, may not return anything
+    // searchSamples works in conjunction with the indices provided by
+    // searchIndices. Anyone can lookup the voter addresses of either side of
+    // any given market. Voting addresses are indexed based on the order of
+    // indices provided during the contract write of createResolve. The
+    // boundaries lef and rig are both inclusive. Below is an example of
+    // searching for all 2 voters on the agreeing side of the market.
+    //
+    //     searchSamples(CLAIM, 0, 2) => [Address(2)]
+    //     searchSamples(CLAIM, 3, 5) => []
+    //     searchSamples(CLAIM, 6, 8) => [Address(7)]
+    //
+    // The same result as above can be achieved in a single call as shown below.
+    // The right handside boundary is only matched against the actual voter
+    // indices.
+    //
+    //     searchSamples(CLAIM, 0, 100) => [Address(2), Address(7)]
+    //
+    // If the voters to be searched were all on the other side of the market,
+    // meaning all voters would have staked in disagreement before, then the
+    // list of addresses returned would be reversed.
+    //
+    //     searchSamples(CLAIM, 2^256-8, 2^256-1) => [Address(7), Address(2)]
+    //
     function searchSamples(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
-        // TODO test multiple calles to searchSample with and without overlap
-        uint256[] memory ind = _claimIndices[pro];
+        address[] memory lis = new address[](rig - lef + 1);
 
-        if (rig >= ind.length) {
-            rig = ind.length;
+        uint256 i = 0;
+        uint256 j = 0;
+        while (i < lis.length && j < _claimIndices[pro].length) {
+            // Go through each of the recorded indices, one after another. Those
+            // indices are not guaranteed to be ordered.
+            //
+            //     [ 3 0 96 4 99 95 1 97 2 98 ] // TODO test this case
+            //
+            uint256 ind = _claimIndices[pro][j];
+
+            {
+                j++;
+            }
+
+            // Skip all those indices that the query defined by lef and rig is
+            // not interested in. If we are look for indices on one end of the
+            // sequence, ignore those indexed on the other side.
+            //
+            //     [ < 0 1 2 3 4 > ... < 95 96 97 98 99 > ]
+            //
+            if (ind < lef || ind > rig) {
+                continue;
+            }
+
+            {
+                lis[i] = _indexAddress[pro][ind];
+            }
+
+            {
+                i++;
+            }
         }
 
-        address[] memory lis = new address[](rig - lef);
-
-        for (uint256 i = lef; i < rig; i++) {
-            address use = _indexAddress[pro][ind[i]];
-
-            if (use == address(0)) {
-                break;
-            } else {
-                lis[i] = use;
-            }
+        // Resize the array to remove any initially allocated zero address.
+        assembly {
+            mstore(lis, i)
         }
 
         return lis;
     }
 
-    // can be called by anyone, may not return anything
+    // searchStakers works in conjunction with the indices provided by
+    // searchIndices. Anyone can lookup the staker addresses of either side of
+    // any given market. Staker addresses are indexed based on the order and
+    // side on which they staked first. The boundaries lef and rig are both
+    // inclusive. Below is an example of searching for all 8 stakers that agree
+    // with the associated claim.
+    //
+    //     searchStakers(CLAIM, 0, 2) => [Address(1), Address(2), Address(3)]
+    //     searchStakers(CLAIM, 3, 5) => [Address(4), Address(5), Address(6)]
+    //     searchStakers(CLAIM, 6, 8) => [Address(7), Address(8)]
+    //
+    // The same result as above can be achieved in a single call as shown below.
+    // The right handside boundary is only applied until a zero address is found.
+    //
+    //     searchStakers(CLAIM, 0, 100) => [
+    //         Address(1), Address(2), Address(3), Address(4),
+    //         Address(5), Address(6), Address(7), Address(8)
+    //     ]
+    //
+    // If the stakers to be searched were all on the other side of the market,
+    // meaning all stakers would be disagreeing with the associated claim, then
+    // the list of addresses returned would be reversed.
+    //
+    //     searchStakers(CLAIM, 2^256-8, 2^256-1) => [
+    //         Address(8), Address(7), Address(6), Address(5),
+    //         Address(4), Address(3), Address(2), Address(1)
+    //     ]
+    //
     function searchStakers(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
         address[] memory lis = new address[](rig - lef + 1);
-
-        uint256 max = _indexMembers[pro][CLAIM_ADDRESS_Y];
-        if (lef < max && rig > max) {
-            rig = max;
-        }
 
         uint256 i = 0;
         uint256 j = lef;
@@ -893,18 +972,28 @@ contract Claims is AccessControl {
 
             if (use == address(0)) {
                 break;
-            } else {
-                {
-                    lis[i] = use;
-                }
-
-                if (j == MAX_UINT256) {
-                    break;
-                } else {
-                    i++;
-                    j++;
-                }
             }
+
+            {
+                lis[i] = use;
+            }
+
+            {
+                i++;
+            }
+
+            if (j == MAX_UINT256) {
+                break;
+            }
+
+            {
+                j++;
+            }
+        }
+
+        // Resize the array to remove any initially allocated zero address.
+        assembly {
+            mstore(lis, i)
         }
 
         return lis;
