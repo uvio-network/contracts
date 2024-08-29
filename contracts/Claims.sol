@@ -815,7 +815,7 @@ contract Claims is AccessControl {
     //
     // Search for all addresses having first staked in disaggrement.
     //
-    //     searchStakers(CLAIM, out[6], out[7])
+    //     searchStakers(CLAIM, out[5], out[6])
     //
     // Search for all addresses selected to vote for the agreeing side.
     //
@@ -823,7 +823,7 @@ contract Claims is AccessControl {
     //
     // Search for all addresses selected to vote for the disagreeing side.
     //
-    //     searchSamples(CLAIM, out[6], out[7])
+    //     searchSamples(CLAIM, out[5], out[6])
     //
     function searchIndices(
         uint256 pro
