@@ -801,8 +801,8 @@ contract Claims is AccessControl {
     //     out[2] the right handside index for addresses on the agreeing side
     //     out[3] the left handside index of the proposer address
     //     out[4] the right handside index of the proposer address
-    //     out[1] the left handside index for addresses on the disagreeing side
-    //     out[2] the right handside index for addresses on the disagreeing side
+    //     out[5] the left handside index for addresses on the disagreeing side
+    //     out[6] the right handside index for addresses on the disagreeing side
     //     out[7] the total amount of first stakers in disagreement
     //
     // Search for the proposer address.
