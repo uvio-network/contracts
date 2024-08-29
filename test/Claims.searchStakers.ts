@@ -249,6 +249,18 @@ describe("Claims", function () {
         expect(await Claims.searchStakers(Claim(1), res[3], res[4])).to.deep.equal([Address(1)]);
       });
 
+      it("should not find disagreeing stakers, (2^256)-1 (2^256)-1", async function () {
+        const { Claims } = await loadFixture(createPropose);
+
+        expect(await Claims.searchSamples(Claim(1), MAX, MAX)).to.deep.equal([]);
+      });
+
+      it("should not find disagreeing stakers, (2^256)-100 (2^256)-1", async function () {
+        const { Claims } = await loadFixture(createPropose);
+
+        expect(await Claims.searchSamples(Claim(1), MAX - BigInt(100), MAX)).to.deep.equal([]);
+      });
+
       it("should keep track of stakers, 1 call", async function () {
         const { Address, Claims } = await loadFixture(createPropose);
 
@@ -339,6 +351,18 @@ describe("Claims", function () {
         const res = await Claims.searchIndices(Claim(1));
 
         expect(await Claims.searchStakers(Claim(1), res[3], res[4])).to.deep.equal([Address(1)]);
+      });
+
+      it("should not find agreeing stakers, 0 0", async function () {
+        const { Claims } = await loadFixture(createPropose);
+
+        expect(await Claims.searchSamples(Claim(1), 0, 0)).to.deep.equal([]);
+      });
+
+      it("should not find agreeing stakers, 0 100", async function () {
+        const { Claims } = await loadFixture(createPropose);
+
+        expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([]);
       });
 
       it("should keep track of stakers, 1 call", async function () {

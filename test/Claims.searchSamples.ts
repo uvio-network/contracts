@@ -84,19 +84,19 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should not find disagreeing stakers, (2^256)-1 (2^256)-1", async function () {
+      it("should not find disagreeing voters, (2^256)-1 (2^256)-1", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX, MAX)).to.deep.equal([]);
       });
 
-      it("should not find disagreeing stakers, (2^256)-100 (2^256)-1", async function () {
+      it("should not find disagreeing voters, (2^256)-100 (2^256)-1", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(100), MAX)).to.deep.equal([]);
       });
 
-      it("should keep track of stakers, 1 call", async function () {
+      it("should keep track of voters, 1 call", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         const res = await Claims.searchIndices(Claim(1));
@@ -105,7 +105,7 @@ describe("Claims", function () {
         expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([]);
       });
 
-      it("should keep track of stakers, 4 calls", async function () {
+      it("should keep track of voters, 4 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 2)).to.deep.equal([Address(1), Address(3)]);
@@ -114,7 +114,7 @@ describe("Claims", function () {
         expect(await Claims.searchSamples(Claim(1), 9, 12)).to.deep.equal([]);
       });
 
-      it("should keep track of stakers, 8 calls", async function () {
+      it("should keep track of voters, 8 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
         expect(await Claims.searchSamples(Claim(1), 0, 0)).to.deep.equal([Address(1)]);
         expect(await Claims.searchSamples(Claim(1), 1, 1)).to.deep.equal([]);
@@ -197,19 +197,19 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should not find disagreeing stakers, (2^256)-1 (2^256)-1", async function () {
+      it("should not find disagreeing voters, (2^256)-1 (2^256)-1", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX, MAX)).to.deep.equal([]);
       });
 
-      it("should not find disagreeing stakers, (2^256)-100 (2^256)-1", async function () {
+      it("should not find disagreeing voters, (2^256)-100 (2^256)-1", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(100), MAX)).to.deep.equal([]);
       });
 
-      it("should keep track of stakers, 1 call", async function () {
+      it("should keep track of voters, 1 call", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([
@@ -217,7 +217,7 @@ describe("Claims", function () {
         ]);
       });
 
-      it("should keep track of stakers, 4 calls", async function () {
+      it("should keep track of voters, 4 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 2)).to.deep.equal([Address(1), Address(2), Address(3)]);
@@ -301,19 +301,19 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should not find agreeing stakers, 0 0", async function () {
+      it("should not find agreeing voters, 0 0", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 0)).to.deep.equal([]);
       });
 
-      it("should not find agreeing stakers, 0 100", async function () {
+      it("should not find agreeing voters, 0 100", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([]);
       });
 
-      it("should keep track of stakers, 1 call", async function () {
+      it("should keep track of voters, 1 call", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         const res = await Claims.searchIndices(Claim(1));
@@ -322,7 +322,7 @@ describe("Claims", function () {
         expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(8), Address(2), Address(1),]);
       });
 
-      it("should keep track of stakers, 4 calls", async function () {
+      it("should keep track of voters, 4 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(7), MAX - BigInt(5))).to.deep.equal([Address(8)]);
@@ -330,7 +330,7 @@ describe("Claims", function () {
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(1), MAX)).to.deep.equal([Address(2), Address(1)]);
       });
 
-      it("should keep track of stakers, 8 calls", async function () {
+      it("should keep track of voters, 8 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(7), MAX - BigInt(7))).to.deep.equal([Address(8)]);
@@ -423,19 +423,19 @@ describe("Claims", function () {
         return { Address, Claims };
       }
 
-      it("should not find agreeing stakers, 0 0", async function () {
+      it("should not find agreeing voters, 0 0", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 0)).to.deep.equal([]);
       });
 
-      it("should not find agreeing stakers, 0 100", async function () {
+      it("should not find agreeing voters, 0 100", async function () {
         const { Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), 0, 100)).to.deep.equal([]);
       });
 
-      it("should keep track of stakers, 1 call", async function () {
+      it("should keep track of voters, 1 call", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(7), MAX)).to.deep.equal([
@@ -450,7 +450,7 @@ describe("Claims", function () {
         ]);
       });
 
-      it("should keep track of stakers, 4 calls", async function () {
+      it("should keep track of voters, 4 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(7), MAX - BigInt(5))).to.deep.equal([Address(8), Address(7), Address(6)]);
@@ -458,7 +458,7 @@ describe("Claims", function () {
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(1), MAX)).to.deep.equal([Address(2), Address(1)]);
       });
 
-      it("should keep track of stakers, 8 calls", async function () {
+      it("should keep track of voters, 8 calls", async function () {
         const { Address, Claims } = await loadFixture(createResolve);
 
         expect(await Claims.searchSamples(Claim(1), MAX - BigInt(7), MAX - BigInt(7))).to.deep.equal([Address(8)]);
