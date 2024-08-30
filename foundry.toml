@@ -1,3 +1,2 @@
 [fmt]
-multiline_func_header = "all"
 single_line_statement_blocks = "multi"

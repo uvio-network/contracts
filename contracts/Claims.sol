@@ -482,6 +482,8 @@ contract Claims is AccessControl {
             revert Expired("expiry invalid", exp);
         }
 
+        uint256 yay;
+        uint256 nah;
         for (uint256 i = 0; i < ind.length; i++) {
             address use = _indexAddress[pro][ind[i]];
 
@@ -502,6 +504,25 @@ contract Claims is AccessControl {
             {
                 _addressVotes[pro][use].set(VOTE_TRUTH_S);
             }
+
+            // Keep track of the amounts of votes recorded on either side of the
+            // market.
+            if (ind[i] < MID_UINT256) {
+                yay++;
+            } else {
+                nah++;
+            }
+        }
+
+        // For every claim with more than 1 user we have to ensure that an equal
+        // amount of voters is being selected by the random truth sampling
+        // process. Since this process works on the basis of "one user one
+        // vote", we revert here if the market resolution is not setup fairly.
+        // It is important to allow an equal amount of users verify events in
+        // the real world because a single honest vote can make all the
+        // difference if everyone else is selfish.
+        if (ind.length > 1 && yay != nah) {
+            revert Mapping("indices invalid");
         }
 
         {
@@ -825,9 +846,7 @@ contract Claims is AccessControl {
     //
     //     searchSamples(CLAIM, out[5], out[6])
     //
-    function searchIndices(
-        uint256 pro
-    )
+    function searchIndices(uint256 pro)
         public
         view
         returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
@@ -899,7 +918,7 @@ contract Claims is AccessControl {
             // Go through each of the recorded indices, one after another. Those
             // indices are not guaranteed to be ordered.
             //
-            //     [ 3 0 96 4 99 95 1 97 2 98 ] // TODO test this case
+            //     [ 3 0 96 4 99 95 1 97 2 98 ]
             //
             uint256 ind = _claimIndices[pro][j];
 
