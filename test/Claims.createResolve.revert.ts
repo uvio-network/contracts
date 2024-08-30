@@ -1,76 +1,25 @@
-import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
-import { Deploy } from "./src/Deploy";
+import { CreatePropose16 } from "./src/Deploy";
+import { CreatePropose16Expired } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
-import { Side } from "./src/Side";
 
-const EXPIRY = Expiry(2, "days");
 const MAX = maxUint256;
 
 describe("Claims", function () {
   describe("createResolve", function () {
     describe("revert", function () {
-      const createPropose = async () => {
-        const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
-
-        await Balance([1, 2, 3, 4, 5], 10);
-
-        await Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          EXPIRY,
-        );
-        await Claims.connect(Signer(2)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          0,
-        );
-
-        await Claims.connect(Signer(3)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(false),
-          0,
-        );
-        await Claims.connect(Signer(4)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(false),
-          0,
-        );
-        await Claims.connect(Signer(5)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(false),
-          0,
-        );
-
-        return { Address, Claims, Signer };
-      };
-
-      const createProposeExpire = async () => {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-        await network.provider.send("evm_mine");
-
-        return { Address, Claims, Signer };
-      };
-
       it("if bot role was not granted to owner address", async function () {
-        const { Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         const txn = Claims.connect(Signer(0)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -78,13 +27,13 @@ describe("Claims", function () {
       });
 
       it("if bot role was not granted to voter address", async function () {
-        const { Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
 
         const txn = Claims.connect(Signer(1)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -92,12 +41,12 @@ describe("Claims", function () {
       });
 
       it("if bot role was not granted to staker address", async function () {
-        const { Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         const txn = Claims.connect(Signer(2)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -105,12 +54,12 @@ describe("Claims", function () {
       });
 
       it("if bot role was not granted to random address", async function () {
-        const { Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -118,14 +67,14 @@ describe("Claims", function () {
       });
 
       it("if propose is empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(0),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -133,14 +82,14 @@ describe("Claims", function () {
       });
 
       it("if resolve is empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(0),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -148,14 +97,14 @@ describe("Claims", function () {
       });
 
       it("if resolve equals propose", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(1),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -163,14 +112,14 @@ describe("Claims", function () {
       });
 
       it("if propose does not exist", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(3),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -178,7 +127,7 @@ describe("Claims", function () {
       });
 
       it("if indices are empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
@@ -192,30 +141,45 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are out of range, +5", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+      it("if indices are out of range, +11", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [5, MAX],
+          [11, MAX],
           Expiry(7, "days"),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
-      it("if indices are out of range, -7", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+      it("if indices are out of range, +47", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [MAX - BigInt(7), MAX],
+          [47, MAX],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if indices are out of range, -9", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [3, MAX - BigInt(9)],
           Expiry(7, "days"),
         );
 
@@ -223,7 +187,7 @@ describe("Claims", function () {
       });
 
       it("if indices are out of range, -11", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
@@ -238,14 +202,19 @@ describe("Claims", function () {
       });
 
       it("if indices are duplicated, 0 0", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX, 0],
+          [
+            0,
+            MAX,
+            0,
+            MAX - BigInt(4),
+          ],
           Expiry(7, "days"),
         );
 
@@ -253,14 +222,19 @@ describe("Claims", function () {
       });
 
       it("if indices are duplicated, +1 +1", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [1, 1, MAX],
+          [
+            1,
+            MAX,
+            1,
+            MAX - BigInt(4),
+          ],
           Expiry(7, "days"),
         );
 
@@ -268,14 +242,118 @@ describe("Claims", function () {
       });
 
       it("if indices are duplicated, -1 -1", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX - BigInt(1), MAX - BigInt(1)],
+          [
+            0,
+            MAX - BigInt(1),
+            MAX - BigInt(1),
+            3,
+          ],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if indices are duplicated, -5 -5", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [
+            2,
+            MAX - BigInt(5),
+            4,
+            MAX - BigInt(5),
+          ],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if no true voters", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [
+            MAX - BigInt(2),
+            MAX - BigInt(5),
+          ],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if no false voters", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [
+            2,
+            3,
+          ],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if more true voters", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [
+            0,
+            1,
+            4,
+            5,
+            MAX - BigInt(1),
+            MAX - BigInt(3),
+          ],
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
+      it("if more false voters", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(9)).createResolve(
+          Claim(1),
+          Claim(7),
+          [
+            0,
+            4,
+            MAX - BigInt(2),
+            MAX,
+            MAX - BigInt(5),
+          ],
           Expiry(7, "days"),
         );
 
@@ -283,21 +361,21 @@ describe("Claims", function () {
       });
 
       it("if resolve already created, immediately", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -305,14 +383,14 @@ describe("Claims", function () {
       });
 
       it("if resolve created with short expiry", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(95, "hours"), // 3 days from above + 23 hours
         );
 
@@ -320,14 +398,14 @@ describe("Claims", function () {
       });
 
       it("if resolve already created, later", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createProposeExpire);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -337,7 +415,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
@@ -345,7 +423,7 @@ describe("Claims", function () {
       });
 
       it("if propose still active", async function () {
-        const { Address, Claims, Signer } = await loadFixture(createPropose);
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16);
 
         await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
 
@@ -358,7 +436,7 @@ describe("Claims", function () {
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
           Claim(7),
-          [0, MAX], // address 1 and 3
+          [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
