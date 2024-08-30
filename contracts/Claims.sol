@@ -595,21 +595,28 @@ contract Claims is AccessControl {
             _claimBalance[res].set(CLAIM_BALANCE_P);
         }
 
+        //
         uint256 lef = _indexMembers[pro][CLAIM_ADDRESS_N];
         uint256 rig = _indexMembers[pro][CLAIM_ADDRESS_Y];
+
+        //
+        unchecked {
+            lef += _stakePropose[pro][CLAIM_STAKE_D];
+        }
+
         while (len != 0) {
             address use = _indexAddress[pro][lef];
             uint256 bal = _addressStake[pro][use];
 
-            bool sel = _addressVotes[pro][use].get(VOTE_TRUTH_S);
-
             // Every user loses their allocated balance when claims get
-            // resolved. In the punishment case only those users who were not
-            // authorized by the random truth sampling process get their staked
-            // balance returned, minus fees.
+            // resolved. Only those users who were right in the end regain their
+            // allocated balances in the form of available balances, plus
+            // rewards.
             unchecked {
                 _allocBalance[use] -= bal;
             }
+
+            uint256 ded = (bal * basisFee) / BASIS_TOTAL;
 
             // Since this is the punishment case of resolving claims, every user
             // who was selected by the random truth sampling process loses all
@@ -619,16 +626,26 @@ contract Claims is AccessControl {
             // happens because the selected users did either not come to
             // consensus according to events in the real world, or did not do at
             // all what they have been asked for.
-            if (sel) {
-                // TODO test this because it is probably completely wrong
-                _availBalance[owner] += (bal * basisFee) / BASIS_TOTAL;
+            if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+                _availBalance[owner] += ded;
             } else {
-                _availBalance[use] += (bal * basisFee) / BASIS_TOTAL;
+                _availBalance[use] += ded;
+            }
+
+            {
+                delete _addressStake[pro][use];
             }
 
             unchecked {
-                lef++;
-                len--;
+                {
+                    _stakePropose[pro][CLAIM_STAKE_C] += ded;
+                    _stakePropose[pro][CLAIM_STAKE_D]++;
+                }
+
+                {
+                    lef++;
+                    len--;
+                }
             }
 
             if (lef == rig) {

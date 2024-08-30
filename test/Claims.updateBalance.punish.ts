@@ -1,6 +1,6 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
-import { Deploy } from "./src/Deploy";
+import { Deploy, UpdateBalancePunishEqualVotes, UpdateBalancePunishNoVotes } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
@@ -200,6 +200,182 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available
+        });
+      });
+
+      describe("no votes", function () {
+        it("should update balances by punishing users", async function () {
+          const { Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+        });
+
+        it("should have 50 tokens staked", async function () {
+          const { Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchPropose(Claim(1));
+
+          expect(res[0]).to.equal(Amount(20)); // yay
+          expect(res[1]).to.equal(Amount(30));  // nah
+
+          expect(res[0] + res[1]).to.equal(Amount(50));
+        });
+
+        it("should calculate available balances according to tokens staked", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const zer = await Claims.searchBalance(Address(0));
+          const one = await Claims.searchBalance(Address(1));
+          const two = await Claims.searchBalance(Address(2));
+          const thr = await Claims.searchBalance(Address(3));
+          const fou = await Claims.searchBalance(Address(4));
+          const fiv = await Claims.searchBalance(Address(5));
+
+          expect(zer[1] + one[1] + two[1] + thr[1] + fou[1] + fiv[1]).to.equal(Amount(50));
+        });
+
+        it("should calculate balances accurately for signer 0", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchBalance(Address(0));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(20.50)); // available (20.50 is 2 * 90% + protocol fee)
+        });
+
+        it("should calculate balances accurately for signer 1", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(11.50)); // available (11.50 is 90% of initial + proposer fee)
+        });
+
+        it("should calculate balances accurately for signer 2", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (lost it all due to no vote)
+        });
+
+        it("should calculate balances accurately for signer 3", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchBalance(Address(3));
+
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(9.00)); // available (9.00 is 90% of initial)
+        });
+
+        it("should calculate balances accurately for signer 4", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchBalance(Address(4));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (lost it all due to no vote)
+        });
+
+        it("should calculate balances accurately for signer 5", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          const res = await Claims.searchBalance(Address(5));
+
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(9.00)); // available (9.00 is 90% of initial)
+        });
+      });
+
+      describe("equal votes", function () {
+        it("should update balances by punishing users", async function () {
+          const { Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+        });
+
+        it("should have 118 tokens staked", async function () {
+          const { Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchPropose(Claim(1));
+
+          expect(res[0]).to.equal(Amount(81)); // yay
+          expect(res[1]).to.equal(Amount(37)); // nah
+
+          expect(res[0] + res[1]).to.equal(Amount(118));
+        });
+
+        it("should calculate available balances according to tokens staked", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const zer = await Claims.searchBalance(Address(0));
+          const one = await Claims.searchBalance(Address(1));
+          const two = await Claims.searchBalance(Address(2));
+          const thr = await Claims.searchBalance(Address(3));
+          const fou = await Claims.searchBalance(Address(4));
+          const fiv = await Claims.searchBalance(Address(5));
+
+          expect(zer[1] + one[1] + two[1] + thr[1] + fou[1] + fiv[1]).to.equal(Amount(118));
+        });
+
+        it("should calculate balances accurately for signer 0", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchBalance(Address(0));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(71.60)); // available (71.60 is 4 * 90% + protocol fee)
+        });
+
+        it("should calculate balances accurately for signer 1", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(5.90)); // available (proposer fee)
+        });
+
+        it("should calculate balances accurately for signer 2", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (lost it all due to equal vote)
+        });
+
+        it("should calculate balances accurately for signer 3", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchBalance(Address(3));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (lost it all due to equal vote)
+        });
+
+        it("should calculate balances accurately for signer 4", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchBalance(Address(4));
+
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(40.50)); // available (40.50 is 90% of initial)
+        });
+
+        it("should calculate balances accurately for signer 5", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          const res = await Claims.searchBalance(Address(5));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (lost it all due to equal vote)
         });
       });
     });
