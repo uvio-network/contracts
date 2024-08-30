@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Bits} from "./lib/Bits.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Time} from "@openzeppelin/contracts/utils/types/Time.sol";
 
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
@@ -92,11 +91,6 @@ contract Claims is AccessControl {
     //
     uint256 public constant MAX_UINT256 = type(uint256).max;
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
-
-    // SECONDS_DAY is one day in seconds.
-    uint48 public constant SECONDS_DAY = 86_400;
-    // SECONDS_WEEK is one week in seconds.
-    uint48 public constant SECONDS_WEEK = 604_800;
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
     // users who expressed their opinions by staking in agreement with the
@@ -258,7 +252,7 @@ contract Claims is AccessControl {
 
         if (_claimExpired[pro] == 0) {
             // Expiries must be at least 24 hours in the future.
-            if (exp < Time.timestamp() + SECONDS_DAY) {
+            if (exp < block.timestamp + 24 hours) {
                 revert Expired("expiry invalid", exp);
             }
 
@@ -281,7 +275,7 @@ contract Claims is AccessControl {
             }
         } else {
             // Ensure anyone can stake up until the defined expiry.
-            if (_claimExpired[pro] < Time.timestamp()) {
+            if (_claimExpired[pro] < block.timestamp) {
                 revert Expired("expiry invalid", _claimExpired[pro]);
             }
         }
@@ -365,7 +359,6 @@ contract Claims is AccessControl {
     function updateBalance(uint256 pro, uint256 len) public {
         uint256 res = _claimMapping[pro];
         uint48 exp = _claimExpired[res];
-        uint48 unx = Time.timestamp();
 
         if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
@@ -375,7 +368,7 @@ contract Claims is AccessControl {
             revert Expired("resolve unallocated", exp);
         }
 
-        if (exp > unx) {
+        if (exp > block.timestamp) {
             revert Expired("resolve active", exp);
         }
 
@@ -383,8 +376,8 @@ contract Claims is AccessControl {
         // the resolving claim expired, AND only after some designated challenge
         // period passed on top of the claim's expiry, only then can a claim be
         // finalized and user balances be updated.
-        if (exp + SECONDS_WEEK > unx) {
-            revert Expired("challenge active", exp + SECONDS_WEEK);
+        if (exp + 7 days > block.timestamp) {
+            revert Expired("challenge active", exp + 7 days);
         }
 
         // Lookup the amounts of votes that we have recorded on either side. It
@@ -473,7 +466,7 @@ contract Claims is AccessControl {
             revert Mapping("claim overwrite");
         }
 
-        if (_claimExpired[pro] > Time.timestamp()) {
+        if (_claimExpired[pro] > block.timestamp) {
             revert Expired("propose active", _claimExpired[pro]);
         }
 
@@ -482,7 +475,7 @@ contract Claims is AccessControl {
         }
 
         // Expiries must be at least 24 hours in the future.
-        if (exp < Time.timestamp() + SECONDS_DAY) {
+        if (exp < block.timestamp + 24 hours) {
             revert Expired("expiry invalid", exp);
         }
 
@@ -565,7 +558,7 @@ contract Claims is AccessControl {
             revert Mapping("propose invalid");
         }
 
-        if (exp < Time.timestamp()) {
+        if (exp < block.timestamp) {
             revert Expired("resolve expired", exp);
         }
 
