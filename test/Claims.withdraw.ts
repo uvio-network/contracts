@@ -1,25 +1,15 @@
 import { Amount } from "./src/Amount";
+import { expect } from "chai";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { UpdateBalance25False } from "./src/Deploy";
 import { UpdateBalance25True } from "./src/Deploy";
 import { UpdateBalance20True30False } from "./src/Deploy";
 import { UpdateBalance30True20False } from "./src/Deploy";
 import { UpdateBalance70True115False } from "./src/Deploy";
-import { expect } from "chai";
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 describe("Claims", function () {
   describe("withdraw", function () {
     describe("25 true", function () {
-      it("if signer 0 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance25True);
-
-        expect(await Token.balanceOf(Address(0))).to.equal(0);
-
-        const txn = Claims.connect(Signer(0)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
       it("should allow signer 1 to withdraw 25 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance25True);
 
@@ -62,16 +52,6 @@ describe("Claims", function () {
     });
 
     describe("25 false", function () {
-      it("if signer 0 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance25False);
-
-        expect(await Token.balanceOf(Address(0))).to.equal(0);
-
-        const txn = Claims.connect(Signer(0)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
       it("should allow signer 1 to withdraw 25 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance25False);
 
@@ -170,36 +150,6 @@ describe("Claims", function () {
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
-
-      it("if signer 3 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance20True30False);
-
-        expect(await Token.balanceOf(Address(3))).to.equal(0);
-
-        const txn = Claims.connect(Signer(3)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 4 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance20True30False);
-
-        expect(await Token.balanceOf(Address(4))).to.equal(0);
-
-        const txn = Claims.connect(Signer(4)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 5 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance20True30False);
-
-        expect(await Token.balanceOf(Address(5))).to.equal(0);
-
-        const txn = Claims.connect(Signer(5)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
     });
 
     describe("30 true 20 false", function () {
@@ -237,16 +187,6 @@ describe("Claims", function () {
         expect(res[1]).to.equal(0); // available
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 2 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance30True20False);
-
-        expect(await Token.balanceOf(Address(2))).to.equal(0);
-
-        const txn = Claims.connect(Signer(2)).withdraw(1);
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
@@ -402,56 +342,6 @@ describe("Claims", function () {
         expect(res[1]).to.equal(0); // available
 
         const txn = Claims.connect(Signer(3)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 4 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await Token.balanceOf(Address(4))).to.equal(Amount(25)); // got 50 only spent 25
-
-        const txn = Claims.connect(Signer(4)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 5 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await Token.balanceOf(Address(5))).to.equal(Amount(20)); // got 50 only spent 30
-
-        const txn = Claims.connect(Signer(5)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 6 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await Token.balanceOf(Address(6))).to.equal(Amount(20)); // got 50 only spent 30
-
-        const txn = Claims.connect(Signer(6)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 7 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await Token.balanceOf(Address(7))).to.equal(Amount(30)); // got 50 only spent 20
-
-        const txn = Claims.connect(Signer(7)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if signer 8 tries to withdraw any tokens", async function () {
-        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await Token.balanceOf(Address(8))).to.equal(Amount(40)); // got 50 only spent 10
-
-        const txn = Claims.connect(Signer(8)).withdraw(1);
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });

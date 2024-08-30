@@ -1,13 +1,13 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
+import { expect } from "chai";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { UpdateBalance25False } from "./src/Deploy";
 import { UpdateBalance25True } from "./src/Deploy";
 import { UpdateBalance20True30False } from "./src/Deploy";
 import { UpdateBalance30True20False } from "./src/Deploy";
 import { UpdateBalance70True115False } from "./src/Deploy";
 import { UpdateBalance12TTrue46MFalse } from "./src/Deploy";
-import { expect } from "chai";
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 describe("Claims", function () {
   describe("updateBalance", function () {
