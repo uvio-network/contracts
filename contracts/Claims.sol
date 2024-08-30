@@ -207,8 +207,13 @@ contract Claims is AccessControl {
         if (tok == address(0)) {
             revert Address("invalid token");
         }
+
         if (own == address(0)) {
             revert Address("invalid owner");
+        }
+
+        if (!IERC20(tok).approve(address(this), type(uint256).max)) {
+            revert Balance("approval failed", type(uint256).max);
         }
 
         {
@@ -434,7 +439,6 @@ contract Claims is AccessControl {
         }
     }
 
-    // TODO test withdrawals since we implemented updating balances
     function withdraw(uint256 bal) public {
         address use = msg.sender;
 
@@ -442,12 +446,12 @@ contract Claims is AccessControl {
             revert Balance("insufficient funds", _availBalance[use]);
         }
 
-        if (!IERC20(token).transferFrom(address(this), use, bal)) {
-            revert Balance("transfer failed", bal);
-        }
-
         unchecked {
             _availBalance[use] -= bal;
+        }
+
+        if (!IERC20(token).transferFrom(address(this), use, bal)) {
+            revert Balance("transfer failed", bal);
         }
     }
 
