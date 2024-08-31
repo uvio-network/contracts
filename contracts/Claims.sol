@@ -35,6 +35,13 @@ contract Claims is AccessControl {
     // CONSTANTS
     //
 
+    //
+    uint8 public constant ADDRESS_STAKE_Y = 0;
+    //
+    uint8 public constant ADDRESS_STAKE_N = 1;
+    //
+    uint8 public constant ADDRESS_STAKE_M = 2;
+
     // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
     // used to calculate fees and their remainders.
     uint16 public constant BASIS_TOTAL = 10_000;
@@ -121,7 +128,7 @@ contract Claims is AccessControl {
     //
 
     //
-    mapping(uint256 => mapping(address => uint256)) private _addressStake;
+    mapping(uint256 => mapping(address => mapping(uint8 => uint256))) private _addressStake;
     //
     mapping(uint256 => mapping(address => Bits.Map)) private _addressVotes;
     //
@@ -243,7 +250,7 @@ contract Claims is AccessControl {
         // given balance against 0, which allows the proposer to define the
         // minimum stake required to participate in this market. All following
         // users have then to comply with the minimum balance defined.
-        uint256 min = _addressStake[pro][address(0)];
+        uint256 min = _addressStake[pro][address(0)][ADDRESS_STAKE_M];
         if (bal < min) {
             revert Balance("below minimum", min);
         }
@@ -270,7 +277,7 @@ contract Claims is AccessControl {
             // for the minimum balance required. This mechanism works because
             // nobody can ever control the zero address.
             {
-                _addressStake[pro][address(0)] = bal; // minimum balance
+                _addressStake[pro][address(0)][ADDRESS_STAKE_M] = bal; // minimum balance
                 _indexAddress[pro][MID_UINT256] = use; // proposer address
             }
         } else {
@@ -325,30 +332,47 @@ contract Claims is AccessControl {
             // and read it for cheap many times later on when updating user
             // balances.
             if (vot) {
-                _addressVotes[pro][use].set(VOTE_STAKE_Y);
-                _stakePropose[pro][CLAIM_STAKE_Y] += bal;
-            } else {
-                _addressVotes[pro][use].set(VOTE_STAKE_N);
-                _stakePropose[pro][CLAIM_STAKE_N] += bal;
-            }
-
-            // Allocate the user stakes and keep track of the user address based
-            // on their position in our index list. Consecutive calls by the
-            // same user will maintain the user's individual index.
-            if (_addressStake[pro][use] == 0) {
                 {
-                    _addressStake[pro][use] = bal;
+                    _addressVotes[pro][use].set(VOTE_STAKE_Y);
+                    _stakePropose[pro][CLAIM_STAKE_Y] += bal;
                 }
 
-                if (vot) {
-                    _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_Y]] = use;
-                    _indexMembers[pro][CLAIM_ADDRESS_Y]++; // base is 0
+                // Allocate the user stakes and keep track of the user address based
+                // on their position in our index list. Consecutive calls by the
+                // same user will maintain the user's individual index.
+                if (_addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N] == 0) {
+                    {
+                        _addressStake[pro][use][ADDRESS_STAKE_Y] = bal;
+                    }
+
+                    {
+                        _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_Y]] = use;
+                        _indexMembers[pro][CLAIM_ADDRESS_Y]++; // base is 0
+                    }
                 } else {
-                    _indexMembers[pro][CLAIM_ADDRESS_N]--; // base is 2^256-1
-                    _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_N]] = use;
+                    _addressStake[pro][use][ADDRESS_STAKE_Y] += bal;
                 }
             } else {
-                _addressStake[pro][use] += bal;
+                {
+                    _addressVotes[pro][use].set(VOTE_STAKE_N);
+                    _stakePropose[pro][CLAIM_STAKE_N] += bal;
+                }
+
+                // Allocate the user stakes and keep track of the user address based
+                // on their position in our index list. Consecutive calls by the
+                // same user will maintain the user's individual index.
+                if (_addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N] == 0) {
+                    {
+                        _addressStake[pro][use][ADDRESS_STAKE_N] = bal;
+                    }
+
+                    {
+                        _indexMembers[pro][CLAIM_ADDRESS_N]--; // base is 2^256-1
+                        _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_N]] = use;
+                    }
+                } else {
+                    _addressStake[pro][use][ADDRESS_STAKE_N] += bal;
+                }
             }
         }
     }
@@ -360,7 +384,7 @@ contract Claims is AccessControl {
         uint256 res = _claimMapping[pro];
         uint48 exp = _claimExpired[res];
 
-        if (_claimBalance[res].get(CLAIM_BALANCE_U)) {
+        if (_claimBalance[pro].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
         }
 
@@ -399,13 +423,17 @@ contract Claims is AccessControl {
 
         //
         if (all == 1) {
-            return updateSingle(pro, res, yay > nah);
+            if (yay == nah) {
+                return punishOne(pro);
+            } else {
+                return rewardOne(pro, yay > nah);
+            }
         }
 
         if (yay > nah || yay < nah) {
-            updateReward(pro, res, len, yay > nah);
+            rewardAll(pro, len, yay > nah);
         } else {
-            updatePunish(pro, res, len);
+            punishAll(pro, len);
         }
 
         // Only credit the proposer and the protocol once everyone else got
@@ -422,7 +450,7 @@ contract Claims is AccessControl {
             }
 
             {
-                _claimBalance[res].set(CLAIM_BALANCE_U);
+                _claimBalance[pro].set(CLAIM_BALANCE_U);
             }
 
             {
@@ -523,6 +551,7 @@ contract Claims is AccessControl {
         }
 
         {
+            // TODO can we do without the resolve ID specifically?
             _claimExpired[res] = exp;
             _claimIndices[pro] = ind;
             _claimMapping[pro] = res;
@@ -590,9 +619,9 @@ contract Claims is AccessControl {
     //
 
     // TODO this result cannot be disputed
-    function updatePunish(uint256 pro, uint256 res, uint256 len) private {
+    function punishAll(uint256 pro, uint256 len) private {
         if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
-            _claimBalance[res].set(CLAIM_BALANCE_P);
+            _claimBalance[pro].set(CLAIM_BALANCE_P);
         }
 
         //
@@ -606,7 +635,7 @@ contract Claims is AccessControl {
 
         while (len != 0) {
             address use = _indexAddress[pro][lef];
-            uint256 bal = _addressStake[pro][use];
+            uint256 bal = _addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N];
 
             // Every user loses their allocated balance when claims get
             // resolved. Only those users who were right in the end regain their
@@ -616,6 +645,7 @@ contract Claims is AccessControl {
                 _allocBalance[use] -= bal;
             }
 
+            //
             uint256 ded = (bal * basisFee) / BASIS_TOTAL;
 
             // Since this is the punishment case of resolving claims, every user
@@ -633,7 +663,8 @@ contract Claims is AccessControl {
             }
 
             {
-                delete _addressStake[pro][use];
+                delete _addressStake[pro][use][ADDRESS_STAKE_Y];
+                delete _addressStake[pro][use][ADDRESS_STAKE_N];
             }
 
             unchecked {
@@ -655,9 +686,33 @@ contract Claims is AccessControl {
     }
 
     //
-    function updateReward(uint256 pro, uint256 res, uint256 len, bool win) private {
+    function punishOne(uint256 pro) private {
+        address use = _indexAddress[pro][MID_UINT256];
+
+        unchecked {
+            uint256 bal = _addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N];
+
+            {
+                _allocBalance[use] -= bal;
+                _availBalance[owner] += bal;
+            }
+
+            {
+                _claimBalance[pro].set(CLAIM_BALANCE_P);
+                _claimBalance[pro].set(CLAIM_BALANCE_U);
+            }
+
+            {
+                delete _addressStake[pro][use][ADDRESS_STAKE_Y];
+                delete _addressStake[pro][use][ADDRESS_STAKE_N];
+            }
+        }
+    }
+
+    //
+    function rewardAll(uint256 pro, uint256 len, bool win) private {
         if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
-            _claimBalance[res].set(CLAIM_BALANCE_R);
+            _claimBalance[pro].set(CLAIM_BALANCE_R);
         }
 
         // Calculate the amounts for total staked assets on either side by
@@ -679,66 +734,9 @@ contract Claims is AccessControl {
 
         while (len != 0) {
             address use = _indexAddress[pro][lef];
-            uint256 bal = _addressStake[pro][use];
-
-            // Every user loses their allocated balance when claims get
-            // resolved. Only those users who were right in the end regain their
-            // allocated balances in the form of available balances, plus
-            // rewards.
-            unchecked {
-                _allocBalance[use] -= bal;
-            }
-
-            if (win) {
-                // After verifying events in the real world the majority of
-                // voters decided that the proposed claim turned out to be true.
-                // Everyone staking reputation in agreement with the proposed
-                // claim will now earn their share of rewards. The users' staked
-                // balances plus rewards become now part of the respective
-                // available balances.
-                if (_addressVotes[pro][use].get(VOTE_STAKE_Y)) {
-                    // Since we are working with the total amounts of staked
-                    // assets as deducted fee basis, we also need to deduct the
-                    // fees from every single staked balance here. Otherwise the
-                    // user's share would inflate artificially relative to the
-                    // deducted total that we use as a basis below.
-                    unchecked {
-                        uint256 ded = (bal * basisFee) / BASIS_TOTAL;
-                        uint256 shr = (ded * 1e18) / fey;
-                        uint256 rew = (shr * fen) / 1e18;
-                        uint256 sum = (rew + ded);
-
-                        _availBalance[use] += sum;
-                        _stakePropose[pro][CLAIM_STAKE_C] += sum;
-                    }
-                }
-            } else {
-                // After verifying events in the real world the majority of
-                // voters decided that the proposed claim turned out to be
-                // false. Everyone staking reputation in disagreement with the
-                // proposed claim will now earn their share of rewards. The
-                // users' staked balances plus rewards become now part of the
-                // respective available balances.
-                if (_addressVotes[pro][use].get(VOTE_STAKE_N)) {
-                    // Since we are working with the total amounts of staked
-                    // assets as deducted fee basis, we also need to deduct the
-                    // fees from every single staked balance here. Otherwise the
-                    // user's share would inflate artificially relative to the
-                    // deducted total that we use as a basis below.
-                    unchecked {
-                        uint256 ded = (bal * basisFee) / BASIS_TOTAL;
-                        uint256 shr = (ded * 1e18) / fen;
-                        uint256 rew = (shr * fey) / 1e18;
-                        uint256 sum = (rew + ded);
-
-                        _availBalance[use] += sum;
-                        _stakePropose[pro][CLAIM_STAKE_C] += sum;
-                    }
-                }
-            }
 
             {
-                delete _addressStake[pro][use];
+                rewardAllLoop(pro, use, win, fey, fen);
             }
 
             unchecked {
@@ -758,36 +756,117 @@ contract Claims is AccessControl {
         }
     }
 
+    function rewardAllLoop(uint256 pro, address use, bool win, uint256 fey, uint256 fen) private {
+        uint256 sty = _addressStake[pro][use][ADDRESS_STAKE_Y];
+        uint256 stn = _addressStake[pro][use][ADDRESS_STAKE_N];
+
+        // Every user loses their allocated balance when claims get
+        // resolved. Only those users who were right in the end regain their
+        // allocated balances in the form of available balances, plus
+        // rewards.
+        unchecked {
+            _allocBalance[use] -= sty + stn;
+        }
+
+        if (win) {
+            // After verifying events in the real world the majority of
+            // voters decided that the proposed claim turned out to be true.
+            // Everyone staking reputation in agreement with the proposed
+            // claim will now earn their share of rewards. The users' staked
+            // balances plus rewards become now part of the respective
+            // available balances.
+            if (_addressVotes[pro][use].get(VOTE_STAKE_Y)) {
+                // Since we are working with the total amounts of staked assets as
+                // deducted fee basis, we also need to deduct the fees from every single
+                // staked balance here. Otherwise the user's share would inflate
+                // artificially relative to the deducted total that we use as a basis
+                // below.
+                unchecked {
+                    uint256 ded = (sty * basisFee) / BASIS_TOTAL;
+                    uint256 shr = (ded * 1e18) / fey;
+                    uint256 rew = (shr * fen) / 1e18;
+                    uint256 sum = (rew + ded);
+
+                    _availBalance[use] += sum;
+                    _stakePropose[pro][CLAIM_STAKE_C] += sum;
+                }
+            }
+        } else {
+            // After verifying events in the real world the majority of
+            // voters decided that the proposed claim turned out to be
+            // false. Everyone staking reputation in disagreement with the
+            // proposed claim will now earn their share of rewards. The
+            // users' staked balances plus rewards become now part of the
+            // respective available balances.
+            if (_addressVotes[pro][use].get(VOTE_STAKE_N)) {
+                // Since we are working with the total amounts of staked assets as
+                // deducted fee basis, we also need to deduct the fees from every single
+                // staked balance here. Otherwise the user's share would inflate
+                // artificially relative to the deducted total that we use as a basis
+                // below.
+                unchecked {
+                    uint256 ded = (stn * basisFee) / BASIS_TOTAL;
+                    uint256 shr = (ded * 1e18) / fen;
+                    uint256 rew = (shr * fey) / 1e18;
+                    uint256 sum = (rew + ded);
+
+                    _availBalance[use] += sum;
+                    _stakePropose[pro][CLAIM_STAKE_C] += sum;
+                }
+            }
+        }
+
+        {
+            delete _addressStake[pro][use][ADDRESS_STAKE_Y];
+            delete _addressStake[pro][use][ADDRESS_STAKE_N];
+        }
+    }
+
     //
-    function updateSingle(uint256 pro, uint256 res, bool win) private {
+    function rewardOne(uint256 pro, bool win) private {
         address use = _indexAddress[pro][MID_UINT256];
-        uint256 bal = _addressStake[pro][use];
+        uint256 sty = _addressStake[pro][use][ADDRESS_STAKE_Y];
+        uint256 stn = _addressStake[pro][use][ADDRESS_STAKE_N];
 
         unchecked {
+            uint256 bal = sty + stn;
+
             {
                 _allocBalance[use] -= bal;
             }
 
             if (win) {
                 if (_addressVotes[pro][use].get(VOTE_STAKE_Y)) {
-                    _availBalance[use] += bal;
-                    _claimBalance[res].set(CLAIM_BALANCE_R);
+                    {
+                        _availBalance[use] += sty;
+                        _claimBalance[pro].set(CLAIM_BALANCE_R);
+                    }
+
+                    if (stn != 0) {
+                        _availBalance[owner] += stn;
+                    }
                 } else {
                     _availBalance[owner] += bal;
-                    _claimBalance[res].set(CLAIM_BALANCE_P);
+                    _claimBalance[pro].set(CLAIM_BALANCE_P);
                 }
             } else {
                 if (_addressVotes[pro][use].get(VOTE_STAKE_N)) {
-                    _availBalance[use] += bal;
-                    _claimBalance[res].set(CLAIM_BALANCE_R);
+                    {
+                        _availBalance[use] += stn;
+                        _claimBalance[pro].set(CLAIM_BALANCE_R);
+                    }
+
+                    if (sty != 0) {
+                        _availBalance[owner] += sty;
+                    }
                 } else {
                     _availBalance[owner] += bal;
-                    _claimBalance[res].set(CLAIM_BALANCE_P);
+                    _claimBalance[pro].set(CLAIM_BALANCE_P);
                 }
             }
 
             {
-                _claimBalance[res].set(CLAIM_BALANCE_U);
+                _claimBalance[pro].set(CLAIM_BALANCE_U);
             }
         }
     }
@@ -896,8 +975,7 @@ contract Claims is AccessControl {
 
     // can be called by anyone, may not return anything
     function searchResolve(uint256 pro, uint8 ind) public view returns (bool) {
-        uint256 res = _claimMapping[pro];
-        return _claimBalance[res].get(ind);
+        return _claimBalance[pro].get(ind);
     }
 
     // searchSamples works in conjunction with the indices provided by
