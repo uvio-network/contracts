@@ -124,9 +124,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(30)); // yay
-          expect(res[1]).to.equal(Amount(20)); // nah
+          expect(res[1]).to.equal(Amount(10)); // min
+          expect(res[2]).to.equal(Amount(20)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(50));
+          expect(res[0] + res[2]).to.equal(Amount(50));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -329,9 +330,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(70));  // yay
-          expect(res[1]).to.equal(Amount(115)); // nah
+          expect(res[1]).to.equal(Amount(10));  // min
+          expect(res[2]).to.equal(Amount(115)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(185));
+          expect(res[0] + res[2]).to.equal(Amount(185));
         });
 
         it("should calculate available balances according to tokens staked", async function () {

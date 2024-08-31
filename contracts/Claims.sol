@@ -35,12 +35,14 @@ contract Claims is AccessControl {
     // CONSTANTS
     //
 
-    //
+    // ADDRESS_STAKE_Y is a map index within _addressStake. This number tracks
+    // the amount of tokens a user has staked in agreement with the associated
+    // claim.
     uint8 public constant ADDRESS_STAKE_Y = 0;
-    //
+    // ADDRESS_STAKE_N is a map index within _addressStake. This number tracks
+    // the amount of tokens a user has staked in disagreement with the
+    // associated claim.
     uint8 public constant ADDRESS_STAKE_N = 1;
-    //
-    uint8 public constant ADDRESS_STAKE_M = 2;
 
     // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
     // used to calculate fees and their remainders.
@@ -78,15 +80,19 @@ contract Claims is AccessControl {
     // CLAIM_STAKE_N is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation disagreeing with the associated claim.
     uint8 public constant CLAIM_STAKE_N = 1;
+    // CLAIM_STAKE_M is a map index within _stakePropose. This number tracks the
+    // minimum amount of stake required in order to participate in any given
+    // claim.
+    uint8 public constant CLAIM_STAKE_M = 2;
     // CLAIM_STAKE_D is a map index within _stakePropose. This number tracks the
     // amount of users for which we distributed stake already throughout the
     // process of updating user balances. This number must match the total
     // amount of stakers before any claim can fully be resolved.
-    uint8 public constant CLAIM_STAKE_D = 2;
+    uint8 public constant CLAIM_STAKE_D = 3;
     // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
     // amount of distributed stake that we carried over during multiple calls of
     // updateBalance.
-    uint8 public constant CLAIM_STAKE_C = 3;
+    uint8 public constant CLAIM_STAKE_C = 4;
 
     // CLAIM_TRUTH_Y is a map index within _truthResolve. This number tracks the
     // total amount of votes cast saying the associated claim was true.
@@ -250,7 +256,7 @@ contract Claims is AccessControl {
         // given balance against 0, which allows the proposer to define the
         // minimum stake required to participate in this market. All following
         // users have then to comply with the minimum balance defined.
-        uint256 min = _addressStake[pro][address(0)][ADDRESS_STAKE_M];
+        uint256 min = _stakePropose[pro][CLAIM_STAKE_M];
         if (bal < min) {
             revert Balance("below minimum", min);
         }
@@ -269,15 +275,10 @@ contract Claims is AccessControl {
             }
 
             // In case this is the creation of a claim with lifecycle "propose",
-            // store the first balance provided under the zero address key, so
-            // that we can remember the minimum balance required for staking
-            // reputation on this claim. Using the zero address as key here
-            // allows us to use the same mapping we use for all user stakes, so
-            // that we do not have to maintain another separate data structure
-            // for the minimum balance required. This mechanism works because
-            // nobody can ever control the zero address.
+            // store the first balance provided, so that we can remember the
+            // minimum balance required for staking reputation on this claim.
             {
-                _addressStake[pro][address(0)][ADDRESS_STAKE_M] = bal; // minimum balance
+                _stakePropose[pro][CLAIM_STAKE_M] = bal; // minimum balance
                 _indexAddress[pro][MID_UINT256] = use; // proposer address
             }
         } else {
@@ -969,8 +970,8 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone, may not return anything
-    function searchPropose(uint256 pro) public view returns (uint256, uint256) {
-        return (_stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_N]);
+    function searchPropose(uint256 pro) public view returns (uint256, uint256, uint256) {
+        return (_stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_M], _stakePropose[pro][CLAIM_STAKE_N]);
     }
 
     // can be called by anyone, may not return anything
