@@ -969,7 +969,15 @@ contract Claims is AccessControl {
         return (toy, ley, riy, MID_UINT256, MID_UINT256, len, rin, ton);
     }
 
-    // can be called by anyone, may not return anything
+    // searchPropose can be called by anyone to lookup the amount of tokens
+    // staked on either side of any given market. Additionally, the minimum
+    // stake required in order to participate in the given market is also
+    // returned.
+    //
+    //     out[0] the amount of reputation staked in agreement
+    //     out[1] the minimum amount of stake required to participate
+    //     out[2] the amount of reputation staked in disagreement
+    //
     function searchPropose(uint256 pro) public view returns (uint256, uint256, uint256) {
         return (_stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_M], _stakePropose[pro][CLAIM_STAKE_N]);
     }
