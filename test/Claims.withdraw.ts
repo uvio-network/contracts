@@ -275,9 +275,9 @@ describe("Claims", function () {
 
         expect(await Token.balanceOf(Address(0))).to.equal(0);
 
-        await Claims.connect(Signer(0)).withdraw("9250000000000000104");
+        await Claims.connect(Signer(0)).withdraw("9250000000000000115");
 
-        expect(await Token.balanceOf(Address(0))).to.equal("9250000000000000104");
+        expect(await Token.balanceOf(Address(0))).to.equal("9250000000000000115");
 
         const res = await Claims.searchBalance(Address(0));
 
@@ -289,14 +289,14 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
-      it("should allow signer 1 to withdraw 56.82 tokens once", async function () {
+      it("should allow signer 1 to withdraw 65.69 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
 
         expect(await Token.balanceOf(Address(1))).to.equal(Amount(30)); // got 50 only spent 20
 
-        await Claims.connect(Signer(1)).withdraw("56821428571428571399");
+        await Claims.connect(Signer(1)).withdraw("65690677966101694901");
 
-        expect(await Token.balanceOf(Address(1))).to.equal("86821428571428571399"); // + 30
+        expect(await Token.balanceOf(Address(1))).to.equal("95690677966101694901"); // + 30
 
         const res = await Claims.searchBalance(Address(1));
 
@@ -308,14 +308,14 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
-      it("should allow signer 2 to withdraw 47.57 tokens once", async function () {
+      it("should allow signer 2 to withdraw 56.44 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
 
         expect(await Token.balanceOf(Address(2))).to.equal(Amount(30)); // got 50 only spent 20
 
-        await Claims.connect(Signer(2)).withdraw("47571428571428571399");
+        await Claims.connect(Signer(2)).withdraw("56440677966101694901");
 
-        expect(await Token.balanceOf(Address(2))).to.equal("77571428571428571399"); // + 30
+        expect(await Token.balanceOf(Address(2))).to.equal("86440677966101694901"); // + 30
 
         const res = await Claims.searchBalance(Address(2));
 
@@ -327,14 +327,14 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
-      it("should allow signer 3 to withdraw 71.36 tokens once", async function () {
+      it("should allow signer 3 to withdraw 53.62 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance70True115False);
 
         expect(await Token.balanceOf(Address(3))).to.equal(Amount(20)); // got 50 only spent 30
 
-        await Claims.connect(Signer(3)).withdraw("71357142857142857098");
+        await Claims.connect(Signer(3)).withdraw("53618644067796610083");
 
-        expect(await Token.balanceOf(Address(3))).to.equal("91357142857142857098"); // + 20
+        expect(await Token.balanceOf(Address(3))).to.equal("73618644067796610083"); // + 20
 
         const res = await Claims.searchBalance(Address(3));
 

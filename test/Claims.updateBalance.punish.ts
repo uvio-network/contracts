@@ -1,6 +1,6 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
-import { Deploy, UpdateBalancePunishEqualVotes, UpdateBalancePunishNoVotes } from "./src/Deploy";
+import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
@@ -8,6 +8,9 @@ import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+import { UpdateBalance25TrueNoVote } from "./src/Deploy";
+import { UpdateBalancePunishEqualVotes } from "./src/Deploy";
+import { UpdateBalancePunishNoVotes } from "./src/Deploy";
 
 const EXPIRY = Expiry(2, "days");
 const MAX = maxUint256;
@@ -76,9 +79,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(25)); // yay
-          expect(res[1]).to.equal(Amount(0));  // nah
+          expect(res[1]).to.equal(Amount(25)); // min
+          expect(res[2]).to.equal(0);          // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(25));
+          expect(res[0] + res[2]).to.equal(Amount(25));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -169,10 +173,11 @@ describe("Claims", function () {
 
           const res = await Claims.searchPropose(Claim(1));
 
-          expect(res[0]).to.equal(Amount(0)); // yay
-          expect(res[1]).to.equal(Amount(25));  // nah
+          expect(res[0]).to.equal(0);          // yay
+          expect(res[1]).to.equal(Amount(25)); // min
+          expect(res[2]).to.equal(Amount(25)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(25));
+          expect(res[0] + res[2]).to.equal(Amount(25));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -203,7 +208,56 @@ describe("Claims", function () {
         });
       });
 
-      describe("no votes", function () {
+      describe("one no vote", function () {
+        it("should update balances by punishing users", async function () {
+          const { Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+        });
+
+        it("should have 25 tokens staked", async function () {
+          const { Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          const res = await Claims.searchPropose(Claim(1));
+
+          expect(res[0]).to.equal(Amount(25)); // yay
+          expect(res[1]).to.equal(Amount(25)); // min
+          expect(res[2]).to.equal(0);          // nah
+
+          expect(res[0] + res[2]).to.equal(Amount(25));
+        });
+
+        it("should calculate available balances according to tokens staked", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          const zer = await Claims.searchBalance(Address(0));
+          const one = await Claims.searchBalance(Address(1));
+
+          expect(zer[1] + one[1]).to.equal(Amount(25));
+        });
+
+        it("should calculate balances accurately for signer 0", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          const res = await Claims.searchBalance(Address(0));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(25.00)); // available (all of signer 1's stake)
+        });
+
+        it("should calculate balances accurately for signer 1", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (slashed for being lazy)
+        });
+      });
+
+      describe("all no votes", function () {
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(UpdateBalancePunishNoVotes);
 
@@ -218,9 +272,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(20)); // yay
-          expect(res[1]).to.equal(Amount(30));  // nah
+          expect(res[1]).to.equal(Amount(10)); // min
+          expect(res[2]).to.equal(Amount(30)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(50));
+          expect(res[0] + res[2]).to.equal(Amount(50));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -291,7 +346,7 @@ describe("Claims", function () {
         });
       });
 
-      describe("equal votes", function () {
+      describe("all equal votes", function () {
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
 
@@ -306,9 +361,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(81)); // yay
-          expect(res[1]).to.equal(Amount(37)); // nah
+          expect(res[1]).to.equal(Amount(5));  // min
+          expect(res[2]).to.equal(Amount(37)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(118));
+          expect(res[0] + res[2]).to.equal(Amount(118));
         });
 
         it("should calculate available balances according to tokens staked", async function () {

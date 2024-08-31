@@ -27,9 +27,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(25)); // yay
-          expect(res[1]).to.equal(Amount(0));  // nah
+          expect(res[1]).to.equal(Amount(25)); // min
+          expect(res[2]).to.equal(0);          // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(25));
+          expect(res[0] + res[2]).to.equal(Amount(25));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -80,10 +81,11 @@ describe("Claims", function () {
 
           const res = await Claims.searchPropose(Claim(1));
 
-          expect(res[0]).to.equal(Amount(0)); // yay
-          expect(res[1]).to.equal(Amount(25));  // nah
+          expect(res[0]).to.equal(0);          // yay
+          expect(res[1]).to.equal(Amount(25)); // min
+          expect(res[2]).to.equal(Amount(25)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(25));
+          expect(res[0] + res[2]).to.equal(Amount(25));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -135,9 +137,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(20)); // yay
-          expect(res[1]).to.equal(Amount(30)); // nah
+          expect(res[1]).to.equal(Amount(10)); // min
+          expect(res[2]).to.equal(Amount(30)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(50));
+          expect(res[0] + res[2]).to.equal(Amount(50));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -226,9 +229,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(30)); // yay
-          expect(res[1]).to.equal(Amount(20)); // nah
+          expect(res[1]).to.equal(Amount(10)); // min
+          expect(res[2]).to.equal(Amount(20)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(50));
+          expect(res[0] + res[2]).to.equal(Amount(50));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -318,10 +322,11 @@ describe("Claims", function () {
 
           const res = await Claims.searchPropose(Claim(1));
 
-          expect(res[0]).to.equal(Amount(70));  // yay
-          expect(res[1]).to.equal(Amount(115)); // nah
+          expect(res[0]).to.equal(Amount(59));  // yay
+          expect(res[1]).to.equal(Amount(10));  // min
+          expect(res[2]).to.equal(Amount(126)); // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(185));
+          expect(res[0] + res[2]).to.equal(Amount(185));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
@@ -347,7 +352,7 @@ describe("Claims", function () {
           const res = await Claims.searchBalance(Address(0)); // protocol owner receiving rewards
 
           expect(res[0]).to.equal(0);                     // allocated
-          expect(res[1]).to.equal("9250000000000000104"); // available (9.25 + captured precision loss)
+          expect(res[1]).to.equal("9250000000000000115"); // available (9.25 + captured precision loss)
         });
 
         it("should calculate balances accurately for signer 1", async function () {
@@ -356,7 +361,7 @@ describe("Claims", function () {
           const res = await Claims.searchBalance(Address(1));
 
           expect(res[0]).to.equal(0);                      // available
-          expect(res[1]).to.equal("56821428571428571399"); // available (56.82)
+          expect(res[1]).to.equal("65690677966101694901"); // available (65.69)
         });
 
         it("should calculate balances accurately for signer 2", async function () {
@@ -365,7 +370,7 @@ describe("Claims", function () {
           const res = await Claims.searchBalance(Address(2));
 
           expect(res[0]).to.equal(0);                      // allocated
-          expect(res[1]).to.equal("47571428571428571399"); // available (47.57)
+          expect(res[1]).to.equal("56440677966101694901"); // available (56.44)
         });
 
         it("should calculate balances accurately for signer 3", async function () {
@@ -374,7 +379,7 @@ describe("Claims", function () {
           const res = await Claims.searchBalance(Address(3));
 
           expect(res[0]).to.equal(0);                      // allocated
-          expect(res[1]).to.equal("71357142857142857098"); // available (71.36)
+          expect(res[1]).to.equal("53618644067796610083"); // available (53.62)
         });
 
         it("should calculate balances accurately for signer 4", async function () {
@@ -438,9 +443,10 @@ describe("Claims", function () {
           const res = await Claims.searchPropose(Claim(1));
 
           expect(res[0]).to.equal(Amount(12_550_000_000_000)); // yay
-          expect(res[1]).to.equal(Amount(46_000_500));         // nah
+          expect(res[1]).to.equal(Amount(300));                // min
+          expect(res[2]).to.equal(Amount(46_000_500));         // nah
 
-          expect(res[0] + res[1]).to.equal(Amount(12_550_046_000_500));
+          expect(res[0] + res[2]).to.equal(Amount(12_550_046_000_500));
         });
 
         it("should calculate available balances according to tokens staked", async function () {
