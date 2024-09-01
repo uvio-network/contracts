@@ -91,19 +91,23 @@ contract Claims is AccessControl {
     // CLAIM_STAKE_N is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation disagreeing with the associated claim.
     uint8 public constant CLAIM_STAKE_N = 1;
-    // CLAIM_STAKE_M is a map index within _stakePropose. This number tracks the
+    // CLAIM_STAKE_A is a map index within _stakePropose. This number tracks the
     // minimum amount of stake required in order to participate in any given
-    // claim.
-    uint8 public constant CLAIM_STAKE_M = 2;
+    // claim when the proposed claim first voted true.
+    uint8 public constant CLAIM_STAKE_A = 2;
+    // CLAIM_STAKE_B is a map index within _stakePropose. This number tracks the
+    // minimum amount of stake required in order to participate in any given
+    // claim when the proposed claim first voted false.
+    uint8 public constant CLAIM_STAKE_B = 3;
     // CLAIM_STAKE_D is a map index within _stakePropose. This number tracks the
     // amount of users for which we distributed stake already throughout the
     // process of updating user balances. This number must match the total
     // amount of stakers before any claim can fully be resolved.
-    uint8 public constant CLAIM_STAKE_D = 3;
+    uint8 public constant CLAIM_STAKE_D = 4;
     // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
     // amount of distributed stake that we carried over during multiple calls of
     // updateBalance.
-    uint8 public constant CLAIM_STAKE_C = 4;
+    uint8 public constant CLAIM_STAKE_C = 5;
 
     // CLAIM_TRUTH_Y is a map index within _truthResolve. This number tracks the
     // total amount of votes cast saying the associated claim was true.
@@ -273,7 +277,7 @@ contract Claims is AccessControl {
         // given balance against 0, which allows the proposer to define the
         // minimum stake required to participate in this market. All following
         // users have then to comply with the minimum balance defined.
-        uint256 min = _stakePropose[pro][CLAIM_STAKE_M];
+        uint256 min = _stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B];
         if (bal < min) {
             revert Balance("below minimum", min);
         }
@@ -293,11 +297,14 @@ contract Claims is AccessControl {
             }
 
             // In case this is the creation of a claim with lifecycle "propose",
-            // store the first balance provided, so that we can remember the
-            // minimum balance required for staking reputation on this claim.
-            {
-                _stakePropose[pro][CLAIM_STAKE_M] = bal; // minimum balance
-                _indexAddress[pro][MID_UINT256] = use; // proposer address
+            // store the first balance for the side of the stake as provided, so
+            // that we can remember the minimum balance required for staking
+            // reputation on this claim, while also being able to find the
+            // proposer address without explicitly storing it.
+            if (vot) {
+                _stakePropose[pro][CLAIM_STAKE_A] = bal;
+            } else {
+                _stakePropose[pro][CLAIM_STAKE_B] = bal;
             }
         } else {
             // Ensure anyone can stake up until the defined expiry threshold.
@@ -463,7 +470,13 @@ contract Claims is AccessControl {
         // they created the claim.
         if (_stakePropose[pro][CLAIM_STAKE_D] == all) {
             unchecked {
-                address first = _indexAddress[pro][MID_UINT256];
+                address first;
+                if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
+                    first = _indexAddress[pro][MAX_UINT256];
+                } else {
+                    first = _indexAddress[pro][0];
+                }
+
                 uint256 total = _stakePropose[pro][CLAIM_STAKE_Y] + _stakePropose[pro][CLAIM_STAKE_N];
                 uint256 share = (total * basisProposer) / BASIS_TOTAL;
 
@@ -702,7 +715,12 @@ contract Claims is AccessControl {
 
     //
     function punishOne(uint256 pro) private {
-        address use = _indexAddress[pro][MID_UINT256];
+        address use;
+        if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
+            use = _indexAddress[pro][MAX_UINT256];
+        } else {
+            use = _indexAddress[pro][0];
+        }
 
         unchecked {
             uint256 bal = _addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N];
@@ -839,7 +857,13 @@ contract Claims is AccessControl {
 
     //
     function rewardOne(uint256 pro, bool win) private {
-        address use = _indexAddress[pro][MID_UINT256];
+        address use;
+        if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
+            use = _indexAddress[pro][MAX_UINT256];
+        } else {
+            use = _indexAddress[pro][0];
+        }
+
         uint256 sty = _addressStake[pro][use][ADDRESS_STAKE_Y];
         uint256 stn = _addressStake[pro][use][ADDRESS_STAKE_N];
 
@@ -994,7 +1018,11 @@ contract Claims is AccessControl {
     //     out[2] the amount of reputation staked in disagreement
     //
     function searchPropose(uint256 pro) public view returns (uint256, uint256, uint256) {
-        return (_stakePropose[pro][CLAIM_STAKE_Y], _stakePropose[pro][CLAIM_STAKE_M], _stakePropose[pro][CLAIM_STAKE_N]);
+        return (
+            _stakePropose[pro][CLAIM_STAKE_Y],
+            _stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B],
+            _stakePropose[pro][CLAIM_STAKE_N]
+        );
     }
 
     // can be called by anyone, may not return anything
@@ -1099,6 +1127,21 @@ contract Claims is AccessControl {
     //
     function searchStakers(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
         address[] memory lis = new address[](rig - lef + 1);
+
+        if (lef == MID_UINT256 && rig == MID_UINT256) {
+            address use;
+            if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
+                use = _indexAddress[pro][MAX_UINT256];
+            } else {
+                use = _indexAddress[pro][0];
+            }
+
+            {
+                lis[0] = use;
+            }
+
+            return lis;
+        }
 
         uint256 i = 0;
         uint256 j = lef;
