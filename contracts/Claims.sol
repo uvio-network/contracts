@@ -25,7 +25,7 @@ contract Claims is AccessControl {
     //
     error Balance(string why, uint256 bal);
     //
-    error Expired(string why, uint48 unx);
+    error Expired(string why, uint256 unx);
     //
     error Mapping(string why);
     //
@@ -74,12 +74,16 @@ contract Claims is AccessControl {
     // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
-    // CLAIM_EXPIRE_P is a map index within _claimExpired. This number tracks
-    // the expiry of claims with lifecycle "propose".
-    uint8 public constant CLAIM_EXPIRE_P = 0;
-    // CLAIM_EXPIRE_R is a map index within _claimExpired. This number tracks
-    // the expiry of claims with lifecycle "resolve".
-    uint8 public constant CLAIM_EXPIRE_R = 1;
+    // CLAIM_EXPIRY_C is a map index within _claimExpired. This number tracks
+    // the creation timestamp of claims with lifecycle "propose" in unix
+    // seconds.
+    uint8 public constant CLAIM_EXPIRY_C = 0;
+    // CLAIM_EXPIRY_P is a map index within _claimExpired. This number tracks
+    // the expiry of claims with lifecycle "propose" in unix seconds.
+    uint8 public constant CLAIM_EXPIRY_P = 1;
+    // CLAIM_EXPIRY_R is a map index within _claimExpired. This number tracks
+    // the expiry of claims with lifecycle "resolve" in unix seconds.
+    uint8 public constant CLAIM_EXPIRY_R = 2;
 
     // CLAIM_STAKE_Y is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation agreeing with the associated claim.
@@ -108,8 +112,11 @@ contract Claims is AccessControl {
     // total amount of votes cast saying the associated claim was false.
     uint8 public constant CLAIM_TRUTH_N = 1;
 
-    //
+    // MAX_UINT256 represents the end of the possible integer sequence.
     uint256 public constant MAX_UINT256 = type(uint256).max;
+    // MID_UINT256 represents the mid point of the possible integer sequence. We
+    // use this mid point to identify on which sides our indices are along the
+    // integer sequence.
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
@@ -151,7 +158,7 @@ contract Claims is AccessControl {
     //
     mapping(uint256 => Bits.Map) private _claimBalance;
     //
-    mapping(uint256 => mapping(uint8 => uint48)) private _claimExpired;
+    mapping(uint256 => mapping(uint8 => uint256)) private _claimExpired;
     //
     mapping(uint256 => uint256[]) private _claimIndices;
     // _indexAddress tracks the user addresses that have reputation staked in
@@ -193,7 +200,12 @@ contract Claims is AccessControl {
     // VARIABLES
     //
 
-    //
+    // basisDuration is the concluding timespan of a claim's expiry in basis
+    // points, during which staking is not allowed anymore.
+    uint16 public basisDuration = 1_000; // TODO make configurable
+    // basisFee is the deducated amount of stake in basis points, from which
+    // fees are subtracted already. This number is the basis for our internal
+    // accounting when distributing staked tokens upon market resolution.
     uint16 public basisFee = 9_000;
     // basisProposer is the amount of proposer fees in basis points, which are
     // deducted from the total pool of funds before updating user balances upon
@@ -250,7 +262,7 @@ contract Claims is AccessControl {
     //
 
     // called by anyone
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint48 exp) public {
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
         }
@@ -268,7 +280,7 @@ contract Claims is AccessControl {
 
         address use = msg.sender;
 
-        if (_claimExpired[pro][CLAIM_EXPIRE_P] == 0) {
+        if (_claimExpired[pro][CLAIM_EXPIRY_P] == 0) {
             // Expiries must be at least 24 hours in the future.
             if (exp < block.timestamp + 24 hours) {
                 revert Expired("expiry invalid", exp);
@@ -276,7 +288,8 @@ contract Claims is AccessControl {
 
             // Set the given expiry to make the code flow below work.
             {
-                _claimExpired[pro][CLAIM_EXPIRE_P] = exp;
+                _claimExpired[pro][CLAIM_EXPIRY_C] = block.timestamp;
+                _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
             }
 
             // In case this is the creation of a claim with lifecycle "propose",
@@ -287,9 +300,13 @@ contract Claims is AccessControl {
                 _indexAddress[pro][MID_UINT256] = use; // proposer address
             }
         } else {
-            // Ensure anyone can stake up until the defined expiry.
-            if (_claimExpired[pro][CLAIM_EXPIRE_P] < block.timestamp) {
-                revert Expired("expiry invalid", _claimExpired[pro][CLAIM_EXPIRE_P]);
+            // Ensure anyone can stake up until the defined expiry threshold.
+            uint256 sta = _claimExpired[pro][CLAIM_EXPIRY_C];
+            uint256 end = _claimExpired[pro][CLAIM_EXPIRY_P];
+            uint256 thr = end - (((end - sta) * basisDuration) / BASIS_TOTAL);
+
+            if (thr < block.timestamp) {
+                revert Expired("expiry invalid", thr);
             }
         }
 
@@ -387,7 +404,7 @@ contract Claims is AccessControl {
 
     // can be called by anyone
     function updateBalance(uint256 pro, uint256 len) public {
-        uint48 exp = _claimExpired[pro][CLAIM_EXPIRE_R];
+        uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
 
         if (_claimBalance[pro].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
@@ -486,17 +503,17 @@ contract Claims is AccessControl {
     //
 
     // must be called by some privileged bot
-    function createResolve(uint256 pro, uint256[] memory ind, uint48 exp) public onlyRole(BOT_ROLE) {
-        if (_claimExpired[pro][CLAIM_EXPIRE_P] == 0) {
+    function createResolve(uint256 pro, uint256[] memory ind, uint256 exp) public onlyRole(BOT_ROLE) {
+        if (_claimExpired[pro][CLAIM_EXPIRY_P] == 0) {
             revert Mapping("propose invalid");
         }
 
-        if (_claimExpired[pro][CLAIM_EXPIRE_R] != 0) {
+        if (_claimExpired[pro][CLAIM_EXPIRY_R] != 0) {
             revert Mapping("claim overwrite");
         }
 
-        if (_claimExpired[pro][CLAIM_EXPIRE_P] > block.timestamp) {
-            revert Expired("propose active", _claimExpired[pro][CLAIM_EXPIRE_P]);
+        if (_claimExpired[pro][CLAIM_EXPIRY_P] > block.timestamp) {
+            revert Expired("propose active", _claimExpired[pro][CLAIM_EXPIRY_P]);
         }
 
         if (ind.length == 0) {
@@ -552,7 +569,7 @@ contract Claims is AccessControl {
         }
 
         {
-            _claimExpired[pro][CLAIM_EXPIRE_R] = exp;
+            _claimExpired[pro][CLAIM_EXPIRY_R] = exp;
             _claimIndices[pro] = ind;
         }
     }
@@ -579,7 +596,7 @@ contract Claims is AccessControl {
     // world on behalf of all market participants. All voting happens on a "one
     // user one vote" basis.
     function updateResolve(uint256 pro, bool vot) public {
-        uint48 exp = _claimExpired[pro][CLAIM_EXPIRE_R];
+        uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
 
         if (exp == 0) {
             revert Mapping("propose invalid");
@@ -901,8 +918,8 @@ contract Claims is AccessControl {
     //     out[0] the propose expiry
     //     out[0] the resolve expiry
     //
-    function searchExpired(uint256 pro) public view returns (uint48, uint48) {
-        return (_claimExpired[pro][CLAIM_EXPIRE_P], _claimExpired[pro][CLAIM_EXPIRE_R]);
+    function searchExpired(uint256 pro) public view returns (uint256, uint256) {
+        return (_claimExpired[pro][CLAIM_EXPIRY_P], _claimExpired[pro][CLAIM_EXPIRY_R]);
     }
 
     // searchIndices allows anyone to search for the addresses of staker and
