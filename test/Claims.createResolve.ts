@@ -64,7 +64,6 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
-        Claim(7),
         [0, MAX], // address 1 and 3
         Expiry(97, "hours"), // 3 days from above + 1 day + 1 hour
       );
@@ -82,7 +81,6 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
-        Claim(7),
         [0, MAX], // address 1 and 3
         Expiry(7, "days"),
       );
@@ -100,7 +98,6 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
-        Claim(7),
         [1, MAX - BigInt(1)], // address 2 and 4
         Expiry(7, "days"),
       );

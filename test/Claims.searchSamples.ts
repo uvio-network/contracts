@@ -18,7 +18,6 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),
-          Claim(7),
           [
             0, 2, 7, // true
             MAX - BigInt(4), MAX - BigInt(3), MAX - BigInt(2), // false
@@ -82,7 +81,6 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),
-          Claim(7),
           [
             0, 1, 2, 3, 4, 5, 6, 7, // true
             MAX - BigInt(7), MAX - BigInt(6), MAX - BigInt(5), MAX - BigInt(4), MAX - BigInt(3), MAX - BigInt(2), MAX - BigInt(1), MAX, // false
@@ -138,7 +136,6 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),
-          Claim(7),
           [
             2, 3, 4, // true
             MAX - BigInt(7), MAX - BigInt(1), MAX, // false
@@ -202,7 +199,6 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(7)).createResolve(
           Claim(1),
-          Claim(7),
           [
             MAX - BigInt(7), // false
             MAX - BigInt(1), // false

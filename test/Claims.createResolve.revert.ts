@@ -18,7 +18,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -32,7 +31,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -45,7 +43,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(2)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -58,7 +55,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -73,37 +69,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(0),
-          Claim(7),
-          [0, MAX], // address 1 and 9
-          Expiry(7, "days"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
-      });
-
-      it("if resolve is empty", async function () {
-        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
-
-        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        const txn = Claims.connect(Signer(9)).createResolve(
-          Claim(1),
-          Claim(0),
-          [0, MAX], // address 1 and 9
-          Expiry(7, "days"),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
-      });
-
-      it("if resolve equals propose", async function () {
-        const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
-
-        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
-
-        const txn = Claims.connect(Signer(9)).createResolve(
-          Claim(1),
-          Claim(1),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -118,7 +83,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(3),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -133,7 +97,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [], // empty
           Expiry(7, "days"),
         );
@@ -148,7 +111,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [11, MAX],
           Expiry(7, "days"),
         );
@@ -163,7 +125,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [47, MAX],
           Expiry(7, "days"),
         );
@@ -178,7 +139,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [3, MAX - BigInt(9)],
           Expiry(7, "days"),
         );
@@ -193,7 +153,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX - BigInt(11)],
           Expiry(7, "days"),
         );
@@ -208,7 +167,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             0,
             MAX,
@@ -228,7 +186,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             1,
             MAX,
@@ -248,7 +205,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             0,
             MAX - BigInt(1),
@@ -268,7 +224,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             2,
             MAX - BigInt(5),
@@ -288,7 +243,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             MAX - BigInt(2),
             MAX - BigInt(5),
@@ -306,7 +260,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             2,
             3,
@@ -324,7 +277,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             0,
             1,
@@ -346,7 +298,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [
             0,
             4,
@@ -367,14 +318,12 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -389,7 +338,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(95, "hours"), // 3 days from above + 23 hours
         );
@@ -404,7 +352,6 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -414,7 +361,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );
@@ -435,7 +381,6 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(9)).createResolve(
           Claim(1),
-          Claim(7),
           [0, MAX], // address 1 and 9
           Expiry(7, "days"),
         );

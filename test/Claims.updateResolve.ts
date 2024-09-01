@@ -58,7 +58,6 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(7)).createResolve(
         Claim(1),
-        Claim(7),
         [0, MAX], // address 1 and 3
         Expiry(7, "days"),
       );
