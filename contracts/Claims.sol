@@ -74,6 +74,13 @@ contract Claims is AccessControl {
     // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
+    // CLAIM_EXPIRE_P is a map index within _claimExpired. This number tracks
+    // the expiry of claims with lifecycle "propose".
+    uint8 public constant CLAIM_EXPIRE_P = 0;
+    // CLAIM_EXPIRE_R is a map index within _claimExpired. This number tracks
+    // the expiry of claims with lifecycle "resolve".
+    uint8 public constant CLAIM_EXPIRE_R = 1;
+
     // CLAIM_STAKE_Y is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation agreeing with the associated claim.
     uint8 public constant CLAIM_STAKE_Y = 0;
@@ -144,11 +151,9 @@ contract Claims is AccessControl {
     //
     mapping(uint256 => Bits.Map) private _claimBalance;
     //
-    mapping(uint256 => uint48) private _claimExpired;
+    mapping(uint256 => mapping(uint8 => uint48)) private _claimExpired;
     //
     mapping(uint256 => uint256[]) private _claimIndices;
-    //
-    mapping(uint256 => uint256) private _claimMapping;
     // _indexAddress tracks the user addresses that have reputation staked in
     // any given market. This mapping works in conjunction with _indexMembers.
     // The position of the user addresses are divided by side of the bet that
@@ -263,7 +268,7 @@ contract Claims is AccessControl {
 
         address use = msg.sender;
 
-        if (_claimExpired[pro] == 0) {
+        if (_claimExpired[pro][CLAIM_EXPIRE_P] == 0) {
             // Expiries must be at least 24 hours in the future.
             if (exp < block.timestamp + 24 hours) {
                 revert Expired("expiry invalid", exp);
@@ -271,7 +276,7 @@ contract Claims is AccessControl {
 
             // Set the given expiry to make the code flow below work.
             {
-                _claimExpired[pro] = exp;
+                _claimExpired[pro][CLAIM_EXPIRE_P] = exp;
             }
 
             // In case this is the creation of a claim with lifecycle "propose",
@@ -283,8 +288,8 @@ contract Claims is AccessControl {
             }
         } else {
             // Ensure anyone can stake up until the defined expiry.
-            if (_claimExpired[pro] < block.timestamp) {
-                revert Expired("expiry invalid", _claimExpired[pro]);
+            if (_claimExpired[pro][CLAIM_EXPIRE_P] < block.timestamp) {
+                revert Expired("expiry invalid", _claimExpired[pro][CLAIM_EXPIRE_P]);
             }
         }
 
@@ -382,8 +387,7 @@ contract Claims is AccessControl {
 
     // can be called by anyone
     function updateBalance(uint256 pro, uint256 len) public {
-        uint256 res = _claimMapping[pro];
-        uint48 exp = _claimExpired[res];
+        uint48 exp = _claimExpired[pro][CLAIM_EXPIRE_R];
 
         if (_claimBalance[pro].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
@@ -410,8 +414,8 @@ contract Claims is AccessControl {
         // result. In those undesired cases, we punish those users who where
         // selected by the random truth sampling process, simply by taking all
         // of their staked balances away.
-        uint256 yay = _truthResolve[res][CLAIM_TRUTH_Y];
-        uint256 nah = _truthResolve[res][CLAIM_TRUTH_N];
+        uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
+        uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
 
         //
         uint256 mnl = _indexMembers[pro][CLAIM_ADDRESS_N];
@@ -482,21 +486,17 @@ contract Claims is AccessControl {
     //
 
     // must be called by some privileged bot
-    function createResolve(uint256 pro, uint256 res, uint256[] memory ind, uint48 exp) public onlyRole(BOT_ROLE) {
-        if (res == 0) {
-            revert Mapping("resolve invalid");
-        }
-
-        if (_claimExpired[pro] == 0) {
+    function createResolve(uint256 pro, uint256[] memory ind, uint48 exp) public onlyRole(BOT_ROLE) {
+        if (_claimExpired[pro][CLAIM_EXPIRE_P] == 0) {
             revert Mapping("propose invalid");
         }
 
-        if (_claimExpired[res] != 0) {
+        if (_claimExpired[pro][CLAIM_EXPIRE_R] != 0) {
             revert Mapping("claim overwrite");
         }
 
-        if (_claimExpired[pro] > block.timestamp) {
-            revert Expired("propose active", _claimExpired[pro]);
+        if (_claimExpired[pro][CLAIM_EXPIRE_P] > block.timestamp) {
+            revert Expired("propose active", _claimExpired[pro][CLAIM_EXPIRE_P]);
         }
 
         if (ind.length == 0) {
@@ -552,10 +552,8 @@ contract Claims is AccessControl {
         }
 
         {
-            // TODO can we do without the resolve ID specifically?
-            _claimExpired[res] = exp;
+            _claimExpired[pro][CLAIM_EXPIRE_R] = exp;
             _claimIndices[pro] = ind;
-            _claimMapping[pro] = res;
         }
     }
 
@@ -581,8 +579,7 @@ contract Claims is AccessControl {
     // world on behalf of all market participants. All voting happens on a "one
     // user one vote" basis.
     function updateResolve(uint256 pro, bool vot) public {
-        uint256 res = _claimMapping[pro];
-        uint48 exp = _claimExpired[res];
+        uint48 exp = _claimExpired[pro][CLAIM_EXPIRE_R];
 
         if (exp == 0) {
             revert Mapping("propose invalid");
@@ -604,10 +601,10 @@ contract Claims is AccessControl {
 
         if (vot) {
             _addressVotes[pro][use].set(VOTE_TRUTH_Y);
-            _truthResolve[res][CLAIM_TRUTH_Y]++;
+            _truthResolve[pro][CLAIM_TRUTH_Y]++;
         } else {
             _addressVotes[pro][use].set(VOTE_TRUTH_N);
-            _truthResolve[res][CLAIM_TRUTH_N]++;
+            _truthResolve[pro][CLAIM_TRUTH_N]++;
         }
 
         {
@@ -894,17 +891,18 @@ contract Claims is AccessControl {
     }
 
     // searchExpired returns the unix timestamp in seconds of the given claim's
-    // expiry. For instance the propose expiry ensures that any user may stake
+    // expiries. For instance the propose expiry ensures that any user may stake
     // reputation on the associated claim as long as said expiry has not run
     // out. Only after the expiration of a propose expiry is it possible to
     // initiate the market resolution, which allows users to verify events in
     // the real world. Verifying the truth in those resolve claims is then only
     // possible as long as the resolve expiry has not run out.
     //
-    //     out[0] the propose or resolve expiry, depending on the provided claim ID
+    //     out[0] the propose expiry
+    //     out[0] the resolve expiry
     //
-    function searchExpired(uint256 cla) public view returns (uint256) {
-        return _claimExpired[cla];
+    function searchExpired(uint256 pro) public view returns (uint48, uint48) {
+        return (_claimExpired[pro][CLAIM_EXPIRE_P], _claimExpired[pro][CLAIM_EXPIRE_R]);
     }
 
     // searchIndices allows anyone to search for the addresses of staker and
@@ -1121,7 +1119,6 @@ contract Claims is AccessControl {
 
     // can be called by anyone, may not return anything
     function searchVotes(uint256 pro) public view returns (uint256, uint256) {
-        uint256 res = _claimMapping[pro];
-        return (_truthResolve[res][CLAIM_TRUTH_Y], _truthResolve[res][CLAIM_TRUTH_N]);
+        return (_truthResolve[pro][CLAIM_TRUTH_Y], _truthResolve[pro][CLAIM_TRUTH_N]);
     }
 }

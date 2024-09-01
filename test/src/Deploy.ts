@@ -173,7 +173,6 @@ export const UpdateBalance25True = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0], // address 1
     Expiry(7, "days"),
   );
@@ -213,7 +212,6 @@ export const UpdateBalance25TrueNoVote = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0], // address 1
     Expiry(7, "days"),
   );
@@ -250,7 +248,6 @@ export const UpdateBalance25False = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [MAX], // address 1
     Expiry(7, "days"),
   );
@@ -315,7 +312,6 @@ export const UpdateBalance20True30False = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0, MAX], // address 1 and 3
     Expiry(7, "days"),
   );
@@ -385,7 +381,6 @@ export const UpdateBalance30True20False = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0, MAX], // address 1 and 3
     Expiry(7, "days"),
   );
@@ -491,7 +486,6 @@ export const UpdateBalance70True115False = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0, MAX], // address 1 and 4
     Expiry(7, "days"),
   );
@@ -590,7 +584,6 @@ export const UpdateBalance12TTrue46MFalse = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0, MAX], // address 4 and 1
     Expiry(7, "days"),
   );
@@ -660,7 +653,6 @@ export const UpdateBalancePunishNoVotes = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [1, MAX - BigInt(1)], // address 2 and 4
     Expiry(7, "days"),
   );
@@ -746,7 +738,6 @@ export const UpdateBalancePunishEqualVotes = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0, 2, MAX - BigInt(1), MAX], // address 3, 5, 2 and 1
     Expiry(7, "days"),
   );
@@ -821,7 +812,6 @@ export const UpdateBalanceBoth22True33False = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [0], // address 1
     Expiry(7, "days"),
   );
@@ -874,7 +864,6 @@ export const UpdateBalanceBoth44True17False = async () => {
 
   await Claims.connect(Signer(7)).createResolve(
     Claim(1),
-    Claim(7),
     [MAX], // address 1
     Expiry(7, "days"),
   );

@@ -17,7 +17,7 @@ describe("Claims", function () {
     it("should not return any expiry if no claim got proposed", async function () {
       const { Claims } = await loadFixture(Deploy);
 
-      expect(await Claims.searchExpired(Claim(1))).to.equal(0);
+      expect(await Claims.searchExpired(Claim(1))).to.deep.equal([0, 0]);
     });
 
     it("should return the correct expiry for propose 1, 2 days", async function () {
@@ -32,7 +32,7 @@ describe("Claims", function () {
         EXPIRY_D,
       );
 
-      expect(await Claims.searchExpired(Claim(1))).to.equal(EXPIRY_D);
+      expect(await Claims.searchExpired(Claim(1))).to.deep.equal([EXPIRY_D, 0]);
     });
 
     it("should return the correct expiry for propose 4, 9 weeks", async function () {
@@ -47,7 +47,7 @@ describe("Claims", function () {
         EXPIRY_W,
       );
 
-      expect(await Claims.searchExpired(Claim(4))).to.equal(EXPIRY_W);
+      expect(await Claims.searchExpired(Claim(4))).to.deep.equal([EXPIRY_W, 0]);
     });
 
     it("should return the correct expiry for resolve 7, 3 months", async function () {
@@ -69,13 +69,11 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
-        Claim(7),
         [0], // address 1
         EXPIRY_M,
       );
 
-      expect(await Claims.searchExpired(Claim(1))).to.equal(EXPIRY_D);
-      expect(await Claims.searchExpired(Claim(7))).to.equal(EXPIRY_M);
+      expect(await Claims.searchExpired(Claim(1))).to.deep.equal([EXPIRY_D, EXPIRY_M]);
     });
 
     it("should return the correct expiry for resolve 7, 2 days", async function () {
@@ -97,13 +95,11 @@ describe("Claims", function () {
 
       await Claims.connect(Signer(9)).createResolve(
         Claim(1),
-        Claim(7),
         [0], // address 1
         Expiry(67, "days"),
       );
 
-      expect(await Claims.searchExpired(Claim(1))).to.equal(EXPIRY_W);
-      expect(await Claims.searchExpired(Claim(7))).to.equal(Expiry(67, "days"));
+      expect(await Claims.searchExpired(Claim(1))).to.deep.equal([EXPIRY_W, Expiry(67, "days")]);
     });
   });
 });
