@@ -165,6 +165,10 @@ contract Claims is AccessControl {
     mapping(uint256 => mapping(uint8 => uint256)) private _claimExpired;
     //
     mapping(uint256 => uint256[]) private _claimIndices;
+    // dispute index for number of disputes in _claimMapping
+    mapping(uint256 => uint256) private _claimDispute;
+    //
+    mapping(uint256 => mapping(uint256 => uint256)) private _claimMapping;
     // _indexAddress tracks the user addresses that have reputation staked in
     // any given market. This mapping works in conjunction with _indexMembers.
     // The position of the user addresses are divided by side of the bet that
@@ -266,7 +270,7 @@ contract Claims is AccessControl {
     //
 
     // called by anyone
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp) public {
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp, uint256 dis) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
         }
@@ -278,6 +282,7 @@ contract Claims is AccessControl {
         // minimum stake required to participate in this market. All following
         // users have then to comply with the minimum balance defined.
         uint256 min = _stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B];
+        // TODO ensure the increase of the dispute minimum balance
         if (bal < min) {
             revert Balance("below minimum", min);
         }
@@ -314,6 +319,35 @@ contract Claims is AccessControl {
 
             if (thr < block.timestamp) {
                 revert Expired("expiry invalid", thr);
+            }
+
+            // TODO disputes must have a max expiry e.g. 1 week
+
+            // TODO latest dispute must be expired before creating new dispute
+        }
+
+        if (dis != 0) {
+            if (_claimDispute[dis] >= 3) {
+                // TODO test dispute limit
+                revert Process("dispute limit");
+            }
+
+            // Only a valid resolution can be disputed. A resolution is valid if
+            // there have been more votes on one side than on the other. That
+            // means a resolution without any vote, or a resolution with equal
+            // votes cannot be disputed. Those invalid resolutions are the
+            // punishable scenarios, which are definitive and binding.
+            uint256 yay = _truthResolve[dis][CLAIM_TRUTH_Y];
+            uint256 nah = _truthResolve[dis][CLAIM_TRUTH_N];
+            if (!(yay > nah || yay < nah)) {
+                // TODO test binding resolution of invalid results
+                revert Process("dispute invalid");
+            }
+
+            // the disputed claim points to its own disputes
+            {
+                _claimMapping[dis][_claimDispute[dis]] = pro;
+                _claimDispute[dis]++;
             }
         }
 
@@ -407,8 +441,6 @@ contract Claims is AccessControl {
         }
     }
 
-    // TODO handle nullify and dispute
-
     // can be called by anyone
     function updateBalance(uint256 pro, uint256 len) public {
         uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
@@ -438,17 +470,43 @@ contract Claims is AccessControl {
         // result. In those undesired cases, we punish those users who where
         // selected by the random truth sampling process, simply by taking all
         // of their staked balances away.
-        uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
-        uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
+        uint256 yay;
+        uint256 nah;
+        if (_claimDispute[pro] == 0) {
+            yay = _truthResolve[pro][CLAIM_TRUTH_Y];
+            nah = _truthResolve[pro][CLAIM_TRUTH_N];
+        } else {
+            uint256 dis = _claimMapping[pro][_claimDispute[pro] - 1];
+
+            if (_claimExpired[dis][CLAIM_EXPIRY_R] > block.timestamp) {
+                // TODO test wait for dispute resolution
+                revert Expired("resolve active", _claimExpired[dis][CLAIM_EXPIRY_R]);
+            }
+
+            {
+                // TODO test resolve overwrite
+                yay = _truthResolve[dis][CLAIM_TRUTH_Y];
+                nah = _truthResolve[dis][CLAIM_TRUTH_N];
+            }
+        }
 
         //
-        uint256 mnl = _indexMembers[pro][CLAIM_ADDRESS_N];
+        uint256 lef = _indexMembers[pro][CLAIM_ADDRESS_N];
+        uint256 rig = _indexMembers[pro][CLAIM_ADDRESS_Y];
+
+        //
+        uint256 mnl = lef;
 
         unchecked {
             mnl--;
         }
 
-        uint256 all = _indexMembers[pro][CLAIM_ADDRESS_Y] + (MAX_UINT256 - mnl);
+        uint256 all = rig + (MAX_UINT256 - mnl);
+
+        //
+        unchecked {
+            lef += _stakePropose[pro][CLAIM_STAKE_D];
+        }
 
         //
         if (all == 1) {
@@ -459,10 +517,12 @@ contract Claims is AccessControl {
             }
         }
 
+        uint256 toy = _stakePropose[pro][CLAIM_STAKE_Y];
+        uint256 ton = _stakePropose[pro][CLAIM_STAKE_N];
         if (yay > nah || yay < nah) {
-            rewardAll(pro, len, yay > nah);
+            rewardAll(pro, lef, rig, len, toy, ton, yay > nah);
         } else {
-            punishAll(pro, len);
+            punishAll(pro, lef, rig, len);
         }
 
         // Only credit the proposer and the protocol once everyone else got
@@ -477,7 +537,7 @@ contract Claims is AccessControl {
                     first = _indexAddress[pro][0];
                 }
 
-                uint256 total = _stakePropose[pro][CLAIM_STAKE_Y] + _stakePropose[pro][CLAIM_STAKE_N];
+                uint256 total = toy + ton;
                 uint256 share = (total * basisProposer) / BASIS_TOTAL;
 
                 _availBalance[first] += share;
@@ -646,19 +706,10 @@ contract Claims is AccessControl {
     // PRIVATE
     //
 
-    // TODO this result cannot be disputed
-    function punishAll(uint256 pro, uint256 len) private {
+    //
+    function punishAll(uint256 pro, uint256 lef, uint256 rig, uint256 len) private {
         if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
             _claimBalance[pro].set(CLAIM_BALANCE_P);
-        }
-
-        //
-        uint256 lef = _indexMembers[pro][CLAIM_ADDRESS_N];
-        uint256 rig = _indexMembers[pro][CLAIM_ADDRESS_Y];
-
-        //
-        unchecked {
-            lef += _stakePropose[pro][CLAIM_STAKE_D];
         }
 
         while (len != 0) {
@@ -743,7 +794,9 @@ contract Claims is AccessControl {
     }
 
     //
-    function rewardAll(uint256 pro, uint256 len, bool win) private {
+    function rewardAll(uint256 pro, uint256 lef, uint256 rig, uint256 len, uint256 toy, uint256 ton, bool win)
+        private
+    {
         if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
             _claimBalance[pro].set(CLAIM_BALANCE_R);
         }
@@ -753,17 +806,8 @@ contract Claims is AccessControl {
         // basis for calculating user rewards below, respective to their
         // individual share of the winning pool and the captured amount from the
         // loosing side.
-        uint256 fey = (_stakePropose[pro][CLAIM_STAKE_Y] * basisFee) / BASIS_TOTAL;
-        uint256 fen = (_stakePropose[pro][CLAIM_STAKE_N] * basisFee) / BASIS_TOTAL;
-
-        //
-        uint256 lef = _indexMembers[pro][CLAIM_ADDRESS_N];
-        uint256 rig = _indexMembers[pro][CLAIM_ADDRESS_Y];
-
-        //
-        unchecked {
-            lef += _stakePropose[pro][CLAIM_STAKE_D];
-        }
+        uint256 fey = (toy * basisFee) / BASIS_TOTAL;
+        uint256 fen = (ton * basisFee) / BASIS_TOTAL;
 
         while (len != 0) {
             address use = _indexAddress[pro][lef];

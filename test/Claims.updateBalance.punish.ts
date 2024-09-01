@@ -29,6 +29,7 @@ describe("Claims", function () {
             Amount(25),
             Side(true),
             EXPIRY,
+            Claim(0),
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -129,6 +130,7 @@ describe("Claims", function () {
             Amount(25),
             Side(false),
             Expiry(2, "days"),
+            Claim(0),
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);

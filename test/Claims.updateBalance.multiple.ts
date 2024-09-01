@@ -26,31 +26,36 @@ describe("Claims", function () {
             Amount(10),
             Side(false),
             EXPIRY,
+            Claim(0),
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
             Amount(10),
             Side(false),
-            0,
+            Expiry(0),
+            Claim(0),
           );
 
           await Claims.connect(Signer(3)).createPropose(
             Claim(1),
             Amount(10),
             Side(true),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(4)).createPropose(
             Claim(1),
             Amount(10),
             Side(true),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(5)).createPropose(
             Claim(1),
             Amount(10),
             Side(true),
-            0,
+            Expiry(0),
+            Claim(0),
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -207,55 +212,64 @@ describe("Claims", function () {
             Amount(10),
             Side(true),
             EXPIRY,
+            Claim(0),
           );
           await Claims.connect(Signer(2)).createPropose(
             Claim(1),
             Amount(20),
             Side(true),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(3)).createPropose(
             Claim(1),
             Amount(30),
             Side(true),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(1)).createPropose(
             Claim(1),
             Amount(10),
             Side(true),
-            Expiry(2, "days"),
+            Expiry(0),
+            Claim(0),
           );
 
           await Claims.connect(Signer(4)).createPropose(
             Claim(1),
             Amount(25),
             Side(false),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(5)).createPropose(
             Claim(1),
             Amount(30),
             Side(false),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(6)).createPropose(
             Claim(1),
             Amount(30),
             Side(false),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(7)).createPropose(
             Claim(1),
             Amount(20),
             Side(false),
-            0,
+            Expiry(0),
+            Claim(0),
           );
           await Claims.connect(Signer(8)).createPropose(
             Claim(1),
             Amount(10),
             Side(false),
-            0,
+            Expiry(0),
+            Claim(0),
           );
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);

@@ -24,6 +24,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           EXPIRY,
+          Claim(0),
         );
 
         return { Address, Claims };
@@ -64,6 +65,7 @@ describe("Claims", function () {
           Amount(10),
           Side(false),
           EXPIRY,
+          Claim(0),
         );
 
         return { Address, Claims };
@@ -104,24 +106,28 @@ describe("Claims", function () {
           Amount(5),
           Side(true),
           EXPIRY,
+          Claim(0),
         );
         await Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(1)).createPropose(
           Claim(1),
           Amount(5),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(1)).createPropose(
           Claim(1),
           Amount(20),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
 
         // Signer 2 plays both sides but got registered first with true
@@ -129,25 +135,29 @@ describe("Claims", function () {
           Claim(1),
           Amount(5),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(2)).createPropose(
           Claim(1),
           Amount(5),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(4)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(5)).createPropose(
           Claim(1),
           Amount(5),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
 
         return { Address, Claims };
@@ -188,48 +198,56 @@ describe("Claims", function () {
           Amount(50),
           Side(true),
           EXPIRY,
+          Claim(0),
         );
         await Claims.connect(Signer(2)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(4)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(5)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(6)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(7)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(8)).createPropose(
           Claim(1),
           Amount(50),
           Side(true),
-          0,
+          Expiry(0),
+          Claim(0),
         );
 
         return { Address, Claims };
@@ -292,48 +310,56 @@ describe("Claims", function () {
           Amount(50),
           Side(false),
           EXPIRY,
+          Claim(0),
         );
         await Claims.connect(Signer(2)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(3)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(4)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(5)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(6)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(7)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
         await Claims.connect(Signer(8)).createPropose(
           Claim(1),
           Amount(50),
           Side(false),
-          0,
+          Expiry(0),
+          Claim(0),
         );
 
         return { Address, Claims };
