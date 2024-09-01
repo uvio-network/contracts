@@ -1,5 +1,6 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
+import { CreatePropose7WeekExpiry } from "./src/Deploy";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
@@ -150,6 +151,38 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           BigInt(0),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if signer 1 tries to stake within last 10% expiry threshold", async function () {
+        const { Claims, Signer } = await loadFixture(CreatePropose7WeekExpiry);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(152, "hours")]); // 6 days + 8 hours
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          0,
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if somebody tries to stake within last 10% expiry threshold", async function () {
+        const { Claims, Signer } = await loadFixture(CreatePropose7WeekExpiry);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(153, "hours")]); // 6 days + 9 hours
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(5)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");

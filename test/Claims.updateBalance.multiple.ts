@@ -314,6 +314,12 @@ describe("Claims", function () {
           return { Address, Claims, Signer, Token };
         }
 
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(updateBalance);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([2, 0]);
+        });
+
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 

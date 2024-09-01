@@ -64,6 +64,12 @@ describe("Claims", function () {
           return { Address, Claims, Signer, Token };
         }
 
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(updateBalance);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 1]);
+        });
+
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
@@ -158,6 +164,12 @@ describe("Claims", function () {
           return { Address, Claims, Signer, Token };
         }
 
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(updateBalance);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 0]);
+        });
+
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(updateBalance);
 
@@ -207,6 +219,12 @@ describe("Claims", function () {
       });
 
       describe("one no vote", function () {
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 0]);
+        });
+
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(UpdateBalance25TrueNoVote);
 
@@ -256,6 +274,12 @@ describe("Claims", function () {
       });
 
       describe("all no votes", function () {
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 0]);
+        });
+
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(UpdateBalancePunishNoVotes);
 
@@ -345,6 +369,12 @@ describe("Claims", function () {
       });
 
       describe("all equal votes", function () {
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 1]);
+        });
+
         it("should update balances by punishing users", async function () {
           const { Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
 

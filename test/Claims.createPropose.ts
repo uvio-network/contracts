@@ -1,10 +1,10 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
+import { CreatePropose7WeekExpiry } from "./src/Deploy";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { network } from "hardhat";
 import { Side } from "./src/Side";
 
 const EXPIRY = Expiry(2, "days");
@@ -21,121 +21,6 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY,
-      );
-
-      return { Address, Claims };
-    }
-
-    const createProposeExpiry = async () => {
-      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
-
-      await Balance([1, 2, 3], 100);
-
-      await Claims.connect(Signer(2)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        Expiry(7, "days"),
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "minute")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(3)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "hour")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(1)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(20, "hours")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(1)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "day")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(2)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(2, "days")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(3)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(1)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(4, "days")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(1)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(5, "days")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(2)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(6, "days")]);
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(3)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
-      );
-
-      await network.provider.send("evm_setNextBlockTimestamp", [Expiry(167, "hours")]); // 6 days + 23 hours
-      await network.provider.send("evm_mine");
-
-      await Claims.connect(Signer(1)).createPropose(
-        Claim(1),
-        Amount(10),
-        Side(true),
-        0,
       );
 
       return { Address, Claims };
@@ -276,7 +161,7 @@ describe("Claims", function () {
     });
 
     it("allow signer 1 to stake up until expiry", async function () {
-      const { Address, Claims } = await loadFixture(createProposeExpiry);
+      const { Address, Claims } = await loadFixture(CreatePropose7WeekExpiry);
 
       const res = await Claims.searchBalance(Address(1));
 
@@ -285,7 +170,7 @@ describe("Claims", function () {
     });
 
     it("allow signer 2 to stake up until expiry", async function () {
-      const { Address, Claims } = await loadFixture(createProposeExpiry);
+      const { Address, Claims } = await loadFixture(CreatePropose7WeekExpiry);
 
       const res = await Claims.searchBalance(Address(2));
 
@@ -294,7 +179,7 @@ describe("Claims", function () {
     });
 
     it("allow signer 3 to stake up until expiry", async function () {
-      const { Address, Claims } = await loadFixture(createProposeExpiry);
+      const { Address, Claims } = await loadFixture(CreatePropose7WeekExpiry);
 
       const res = await Claims.searchBalance(Address(3));
 

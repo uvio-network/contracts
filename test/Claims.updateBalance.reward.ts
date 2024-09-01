@@ -429,6 +429,12 @@ describe("Claims", function () {
       });
 
       describe("12,550,000,000,000 true 46,000,500 false", function () {
+        it("should record all votes", async function () {
+          const { Claims } = await loadFixture(UpdateBalance12TTrue46MFalse);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 2]);
+        });
+
         it("should update balances by rewarding users", async function () {
           const { Claims } = await loadFixture(UpdateBalance12TTrue46MFalse);
 
