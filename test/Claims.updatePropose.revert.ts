@@ -7,11 +7,12 @@ import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { network } from "hardhat";
 import { Side } from "./src/Side";
+import { maxUint256 } from "viem";
 
 describe("Claims", function () {
   describe("updatePropose", function () {
     describe("revert", function () {
-      it("if minimum balance not available", async function () {
+      it("if minimum balance not available, have 5 need 10", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
         await Balance([1, 2], [10, 5]);
@@ -32,10 +33,52 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
-      it("if balance is zero", async function () {
+      it("if minimum balance not available, have 10 need 10 want 20", async function () {
+        const { Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+
+        await Balance([1, 2], [10, 10]);
+
+        await Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
+
+        const txn = Claims.connect(Signer(2)).updatePropose(
+          Claim(1),
+          Amount(20), // only 10 available
+          Side(true),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
+      });
+
+      it("if minimum balance not available, have 10 need 10 want max", async function () {
+        const { Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+
+        await Balance([1, 2], [10, 10]);
+
+        await Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
+
+        const txn = Claims.connect(Signer(2)).updatePropose(
+          Claim(1),
+          maxUint256, // only 10 available
+          Side(true),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
+      });
+
+      it("if balance is empty", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
-        await Balance([1, 2], [10, 5]);
+        await Balance([1, 2], [10, 10]);
 
         await Claims.connect(Signer(1)).createPropose(
           Claim(1),

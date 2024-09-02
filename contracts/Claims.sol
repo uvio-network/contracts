@@ -282,7 +282,6 @@ contract Claims is AccessControl {
         unchecked {
             uint256 min = 2 * (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
             if (bal < min) {
-                // TODO test the increase of the dispute minimum balance
                 revert Balance("below minimum", min);
             }
         }
@@ -304,14 +303,12 @@ contract Claims is AccessControl {
             // Disputes can only be created if the disputed claim has already
             // been resolved.
             if (res > block.timestamp) {
-                // TODO test disputes cannot be created before the market resolution
                 revert Expired("resolve active", res);
             }
 
             // Disputes can only be created if the disputed claim is within its
             // own challenge window.
             if (res + 7 days < block.timestamp) {
-                // TODO test disputes cannot be created after the challenge window
                 revert Expired("challenge invalid", res + 7 days);
             }
         }
@@ -357,13 +354,11 @@ contract Claims is AccessControl {
 
         // Dispute expiries must be at least 3 days in the future.
         if (exp < block.timestamp + 3 days) {
-            // TODO test
             revert Expired("expiry invalid", exp);
         }
 
-        // Dispute expiries must not be more than 4 weeks in the future.
-        if (exp > block.timestamp + 4 weeks) {
-            // TODO test that disputes can only have a max expiry e.g. 4 weeks
+        // Dispute expiries must not be more than 1 month in the future.
+        if (exp > block.timestamp + 30 days) {
             revert Expired("expiry invalid", exp);
         }
 
