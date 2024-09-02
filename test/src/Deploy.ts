@@ -49,117 +49,96 @@ export const CreatePropose7WeekExpiry = async () => {
     Amount(10),
     Side(true),
     Expiry(7, "days"),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "minute")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "hour")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(20, "hours")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1, "day")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(2, "days")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(4, "days")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(5, "days")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(6, "days")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(151, "hours")]); // 6 days + 7 hours
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   return { Address, Claims, Signer };
@@ -175,113 +154,82 @@ export const CreatePropose16 = async () => {
     Amount(50),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(6)).createPropose(
+  await Claims.connect(Signer(6)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(7)).createPropose(
+  await Claims.connect(Signer(7)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(8)).createPropose(
+  await Claims.connect(Signer(8)).updatePropose(
     Claim(1),
     Amount(50),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(9)).createPropose(
+  await Claims.connect(Signer(9)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(10)).createPropose(
+  await Claims.connect(Signer(10)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(11)).createPropose(
+  await Claims.connect(Signer(11)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(12)).createPropose(
+  await Claims.connect(Signer(12)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(13)).createPropose(
+  await Claims.connect(Signer(13)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(14)).createPropose(
+  await Claims.connect(Signer(14)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(15)).createPropose(
+  await Claims.connect(Signer(15)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(16)).createPropose(
+  await Claims.connect(Signer(16)).updatePropose(
     Claim(1),
     Amount(50),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
   return { Address, Balance, Claims, Signer };
@@ -306,7 +254,6 @@ export const UpdateBalance25True = async () => {
     Amount(25),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -346,7 +293,6 @@ export const UpdateBalance25TrueNoVote = async () => {
     Amount(25),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -383,7 +329,6 @@ export const UpdateBalance25False = async () => {
     Amount(25),
     Side(false),
     Expiry(2, "days"),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -423,36 +368,27 @@ export const UpdateBalance20True30False = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -497,36 +433,27 @@ export const UpdateBalance30True20False = async () => {
     Amount(10),
     Side(false),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -576,72 +503,53 @@ export const UpdateBalance70True115False = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(20),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(19),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   // Signer 3 plays both sides but got registered first with true
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(11),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(25),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(30),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(6)).createPropose(
+  await Claims.connect(Signer(6)).updatePropose(
     Claim(1),
     Amount(30),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(7)).createPropose(
+  await Claims.connect(Signer(7)).updatePropose(
     Claim(1),
     Amount(20),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(8)).createPropose(
+  await Claims.connect(Signer(8)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -691,64 +599,47 @@ export const UpdateBalance12TTrue46MFalse = async () => {
     Amount(300),
     Side(false),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(25_000_000),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(1_000_000),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(20_000_200),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(10_000_000_000_000),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(2_000_000_000_000),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(6)).createPropose(
+  await Claims.connect(Signer(6)).updatePropose(
     Claim(1),
     Amount(500_000_000_000),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(7)).createPropose(
+  await Claims.connect(Signer(7)).updatePropose(
     Claim(1),
     Amount(20_000_000_000),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(8)).createPropose(
+  await Claims.connect(Signer(8)).updatePropose(
     Claim(1),
     Amount(30_000_000_000),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -793,36 +684,27 @@ export const UpdateBalancePunishNoVotes = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -859,64 +741,47 @@ export const UpdateBalancePunishEqualVotes = async () => {
     Amount(5),
     Side(false),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(2)).createPropose(
+  await Claims.connect(Signer(2)).updatePropose(
     Claim(1),
     Amount(12),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(20),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(3)).createPropose(
+  await Claims.connect(Signer(3)).updatePropose(
     Claim(1),
     Amount(10),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(25),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(4)).createPropose(
+  await Claims.connect(Signer(4)).updatePropose(
     Claim(1),
     Amount(20),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(5)).createPropose(
+  await Claims.connect(Signer(5)).updatePropose(
     Claim(1),
     Amount(6),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -966,36 +831,27 @@ export const UpdateBalanceBoth22True33False = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(12),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(10),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(11),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(12),
     Side(false),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -1035,22 +891,17 @@ export const UpdateBalanceBoth44True17False = async () => {
     Amount(17),
     Side(false),
     Expiry(2, "days"),
-    Claim(0),
   );
 
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(22),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
-  await Claims.connect(Signer(1)).createPropose(
+  await Claims.connect(Signer(1)).updatePropose(
     Claim(1),
     Amount(22),
     Side(true),
-    Expiry(0),
-    Claim(0),
   );
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
