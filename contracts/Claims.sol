@@ -275,10 +275,16 @@ contract Claims is AccessControl {
             revert Mapping("dispute invalid");
         }
 
-        uint256 min = 2 * (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
-        if (bal < min) {
-            // TODO test the increase of the dispute minimum balance
-            revert Balance("below minimum", min);
+        if (_claimExpired[dis][CLAIM_EXPIRY_P] != 0) {
+            revert Mapping("claim invalid");
+        }
+
+        unchecked {
+            uint256 min = 2 * (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
+            if (bal < min) {
+                // TODO test the increase of the dispute minimum balance
+                revert Balance("below minimum", min);
+            }
         }
 
         uint256 len = _claimDispute[pro];
@@ -287,23 +293,23 @@ contract Claims is AccessControl {
             revert Process("dispute limit");
         }
 
-        // Verify the expiry of the disputed claim.
+        // Verify the expiry of the disputed claim. Here we make sure the
+        // disputed claim does even exist in the first place. Here we also
+        // ensure that the disputed claim has already been resolved and that the
+        // dispute can only be proposed within the given claim's challenge
+        // window, which is hard coded to 7 days.
         {
             uint256 res = _claimExpired[pro][CLAIM_EXPIRY_R];
 
-            if (res == 0) {
-                revert Expired("resolve unallocated", res);
-            }
-
-            // Disputes can only be created if the disputed claim has already been
-            // resolved.
+            // Disputes can only be created if the disputed claim has already
+            // been resolved.
             if (res > block.timestamp) {
                 // TODO test disputes cannot be created before the market resolution
                 revert Expired("resolve active", res);
             }
 
-            // Disputes can only be created if the disputed claim is within its own
-            // challenge window.
+            // Disputes can only be created if the disputed claim is within its
+            // own challenge window.
             if (res + 7 days < block.timestamp) {
                 // TODO test disputes cannot be created after the challenge window
                 revert Expired("challenge invalid", res + 7 days);
@@ -317,7 +323,7 @@ contract Claims is AccessControl {
             // Disputes can only be layered if the disputed claim has already been
             // resolved.
             if (res > block.timestamp) {
-                // TODO latest dispute must be expired before creating new dispute
+                // TODO test that latest dispute must be expired before creating new dispute
                 revert Expired("dispute active", res);
             }
 
@@ -341,14 +347,17 @@ contract Claims is AccessControl {
             revert Process("dispute invalid");
         }
 
-        // the disputed claim points to its own disputes
+        // The disputed claim points to its own disputes. That way we can lookup
+        // disputes when updating user balances only having the claim ID of the
+        // original propose available.
         {
-            _claimMapping[pro][_claimDispute[pro]] = dis;
+            _claimMapping[pro][len] = dis;
             _claimDispute[pro]++;
         }
 
         // Dispute expiries must be at least 3 days in the future.
         if (exp < block.timestamp + 3 days) {
+            // TODO test
             revert Expired("expiry invalid", exp);
         }
 
@@ -408,8 +417,8 @@ contract Claims is AccessControl {
         // In case this is the creation of a claim with lifecycle "propose",
         // store the first balance for the side of the stake as provided, so
         // that we can remember the minimum balance required for staking
-        // reputation on this claim, while also being able to find the
-        // proposer address without explicitly storing it.
+        // reputation on this claim, while also being able to find the proposer
+        // address without explicitly storing it.
         if (vot) {
             _stakePropose[pro][CLAIM_STAKE_A] = bal;
         } else {
@@ -423,19 +432,11 @@ contract Claims is AccessControl {
 
     // updatePropose
     function updatePropose(uint256 cla, uint256 bal, bool vot) public {
-        if (_claimExpired[cla][CLAIM_EXPIRY_P] == 0) {
-            revert Mapping("claim invalid");
-        }
-
         address use = msg.sender;
 
         unchecked {
-            // Look for the very first deposit related to the given claim. If this
-            // call is for the very first deposit itself, then there is no minimum
-            // balance to check against. In that very first case we simply check the
-            // given balance against 0, which allows the proposer to define the
-            // minimum stake required to participate in this market. All following
-            // users have then to comply with the minimum balance defined.
+            // Ensure that every staker provides at least the minimum balance
+            // required in order to participate in this market.
             uint256 min = _stakePropose[cla][CLAIM_STAKE_A] + _stakePropose[cla][CLAIM_STAKE_B];
             if (bal < min) {
                 revert Balance("below minimum", min);
@@ -448,6 +449,14 @@ contract Claims is AccessControl {
 
             if (thr < block.timestamp) {
                 revert Expired("expiry invalid", thr);
+            }
+
+            // Ensure the claim that is being staked on does in fact exist. Var
+            // end here refers to the claim expiry tracked under CLAIM_EXPIRY_P,
+            // which is the propose expiry. Only valid claims have a valid
+            // expiry, and that cannot be zero.
+            if (end == 0) {
+                revert Mapping("claim invalid");
             }
 
             // Account for the balance required in order to stake reputation
@@ -465,7 +474,6 @@ contract Claims is AccessControl {
                         _availBalance[use] = 0;
                     }
 
-                    // TODO test zero balance is not possible
                     if (!IERC20(token).transferFrom(use, address(this), (bal - avl))) {
                         revert Balance("transfer failed", (bal - avl));
                     }
@@ -480,9 +488,9 @@ contract Claims is AccessControl {
             // they stand any time. The allocated balances are all funds that
             // are currently bound in active markets. The user's available
             // balance does not change here because the user is directly staking
-            // their deposited balance when participating in a market. Only
-            // later may available balances increase, if a user may be rewarded
-            // after claims have been resolved.
+            // their deposited balance when participating in any given market.
+            // The user's available balances may only increase later, if, and
+            // only if a user is rewarded upon market resolution.
             {
                 _allocBalance[use] += bal;
             }
@@ -500,9 +508,9 @@ contract Claims is AccessControl {
                     _stakePropose[cla][CLAIM_STAKE_Y] += bal;
                 }
 
-                // Allocate the user stakes and keep track of the user address based
-                // on their position in our index list. Consecutive calls by the
-                // same user will maintain the user's individual index.
+                // Allocate the user stakes and keep track of the user address
+                // based on their position in our index list. Consecutive calls
+                // by the same user will maintain the user's individual index.
                 if (_addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N] == 0) {
                     {
                         _addressStake[cla][use][ADDRESS_STAKE_Y] = bal;
@@ -521,9 +529,9 @@ contract Claims is AccessControl {
                     _stakePropose[cla][CLAIM_STAKE_N] += bal;
                 }
 
-                // Allocate the user stakes and keep track of the user address based
-                // on their position in our index list. Consecutive calls by the
-                // same user will maintain the user's individual index.
+                // Allocate the user stakes and keep track of the user address
+                // based on their position in our index list. Consecutive calls
+                // by the same user will maintain the user's individual index.
                 if (_addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N] == 0) {
                     {
                         _addressStake[cla][use][ADDRESS_STAKE_N] = bal;
