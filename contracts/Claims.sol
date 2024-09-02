@@ -565,27 +565,9 @@ contract Claims is AccessControl {
     }
 
     // can be called by anyone
-    function updateBalance(uint256 pro, uint256 len) public {
-        uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
-
+    function updateBalance(uint256 pro, uint256 max) public {
         if (_claimBalance[pro].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
-        }
-
-        if (exp == 0) {
-            revert Expired("resolve unallocated", exp);
-        }
-
-        if (exp > block.timestamp) {
-            revert Expired("resolve active", exp);
-        }
-
-        // Any claim of lifecycle phase "resolve" can be challenged. Only after
-        // the resolving claim expired, AND only after some designated challenge
-        // period passed on top of the claim's expiry, only then can a claim be
-        // finalized and user balances be updated.
-        if (exp + 7 days > block.timestamp) {
-            revert Expired("challenge active", exp + 7 days);
         }
 
         // Lookup the amounts of votes that we have recorded on either side. It
@@ -595,15 +577,48 @@ contract Claims is AccessControl {
         // of their staked balances away.
         uint256 yay;
         uint256 nah;
-        if (_claimDispute[pro] == 0) {
-            yay = _truthResolve[pro][CLAIM_TRUTH_Y];
-            nah = _truthResolve[pro][CLAIM_TRUTH_N];
-        } else {
-            uint256 dis = _claimMapping[pro][_claimDispute[pro] - 1];
 
-            if (_claimExpired[dis][CLAIM_EXPIRY_R] > block.timestamp) {
+        uint256 len = _claimDispute[pro];
+        if (len == 0) {
+            uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
+
+            //
+            if (exp == 0 || exp > block.timestamp) {
+                revert Expired("resolve active", exp);
+            }
+
+            // Any claim of lifecycle phase "resolve" can be challenged. Only
+            // after the resolving claim expired, AND only after some designated
+            // challenge period passed on top of the claim's expiry, only then
+            // can a claim be finalized and user balances be updated.
+            if (exp + 7 days > block.timestamp) {
+                revert Expired("challenge active", exp + 7 days);
+            }
+
+            {
+                yay = _truthResolve[pro][CLAIM_TRUTH_Y];
+                nah = _truthResolve[pro][CLAIM_TRUTH_N];
+            }
+        } else {
+            uint256 dis = _claimMapping[pro][len - 1];
+            uint256 exp = _claimExpired[dis][CLAIM_EXPIRY_R];
+
+            //
+            if (exp == 0 || exp > block.timestamp) {
                 // TODO test wait for dispute resolution
-                revert Expired("resolve active", _claimExpired[dis][CLAIM_EXPIRY_R]);
+                revert Expired("dispute active", exp);
+            }
+
+            // Similar to challenging the outcomes of the original claims with
+            // lifecycle phase "propose", disputes may also be challenged.
+            // Therefore we apply challenge periods to all disputes, except the
+            // last ones. Once the maximum amount of disputes has been reached,
+            // the final dispute is definitive and binding, meaning balances can
+            // be updated immediately after the final dispute resolved.
+            if (exp + 7 days > block.timestamp && len < 3) {
+                // TODO test challenge period for disputes
+                // TODO test final disputes have no challenge period
+                revert Expired("challenge active", exp + 7 days);
             }
 
             {
@@ -643,9 +658,9 @@ contract Claims is AccessControl {
         uint256 toy = _stakePropose[pro][CLAIM_STAKE_Y];
         uint256 ton = _stakePropose[pro][CLAIM_STAKE_N];
         if (yay > nah || yay < nah) {
-            rewardAll(pro, lef, rig, len, toy, ton, yay > nah);
+            rewardAll(pro, lef, rig, max, toy, ton, yay > nah);
         } else {
-            punishAll(pro, lef, rig, len);
+            punishAll(pro, lef, rig, max);
         }
 
         // Only credit the proposer and the protocol once everyone else got
@@ -699,8 +714,10 @@ contract Claims is AccessControl {
     //
 
     // must be called by some privileged bot
-    function createResolve(uint256 pro, uint256[] memory ind, uint256 exp) public onlyRole(BOT_ROLE) {
-        if (_claimExpired[pro][CLAIM_EXPIRY_P] == 0) {
+    function createResolve(uint256 pro, uint256[] calldata ind, uint256 exp) public onlyRole(BOT_ROLE) {
+        uint256 cep = _claimExpired[pro][CLAIM_EXPIRY_P];
+
+        if (cep == 0) {
             revert Mapping("propose invalid");
         }
 
@@ -708,8 +725,8 @@ contract Claims is AccessControl {
             revert Mapping("claim overwrite");
         }
 
-        if (_claimExpired[pro][CLAIM_EXPIRY_P] > block.timestamp) {
-            revert Expired("propose active", _claimExpired[pro][CLAIM_EXPIRY_P]);
+        if (cep > block.timestamp) {
+            revert Expired("propose active", cep);
         }
 
         if (ind.length == 0) {
@@ -830,12 +847,12 @@ contract Claims is AccessControl {
     //
 
     //
-    function punishAll(uint256 pro, uint256 lef, uint256 rig, uint256 len) private {
+    function punishAll(uint256 pro, uint256 lef, uint256 rig, uint256 max) private {
         if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
             _claimBalance[pro].set(CLAIM_BALANCE_P);
         }
 
-        while (len != 0) {
+        while (max != 0) {
             address use = _indexAddress[pro][lef];
             uint256 bal = _addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N];
 
@@ -877,7 +894,7 @@ contract Claims is AccessControl {
 
                 {
                     lef++;
-                    len--;
+                    max--;
                 }
             }
 
@@ -917,7 +934,7 @@ contract Claims is AccessControl {
     }
 
     //
-    function rewardAll(uint256 pro, uint256 lef, uint256 rig, uint256 len, uint256 toy, uint256 ton, bool win)
+    function rewardAll(uint256 pro, uint256 lef, uint256 rig, uint256 max, uint256 toy, uint256 ton, bool win)
         private
     {
         if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
@@ -932,7 +949,7 @@ contract Claims is AccessControl {
         uint256 fey = (toy * basisFee) / BASIS_TOTAL;
         uint256 fen = (ton * basisFee) / BASIS_TOTAL;
 
-        while (len != 0) {
+        while (max != 0) {
             address use = _indexAddress[pro][lef];
 
             {
@@ -946,7 +963,7 @@ contract Claims is AccessControl {
 
                 {
                     lef++;
-                    len--;
+                    max--;
                 }
             }
 

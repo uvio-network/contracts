@@ -1,3 +1,4 @@
+import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
 import { CreatePropose16Expired } from "./src/Deploy";
 import { expect } from "chai";
@@ -7,6 +8,7 @@ import { maxUint256 } from "viem";
 import { network } from "hardhat";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+import { UpdateResolve20True30False } from "./src/Deploy";
 
 const MAX = maxUint256;
 
@@ -56,6 +58,33 @@ describe("Claims", function () {
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
+      });
+
+      it("if dispute active", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(UpdateResolve20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 20);
+
+        await Claims.connect(Signer(4)).createDispute(
+          Claim(13),
+          Amount(20),
+          Side(true),
+          Expiry(15, "days"), // 7 days from the 8 days above
+          Claim(1),
+        );
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge period
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(0)).updateBalance(
+          Claim(1),
+          100,
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
       });
     });
   });
