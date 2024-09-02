@@ -52,6 +52,21 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
       });
 
+      it("if balance is empty", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1], 10);
+
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(0),
+          Side(true),
+          Expiry(2, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+      });
+
       it("if expiry is 5 hours", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 

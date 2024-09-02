@@ -32,6 +32,27 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
+      it("if balance is zero", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1, 2], [10, 5]);
+
+        await Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(2, "days"),
+        );
+
+        const txn = Claims.connect(Signer(2)).updatePropose(
+          Claim(1),
+          Amount(0), // minimum is 10
+          Side(true),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+      });
+
       it("if proposer tries to stake on an expired claim", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
