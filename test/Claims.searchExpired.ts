@@ -30,7 +30,6 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY_D,
-        Claim(0),
       );
 
       expect(await Claims.searchExpired(Claim(1))).to.deep.equal([EXPIRY_D, 0]);
@@ -46,7 +45,6 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY_W,
-        Claim(0),
       );
 
       expect(await Claims.searchExpired(Claim(4))).to.deep.equal([EXPIRY_W, 0]);
@@ -62,7 +60,6 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY_D,
-        Claim(0),
       );
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -89,7 +86,6 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY_W,
-        Claim(0),
       );
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(65, "days")]);

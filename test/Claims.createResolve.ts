@@ -24,36 +24,27 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY,
-        Claim(0),
       );
-      await Claims.connect(Signer(2)).createPropose(
+      await Claims.connect(Signer(2)).updatePropose(
         Claim(1),
         Amount(10),
         Side(true),
-        Expiry(0),
-        Claim(0),
       );
 
-      await Claims.connect(Signer(3)).createPropose(
+      await Claims.connect(Signer(3)).updatePropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(0),
-        Claim(0),
       );
-      await Claims.connect(Signer(4)).createPropose(
+      await Claims.connect(Signer(4)).updatePropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(0),
-        Claim(0),
       );
-      await Claims.connect(Signer(5)).createPropose(
+      await Claims.connect(Signer(5)).updatePropose(
         Claim(1),
         Amount(10),
         Side(false),
-        Expiry(0),
-        Claim(0),
       );
 
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);

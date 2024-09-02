@@ -270,88 +270,186 @@ contract Claims is AccessControl {
     //
 
     // called by anyone
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp, uint256 dis) public {
+    function createDispute(uint256 dis, uint256 bal, bool vot, uint256 exp, uint256 pro) public {
+        if (dis == 0) {
+            revert Mapping("dispute invalid");
+        }
+
+        uint256 min = 2 * (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
+        if (bal < min) {
+            // TODO test the increase of the dispute minimum balance
+            revert Balance("below minimum", min);
+        }
+
+        uint256 len = _claimDispute[pro];
+        if (len >= 3) {
+            // TODO test dispute limit
+            revert Process("dispute limit");
+        }
+
+        // Verify the expiry of the disputed claim.
+        {
+            uint256 res = _claimExpired[pro][CLAIM_EXPIRY_R];
+
+            if (res == 0) {
+                revert Expired("resolve unallocated", res);
+            }
+
+            // Disputes can only be created if the disputed claim has already been
+            // resolved.
+            if (res > block.timestamp) {
+                // TODO test disputes cannot be created before the market resolution
+                revert Expired("resolve active", res);
+            }
+
+            // Disputes can only be created if the disputed claim is within its own
+            // challenge window.
+            if (res + 7 days < block.timestamp) {
+                // TODO test disputes cannot be created after the challenge window
+                revert Expired("challenge invalid", res + 7 days);
+            }
+        }
+
+        // Verify the expiry of the latest dispute, if any.
+        if (len != 0) {
+            uint256 res = _claimExpired[_claimMapping[pro][len - 1]][CLAIM_EXPIRY_R];
+
+            // Disputes can only be layered if the disputed claim has already been
+            // resolved.
+            if (res > block.timestamp) {
+                // TODO latest dispute must be expired before creating new dispute
+                revert Expired("dispute active", res);
+            }
+
+            // Disputes can only be created if the disputed claim is within its own
+            // challenge window.
+            if (res + 7 days < block.timestamp) {
+                // TODO test disputes cannot be created after the challenge window
+                revert Expired("challenge invalid", res + 7 days);
+            }
+        }
+
+        // Only a valid resolution can be disputed. A resolution is valid if
+        // there have been more votes on one side than on the other. That
+        // means a resolution without any vote, or a resolution with equal
+        // votes cannot be disputed. Those invalid resolutions are the
+        // punishable scenarios, which are definitive and binding.
+        uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
+        uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
+        if (!(yay > nah || yay < nah)) {
+            // TODO test binding resolution of invalid results
+            revert Process("dispute invalid");
+        }
+
+        // the disputed claim points to its own disputes
+        {
+            _claimMapping[pro][_claimDispute[pro]] = dis;
+            _claimDispute[pro]++;
+        }
+
+        // Dispute expiries must be at least 3 days in the future.
+        if (exp < block.timestamp + 3 days) {
+            revert Expired("expiry invalid", exp);
+        }
+
+        // Dispute expiries must not be more than 4 weeks in the future.
+        if (exp > block.timestamp + 4 weeks) {
+            // TODO test that disputes can only have a max expiry e.g. 4 weeks
+            revert Expired("expiry invalid", exp);
+        }
+
+        // Set the given expiry to make the code flow below work.
+        {
+            _claimExpired[dis][CLAIM_EXPIRY_C] = block.timestamp;
+            _claimExpired[dis][CLAIM_EXPIRY_P] = exp;
+        }
+
+        // In case this is the creation of a claim with lifecycle "propose",
+        // store the first balance for the side of the stake as provided, so
+        // that we can remember the minimum balance required for staking
+        // reputation on this claim, while also being able to find the
+        // proposer address without explicitly storing it.
+        if (vot) {
+            _stakePropose[dis][CLAIM_STAKE_A] = bal;
+        } else {
+            _stakePropose[dis][CLAIM_STAKE_B] = bal;
+        }
+
+        {
+            updatePropose(dis, bal, vot);
+        }
+    }
+
+    // called by anyone
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
         }
 
-        // Look for the very first deposit related to the given claim. If this
-        // call is for the very first deposit itself, then there is no minimum
-        // balance to check against. In that very first case we simply check the
-        // given balance against 0, which allows the proposer to define the
-        // minimum stake required to participate in this market. All following
-        // users have then to comply with the minimum balance defined.
-        uint256 min = _stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B];
-        // TODO ensure the increase of the dispute minimum balance
-        if (bal < min) {
-            revert Balance("below minimum", min);
+        if (_claimExpired[pro][CLAIM_EXPIRY_P] != 0) {
+            revert Mapping("claim invalid");
+        }
+
+        if (bal == 0) {
+            revert Balance("balance invalid", bal);
+        }
+
+        // Expiries must be at least 24 hours in the future.
+        if (exp < block.timestamp + 24 hours) {
+            revert Expired("expiry invalid", exp);
+        }
+
+        // Set the given expiry to make the code flow below work.
+        {
+            _claimExpired[pro][CLAIM_EXPIRY_C] = block.timestamp;
+            _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
+        }
+
+        // In case this is the creation of a claim with lifecycle "propose",
+        // store the first balance for the side of the stake as provided, so
+        // that we can remember the minimum balance required for staking
+        // reputation on this claim, while also being able to find the
+        // proposer address without explicitly storing it.
+        if (vot) {
+            _stakePropose[pro][CLAIM_STAKE_A] = bal;
+        } else {
+            _stakePropose[pro][CLAIM_STAKE_B] = bal;
+        }
+
+        {
+            updatePropose(pro, bal, vot);
+        }
+    }
+
+    // updatePropose
+    function updatePropose(uint256 cla, uint256 bal, bool vot) public {
+        if (_claimExpired[cla][CLAIM_EXPIRY_P] == 0) {
+            revert Mapping("claim invalid");
         }
 
         address use = msg.sender;
 
-        if (_claimExpired[pro][CLAIM_EXPIRY_P] == 0) {
-            // Expiries must be at least 24 hours in the future.
-            if (exp < block.timestamp + 24 hours) {
-                revert Expired("expiry invalid", exp);
+        unchecked {
+            // Look for the very first deposit related to the given claim. If this
+            // call is for the very first deposit itself, then there is no minimum
+            // balance to check against. In that very first case we simply check the
+            // given balance against 0, which allows the proposer to define the
+            // minimum stake required to participate in this market. All following
+            // users have then to comply with the minimum balance defined.
+            uint256 min = _stakePropose[cla][CLAIM_STAKE_A] + _stakePropose[cla][CLAIM_STAKE_B];
+            if (bal < min) {
+                revert Balance("below minimum", min);
             }
 
-            // Set the given expiry to make the code flow below work.
-            {
-                _claimExpired[pro][CLAIM_EXPIRY_C] = block.timestamp;
-                _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
-            }
-
-            // In case this is the creation of a claim with lifecycle "propose",
-            // store the first balance for the side of the stake as provided, so
-            // that we can remember the minimum balance required for staking
-            // reputation on this claim, while also being able to find the
-            // proposer address without explicitly storing it.
-            if (vot) {
-                _stakePropose[pro][CLAIM_STAKE_A] = bal;
-            } else {
-                _stakePropose[pro][CLAIM_STAKE_B] = bal;
-            }
-        } else {
             // Ensure anyone can stake up until the defined expiry threshold.
-            uint256 sta = _claimExpired[pro][CLAIM_EXPIRY_C];
-            uint256 end = _claimExpired[pro][CLAIM_EXPIRY_P];
+            uint256 sta = _claimExpired[cla][CLAIM_EXPIRY_C];
+            uint256 end = _claimExpired[cla][CLAIM_EXPIRY_P];
             uint256 thr = end - (((end - sta) * basisDuration) / BASIS_TOTAL);
 
             if (thr < block.timestamp) {
                 revert Expired("expiry invalid", thr);
             }
 
-            // TODO disputes must have a max expiry e.g. 1 week
-
-            // TODO latest dispute must be expired before creating new dispute
-        }
-
-        if (dis != 0) {
-            if (_claimDispute[dis] >= 3) {
-                // TODO test dispute limit
-                revert Process("dispute limit");
-            }
-
-            // Only a valid resolution can be disputed. A resolution is valid if
-            // there have been more votes on one side than on the other. That
-            // means a resolution without any vote, or a resolution with equal
-            // votes cannot be disputed. Those invalid resolutions are the
-            // punishable scenarios, which are definitive and binding.
-            uint256 yay = _truthResolve[dis][CLAIM_TRUTH_Y];
-            uint256 nah = _truthResolve[dis][CLAIM_TRUTH_N];
-            if (!(yay > nah || yay < nah)) {
-                // TODO test binding resolution of invalid results
-                revert Process("dispute invalid");
-            }
-
-            // the disputed claim points to its own disputes
-            {
-                _claimMapping[dis][_claimDispute[dis]] = pro;
-                _claimDispute[dis]++;
-            }
-        }
-
-        unchecked {
             // Account for the balance required in order to stake reputation
             // according to the requested amount. We try to prevent token
             // transfers if the available user balance is sufficient. Any tokens
@@ -367,6 +465,7 @@ contract Claims is AccessControl {
                         _availBalance[use] = 0;
                     }
 
+                    // TODO test zero balance is not possible
                     if (!IERC20(token).transferFrom(use, address(this), (bal - avl))) {
                         revert Balance("transfer failed", (bal - avl));
                     }
@@ -397,45 +496,45 @@ contract Claims is AccessControl {
             // balances.
             if (vot) {
                 {
-                    _addressVotes[pro][use].set(VOTE_STAKE_Y);
-                    _stakePropose[pro][CLAIM_STAKE_Y] += bal;
+                    _addressVotes[cla][use].set(VOTE_STAKE_Y);
+                    _stakePropose[cla][CLAIM_STAKE_Y] += bal;
                 }
 
                 // Allocate the user stakes and keep track of the user address based
                 // on their position in our index list. Consecutive calls by the
                 // same user will maintain the user's individual index.
-                if (_addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N] == 0) {
+                if (_addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N] == 0) {
                     {
-                        _addressStake[pro][use][ADDRESS_STAKE_Y] = bal;
+                        _addressStake[cla][use][ADDRESS_STAKE_Y] = bal;
                     }
 
                     {
-                        _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_Y]] = use;
-                        _indexMembers[pro][CLAIM_ADDRESS_Y]++; // base is 0
+                        _indexAddress[cla][_indexMembers[cla][CLAIM_ADDRESS_Y]] = use;
+                        _indexMembers[cla][CLAIM_ADDRESS_Y]++; // base is 0
                     }
                 } else {
-                    _addressStake[pro][use][ADDRESS_STAKE_Y] += bal;
+                    _addressStake[cla][use][ADDRESS_STAKE_Y] += bal;
                 }
             } else {
                 {
-                    _addressVotes[pro][use].set(VOTE_STAKE_N);
-                    _stakePropose[pro][CLAIM_STAKE_N] += bal;
+                    _addressVotes[cla][use].set(VOTE_STAKE_N);
+                    _stakePropose[cla][CLAIM_STAKE_N] += bal;
                 }
 
                 // Allocate the user stakes and keep track of the user address based
                 // on their position in our index list. Consecutive calls by the
                 // same user will maintain the user's individual index.
-                if (_addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N] == 0) {
+                if (_addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N] == 0) {
                     {
-                        _addressStake[pro][use][ADDRESS_STAKE_N] = bal;
+                        _addressStake[cla][use][ADDRESS_STAKE_N] = bal;
                     }
 
                     {
-                        _indexMembers[pro][CLAIM_ADDRESS_N]--; // base is 2^256-1
-                        _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_N]] = use;
+                        _indexMembers[cla][CLAIM_ADDRESS_N]--; // base is 2^256-1
+                        _indexAddress[cla][_indexMembers[cla][CLAIM_ADDRESS_N]] = use;
                     }
                 } else {
-                    _addressStake[pro][use][ADDRESS_STAKE_N] += bal;
+                    _addressStake[cla][use][ADDRESS_STAKE_N] += bal;
                 }
             }
         }

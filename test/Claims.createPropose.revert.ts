@@ -1,11 +1,9 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
-import { CreatePropose7WeekExpiry } from "./src/Deploy";
 import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { network } from "hardhat";
 import { Side } from "./src/Side";
 
 describe("Claims", function () {
@@ -19,7 +17,6 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
-          Claim(0),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
@@ -35,7 +32,6 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
-          Claim(0),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
@@ -51,7 +47,6 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
-          Claim(0),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
@@ -67,7 +62,6 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(5, "hours"),
-          Claim(0),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -83,119 +77,6 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(23, "hours"),
-          Claim(0),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
-      });
-
-      it("if minimum balance not available", async function () {
-        const { Balance, Claims, Signer } = await loadFixture(Deploy);
-
-        await Balance([1, 2], [10, 5]);
-
-        await Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(2, "days"),
-          Claim(0),
-        );
-
-        const txn = Claims.connect(Signer(2)).createPropose(
-          Claim(1),
-          Amount(5), // minimum is 10
-          Side(true),
-          Expiry(2, "days"),
-          Claim(0),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
-      });
-
-      it("if proposer tries to stake on an expired claim", async function () {
-        const { Balance, Claims, Signer } = await loadFixture(Deploy);
-
-        await Balance([1, 2], 10);
-
-        await Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(2, "days"),
-          Claim(0),
-        );
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(49, "hours")]); // 2 days and 1 hour later
-        await network.provider.send("evm_mine");
-
-        const txn = Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(0),
-          Claim(0),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
-      });
-
-      it("if somebody tries to stake on an expired claim", async function () {
-        const { Balance, Claims, Signer } = await loadFixture(Deploy);
-
-        await Balance([1, 2], 10);
-
-        await Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(2, "days"),
-          Claim(0),
-        );
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(49, "hours")]); // 2 days and 1 hour later
-        await network.provider.send("evm_mine");
-
-        const txn = Claims.connect(Signer(3)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(0),
-          Claim(0),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
-      });
-
-      it("if signer 1 tries to stake within last 10% expiry threshold", async function () {
-        const { Claims, Signer } = await loadFixture(CreatePropose7WeekExpiry);
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(152, "hours")]); // 6 days + 8 hours
-        await network.provider.send("evm_mine");
-
-        const txn = Claims.connect(Signer(1)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(0),
-          Claim(0),
-        );
-
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
-      });
-
-      it("if somebody tries to stake within last 10% expiry threshold", async function () {
-        const { Claims, Signer } = await loadFixture(CreatePropose7WeekExpiry);
-
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(153, "hours")]); // 6 days + 9 hours
-        await network.provider.send("evm_mine");
-
-        const txn = Claims.connect(Signer(5)).createPropose(
-          Claim(1),
-          Amount(10),
-          Side(true),
-          Expiry(0),
-          Claim(0),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
