@@ -359,60 +359,9 @@ export const UpdateBalance25False = async () => {
 };
 
 export const UpdateBalance20True30False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolve20True30False);
 
-  await Balance([1, 2, 3, 4, 5], 10);
-
-  await Claims.connect(Signer(1)).createPropose(
-    Claim(1),
-    Amount(10),
-    Side(true),
-    Expiry(2, "days"),
-  );
-  await Claims.connect(Signer(2)).updatePropose(
-    Claim(1),
-    Amount(10),
-    Side(true),
-  );
-
-  await Claims.connect(Signer(3)).updatePropose(
-    Claim(1),
-    Amount(10),
-    Side(false),
-  );
-  await Claims.connect(Signer(4)).updatePropose(
-    Claim(1),
-    Amount(10),
-    Side(false),
-  );
-  await Claims.connect(Signer(5)).updatePropose(
-    Claim(1),
-    Amount(10),
-    Side(false),
-  );
-
-  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
-  await network.provider.send("evm_mine");
-
-  await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
-
-  await Claims.connect(Signer(7)).createResolve(
-    Claim(1),
-    [0, MAX], // address 1 and 3
-    Expiry(7, "days"),
-  );
-
-  await Claims.connect(Signer(1)).updateResolve(
-    Claim(1),
-    Side(true),
-  );
-
-  await Claims.connect(Signer(3)).updateResolve(
-    Claim(1),
-    Side(true),
-  );
-
-  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge period
   await network.provider.send("evm_mine");
 
   await Claims.connect(Signer(0)).updateBalance(
@@ -420,7 +369,7 @@ export const UpdateBalance20True30False = async () => {
     100,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, Token };
 };
 
 export const UpdateBalance30True20False = async () => {
@@ -929,4 +878,61 @@ export const UpdateBalanceBoth44True17False = async () => {
   );
 
   return { Address, Claims, Signer, Token };
+};
+
+export const UpdateResolve20True30False = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+
+  await Balance([1, 2, 3, 4, 5], 10);
+
+  await Claims.connect(Signer(1)).createPropose(
+    Claim(1),
+    Amount(10),
+    Side(true),
+    Expiry(2, "days"),
+  );
+  await Claims.connect(Signer(2)).updatePropose(
+    Claim(1),
+    Amount(10),
+    Side(true),
+  );
+
+  await Claims.connect(Signer(3)).updatePropose(
+    Claim(1),
+    Amount(10),
+    Side(false),
+  );
+  await Claims.connect(Signer(4)).updatePropose(
+    Claim(1),
+    Amount(10),
+    Side(false),
+  );
+  await Claims.connect(Signer(5)).updatePropose(
+    Claim(1),
+    Amount(10),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+
+  await Claims.connect(Signer(7)).createResolve(
+    Claim(1),
+    [0, MAX], //          address 1 and 3
+    Expiry(7, "days"), // 4 days from the 3 days above
+  );
+
+  await Claims.connect(Signer(1)).updateResolve(
+    Claim(1),
+    Side(true),
+  );
+
+  await Claims.connect(Signer(3)).updateResolve(
+    Claim(1),
+    Side(true),
+  );
+
+  return { Address, Balance, Claims, Signer, Token };
 };
