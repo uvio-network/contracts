@@ -234,7 +234,11 @@ contract Claims is AccessControl {
     // denominated in any given token address.
     address public immutable token = address(0);
 
-    //
+    // constructor initializes an instance of the Claims contract by setting the
+    // provided token address, which is immutable, meaning any Claims instance
+    // will only ever use a single token. Multiple instances may be deployed to
+    // support multiple tokens across the platform. The given owner address will
+    // be able to modify the fee structure and designate the BOT_ROLE.
     constructor(address tok, address own) {
         if (tok == address(0)) {
             revert Address("invalid token");
@@ -269,7 +273,19 @@ contract Claims is AccessControl {
     // PUBLIC
     //
 
-    // called by anyone
+    // createDispute may be called by anyone to dispute an already existing
+    // claim. This means that a new market is created, which disputes the
+    // resolution of the provided claim. The given claim ID "dis" must be
+    // unique. The given balance "bal" must be at least twice as high as the
+    // minimum balance required to participate in the market of the provided
+    // propose. The caller must further own the given balance either as
+    // available balance inside this Claims contract or as available balance
+    // inside the relevant token contract. The given expiry must be at least 72
+    // hours in the future and must not be farther in the future than 30 days
+    // from now. Disputes may be layered up to a maximum of 3 instances so that
+    // resolutions may be definitive and binding. Only one dispute per disputed
+    // claim can be active at a time. Punished claims without valid resolution
+    // cannot be disputed.
     function createDispute(uint256 dis, uint256 bal, bool vot, uint256 exp, uint256 pro) public {
         if (dis == 0) {
             revert Mapping("dispute invalid");
@@ -292,43 +308,39 @@ contract Claims is AccessControl {
             revert Process("dispute limit");
         }
 
-        // Verify the expiry of the disputed claim. Here we make sure the
-        // disputed claim does even exist in the first place. Here we also
-        // ensure that the disputed claim has already been resolved and that the
-        // dispute can only be proposed within the given claim's challenge
-        // window, which is hard coded to 7 days.
+        // Verify the expiry of the disputed claim, or the expiry of already
+        // created disputes. Here we make sure the disputed claim does even
+        // exist in the first place. We also ensure that the disputed claim has
+        // already been resolved, and that the first dispute can only be
+        // proposed within the given claim's challenge window. This challenge
+        // window is hard coded to 7 days.
         {
-            uint256 res = _claimExpired[pro][CLAIM_EXPIRY_R];
+            uint256 xpn;
+            if (len == 0) {
+                xpn = _claimExpired[pro][CLAIM_EXPIRY_R];
+            } else {
+                xpn = _claimExpired[_claimMapping[pro][len - 1]][CLAIM_EXPIRY_R];
+            }
 
-            // Disputes can only be created if the disputed claim has already
+            // The first dispute can only be created if the disputed claim has
+            // already been resolved. All following disputes can then also only
+            // be created after the original propose resolved.
+            //
+            // Disputes can only be layered if the disputed dispute has already
             // been resolved.
-            if (res > block.timestamp) {
-                revert Expired("resolve active", res);
-            }
-
-            // Disputes can only be created if the disputed claim is within its
-            // own challenge window.
-            if (res + 7 days < block.timestamp) {
-                revert Expired("challenge invalid", res + 7 days);
-            }
-        }
-
-        // Verify the expiry of the latest dispute, if any.
-        if (len != 0) {
-            uint256 res = _claimExpired[_claimMapping[pro][len - 1]][CLAIM_EXPIRY_R];
-
-            // Disputes can only be layered if the disputed claim has already been
-            // resolved.
-            if (res > block.timestamp) {
+            if (xpn > block.timestamp) {
                 // TODO test that latest dispute must be expired before creating new dispute
-                revert Expired("dispute active", res);
+                revert Expired("dispute active", xpn);
             }
 
-            // Disputes can only be created if the disputed claim is within its own
-            // challenge window.
-            if (res + 7 days < block.timestamp) {
+            // The first dispute can only be created if the disputed claim is
+            // still within its own challenge window.
+            //
+            // Disputes can only be layered if the disputed dispute is within
+            // its own challenge window.
+            if (xpn + 7 days < block.timestamp) {
                 // TODO test disputes cannot be created after the challenge window
-                revert Expired("challenge invalid", res + 7 days);
+                revert Expired("challenge invalid", xpn + 7 days);
             }
         }
 
@@ -340,7 +352,6 @@ contract Claims is AccessControl {
         uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
         uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
         if (!(yay > nah || yay < nah)) {
-            // TODO test binding resolution of invalid results
             revert Process("dispute invalid");
         }
 
@@ -384,7 +395,12 @@ contract Claims is AccessControl {
         }
     }
 
-    // called by anyone
+    // createPropose may be called by anyone to propose a new claim, which means
+    // to create a new market given a truth statement that can later be verified
+    // by the community. The given claim ID "pro" must be unique. The caller
+    // must own the given balance either as available balance inside this Claims
+    // contract or as available balance inside the relevant token contract. The
+    // given expiry must be at least 24 hours in the future.
     function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
@@ -425,7 +441,12 @@ contract Claims is AccessControl {
         }
     }
 
-    // updatePropose
+    // updatePropose allows anyone to participate in any active market as long
+    // as the minimum balance required can be provided. The given claim ID "cla"
+    // may refer to claims of lifecycle phase "propose" or "dispute". The first
+    // user staking on a new claim becomes the proposer, defining the minimum
+    // balance required to participate in the new market. Proposer rewards may
+    // apply upon market resolution.
     function updatePropose(uint256 cla, uint256 bal, bool vot) public {
         address use = msg.sender;
 
