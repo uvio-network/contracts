@@ -1,47 +1,22 @@
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
 import { expect } from "chai";
-import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { network } from "hardhat";
-import { ResolveDispute20True30False } from "./src/Deploy";
+import { UpdateDisputedBalance20True30False } from "./src/Deploy";
 
 describe("Claims", function () {
   describe("updateBalance", function () {
     describe("dispute", function () {
       describe("22 true 30 false, resolve dispute", function () {
-        // Here we show that the balances calculated change according to the
-        // flipped votes. The version with the balances updated based on true
-        // votes can be found in test/Claims.updateBalance.reward.ts where we
-        // use the fixture UpdateBalance20True30False.
-        const updateBalance = async () => {
-          const { Address, Claims, Signer, Token } = await loadFixture(ResolveDispute20True30False);
-
-          await network.provider.send("evm_setNextBlockTimestamp", [Expiry(29, "days")]);
-          await network.provider.send("evm_mine");
-
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(1),
-            100,
-          );
-
-          await Claims.connect(Signer(0)).updateBalance(
-            Claim(13),
-            100,
-          );
-
-          return { Address, Claims, Signer, Token };
-        };
-
         it("should flip votes", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           expect(await Claims.searchVotes(Claim(1))).to.deep.equal([2, 0]);
           expect(await Claims.searchVotes(Claim(13))).to.deep.equal([0, 2]);
         });
 
         it("should update balances by rewarding users", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           // the original claim
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
@@ -55,7 +30,7 @@ describe("Claims", function () {
         });
 
         it("claim should have 50 tokens staked", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchPropose(Claim(1));
 
@@ -67,7 +42,7 @@ describe("Claims", function () {
         });
 
         it("dispute should have 325 tokens staked", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchPropose(Claim(13));
 
@@ -79,7 +54,7 @@ describe("Claims", function () {
         });
 
         it("should calculate available balances according to tokens staked in claim and dispute", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const zer = await Claims.searchBalance(Address(0));
           const one = await Claims.searchBalance(Address(1));
@@ -95,13 +70,13 @@ describe("Claims", function () {
         });
 
         it("should result in the Claims contract owning 375 tokens", async function () {
-          const { Claims, Token } = await loadFixture(updateBalance);
+          const { Claims, Token } = await loadFixture(UpdateDisputedBalance20True30False);
 
           expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(375));
         });
 
         it("should calculate balances accurately for signer 0", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(0)); // protocol owner receiving rewards
 
@@ -110,7 +85,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 1", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(1));
 
@@ -119,7 +94,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 2", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(2));
 
@@ -128,7 +103,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 3", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(3));
 
@@ -137,7 +112,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 4", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(4));
 
@@ -146,7 +121,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 5", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(5));
 
@@ -155,7 +130,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 6", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(6));
 
@@ -164,7 +139,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 7", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(7));
 
@@ -173,7 +148,7 @@ describe("Claims", function () {
         });
 
         it("should calculate balances accurately for signer 8", async function () {
-          const { Address, Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const res = await Claims.searchBalance(Address(8));
 

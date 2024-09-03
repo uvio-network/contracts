@@ -247,7 +247,6 @@ export const CreatePropose16Expired = async () => {
 export const ResolveDispute20True30False = async () => {
   const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateDispute20True30False);
 
-
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(15, "days")]);
   await network.provider.send("evm_mine");
 
@@ -1090,6 +1089,29 @@ export const UpdateResolvePunishEqualVotes = async () => {
   await Claims.connect(Signer(3)).updateResolve(
     Claim(1),
     Side(false),
+  );
+
+  return { Address, Balance, Claims, Signer, Token };
+};
+
+// Here we show that the balances calculated change according to the flipped
+// votes. The version with the balances updated based on true votes can be found
+// in test/Claims.updateBalance.reward.ts where we use the fixture
+// UpdateBalance20True30False.
+export const UpdateDisputedBalance20True30False = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(ResolveDispute20True30False);
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(29, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(0)).updateBalance(
+    Claim(1),
+    100,
+  );
+
+  await Claims.connect(Signer(0)).updateBalance(
+    Claim(13),
+    100,
   );
 
   return { Address, Balance, Claims, Signer, Token };
