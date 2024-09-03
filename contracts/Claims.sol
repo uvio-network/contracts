@@ -295,31 +295,22 @@ contract Claims is AccessControl {
             revert Mapping("claim invalid");
         }
 
-        unchecked {
-            uint256 min = 2 * (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
-            if (bal < min) {
-                revert Balance("below minimum", min);
-            }
-        }
-
         uint256 len = _claimDispute[pro];
         if (len >= 3) {
             // TODO test dispute limit
             revert Process("dispute limit");
         }
 
-        // Verify the expiry of the disputed claim, or the expiry of already
-        // created disputes. Here we make sure the disputed claim does even
-        // exist in the first place. We also ensure that the disputed claim has
-        // already been resolved, and that the first dispute can only be
-        // proposed within the given claim's challenge window. This challenge
-        // window is hard coded to 7 days.
-        {
+        unchecked {
+            uint256 min;
             uint256 xpn;
             if (len == 0) {
+                min = (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
                 xpn = _claimExpired[pro][CLAIM_EXPIRY_R];
             } else {
-                xpn = _claimExpired[_claimMapping[pro][len - 1]][CLAIM_EXPIRY_R];
+                uint256 prv = _claimMapping[pro][len - 1];
+                min = (_stakePropose[prv][CLAIM_STAKE_A] + _stakePropose[prv][CLAIM_STAKE_B]);
+                xpn = _claimExpired[prv][CLAIM_EXPIRY_R];
             }
 
             // The first dispute can only be created if the disputed claim has
@@ -328,6 +319,9 @@ contract Claims is AccessControl {
             //
             // Disputes can only be layered if the disputed dispute has already
             // been resolved.
+            //
+            // Here we make sure the disputed claim does even exist in the first
+            // place.
             if (xpn > block.timestamp) {
                 // TODO test that latest dispute must be expired before creating new dispute
                 revert Expired("dispute active", xpn);
@@ -341,6 +335,17 @@ contract Claims is AccessControl {
             if (xpn + 7 days < block.timestamp) {
                 // TODO test disputes cannot be created after the challenge window
                 revert Expired("challenge invalid", xpn + 7 days);
+            }
+
+            // Disputes require an exact amount to be matched for the minimum
+            // balance required. This amount is a multiple of the preceding
+            // claim.  We enforce a fixed minimum amount for disputes to prevent
+            // malicious actors to artificially price out other market
+            // participants. Once a dispute is created, anyone can still stake
+            // as much reputation as they are willing to risk.
+            if (bal != (min * 2)) {
+                // TODO test the exact minimum balance required over multiple disputes
+                revert Balance("minimum invalid", (min * 2));
             }
         }
 
@@ -410,13 +415,13 @@ contract Claims is AccessControl {
             revert Mapping("claim invalid");
         }
 
-        if (bal == 0) {
-            revert Balance("balance invalid", bal);
-        }
-
         // Expiries must be at least 24 hours in the future.
         if (exp < block.timestamp + 24 hours) {
             revert Expired("expiry invalid", exp);
+        }
+
+        if (bal == 0) {
+            revert Balance("balance invalid", bal);
         }
 
         // Set the given expiry to make the code flow below work.
@@ -461,10 +466,8 @@ contract Claims is AccessControl {
             // Ensure anyone can stake up until the defined expiry threshold.
             uint256 sta = _claimExpired[cla][CLAIM_EXPIRY_C];
             uint256 end = _claimExpired[cla][CLAIM_EXPIRY_P];
-            uint256 thr = end - (((end - sta) * basisDuration) / BASIS_TOTAL);
-
-            if (thr < block.timestamp) {
-                revert Expired("expiry invalid", thr);
+            if (end - (((end - sta) * basisDuration) / BASIS_TOTAL) < block.timestamp) {
+                revert Expired("expiry invalid", end - (((end - sta) * basisDuration) / BASIS_TOTAL));
             }
 
             // Ensure the claim that is being staked on does in fact exist. Var
@@ -605,7 +608,6 @@ contract Claims is AccessControl {
 
             //
             if (exp == 0 || exp > block.timestamp) {
-                // TODO test wait for dispute resolution
                 revert Expired("dispute active", exp);
             }
 
@@ -616,13 +618,11 @@ contract Claims is AccessControl {
             // the final dispute is definitive and binding, meaning balances can
             // be updated immediately after the final dispute resolved.
             if (exp + 7 days > block.timestamp && len < 3) {
-                // TODO test challenge period for disputes
                 // TODO test final disputes have no challenge period
                 revert Expired("challenge active", exp + 7 days);
             }
 
             {
-                // TODO test resolve overwrite
                 yay = _truthResolve[dis][CLAIM_TRUTH_Y];
                 nah = _truthResolve[dis][CLAIM_TRUTH_N];
             }
@@ -744,8 +744,8 @@ contract Claims is AccessControl {
             address use = _indexAddress[pro][ind[i]];
 
             // We we ended up with the zero address it means the provided index
-            // is out of range and random truth sampling process failed to come
-            // up with a list of valid indices.
+            // is out of range and the random truth sampling process failed to
+            // come up with a list of valid indices.
             if (use == address(0)) {
                 revert Mapping("zero address");
             }

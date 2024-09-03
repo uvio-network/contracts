@@ -244,6 +244,43 @@ export const CreatePropose16Expired = async () => {
   return { Address, Balance, Claims, Signer };
 };
 
+export const ResolveDispute20True30False = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateDispute20True30False);
+
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(15, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+
+  await Claims.connect(Signer(7)).createResolve(
+    Claim(13),
+    [0, MAX], //           address 4 and 6
+    Expiry(22, "days"), // 7 days from 15 above
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(18, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(4)).updateResolve(
+    Claim(13),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(21, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(6)).updateResolve(
+    Claim(13),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(23, "days")]);
+  await network.provider.send("evm_mine");
+
+  return { Address, Balance, Claims, Signer, Token };
+};
+
 export const UpdateBalance25True = async () => {
   const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
@@ -764,6 +801,115 @@ export const UpdateBalanceBoth44True17False = async () => {
   );
 
   return { Address, Claims, Signer, Token };
+};
+
+export const UpdateDispute20True30False = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolve20True30False);
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
+  await network.provider.send("evm_mine");
+
+  await Balance([2, 4, 6, 8], 500);
+
+  await Claims.connect(Signer(4)).createDispute(
+    Claim(13),
+    Amount(20),
+    Side(true),
+    Expiry(15, "days"), // 7 days from the 8 days above
+    Claim(1),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(193, "hours")]); // 8 days + 1 hour
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(2)).updatePropose(
+    Claim(13),
+    Amount(20),
+    Side(true),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(195, "hours")]); // 8 days + 3 hours
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(2)).updatePropose(
+    Claim(13),
+    Amount(25),
+    Side(true),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(212, "hours")]); // 8 days + 20 hours
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(6)).updatePropose(
+    Claim(13),
+    Amount(30),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(9, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(8)).updatePropose(
+    Claim(13),
+    Amount(50),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(10, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(4)).updatePropose(
+    Claim(13),
+    Amount(20),
+    Side(true),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(11, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(2)).updatePropose(
+    Claim(13),
+    Amount(25),
+    Side(true),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(12, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(8)).updatePropose(
+    Claim(13),
+    Amount(25),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(13, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(8)).updatePropose(
+    Claim(13),
+    Amount(40),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(6)).updatePropose(
+    Claim(13),
+    Amount(20),
+    Side(false),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(343, "hours")]); // 14 days + 7 hours
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(4)).updatePropose(
+    Claim(13),
+    Amount(50),
+    Side(true),
+  );
+
+  return { Address, Balance, Claims, Signer, Token };
 };
 
 export const UpdateResolve20True30False = async () => {
