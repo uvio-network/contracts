@@ -323,7 +323,6 @@ contract Claims is AccessControl {
             // Here we make sure the disputed claim does even exist in the first
             // place.
             if (xpn > block.timestamp) {
-                // TODO test that latest dispute must be expired before creating new dispute
                 revert Expired("dispute active", xpn);
             }
 
@@ -333,7 +332,6 @@ contract Claims is AccessControl {
             // Disputes can only be layered if the disputed dispute is within
             // its own challenge window.
             if (xpn + 7 days < block.timestamp) {
-                // TODO test disputes cannot be created after the challenge window
                 revert Expired("challenge invalid", xpn + 7 days);
             }
 
@@ -344,7 +342,6 @@ contract Claims is AccessControl {
             // participants. Once a dispute is created, anyone can still stake
             // as much reputation as they are willing to risk.
             if (bal != (min * 2)) {
-                // TODO test the exact minimum balance required over multiple disputes
                 revert Balance("minimum invalid", (min * 2));
             }
         }
