@@ -301,18 +301,16 @@ contract Claims is AccessControl {
             revert Process("dispute limit");
         }
 
-        // Verify the expiry of the disputed claim, or the expiry of already
-        // created disputes. Here we make sure the disputed claim does even
-        // exist in the first place. We also ensure that the disputed claim has
-        // already been resolved, and that the first dispute can only be
-        // proposed within the given claim's challenge window. This challenge
-        // window is hard coded to 7 days.
-        {
+        unchecked {
+            uint256 min;
             uint256 xpn;
             if (len == 0) {
+                min = (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
                 xpn = _claimExpired[pro][CLAIM_EXPIRY_R];
             } else {
-                xpn = _claimExpired[_claimMapping[pro][len - 1]][CLAIM_EXPIRY_R];
+                uint256 prv = _claimMapping[pro][len - 1];
+                min = (_stakePropose[prv][CLAIM_STAKE_A] + _stakePropose[prv][CLAIM_STAKE_B]);
+                xpn = _claimExpired[prv][CLAIM_EXPIRY_R];
             }
 
             // The first dispute can only be created if the disputed claim has
@@ -321,6 +319,9 @@ contract Claims is AccessControl {
             //
             // Disputes can only be layered if the disputed dispute has already
             // been resolved.
+            //
+            // Here we make sure the disputed claim does even exist in the first
+            // place.
             if (xpn > block.timestamp) {
                 // TODO test that latest dispute must be expired before creating new dispute
                 revert Expired("dispute active", xpn);
@@ -335,12 +336,16 @@ contract Claims is AccessControl {
                 // TODO test disputes cannot be created after the challenge window
                 revert Expired("challenge invalid", xpn + 7 days);
             }
-        }
 
-        unchecked {
-            uint256 min = 2 * (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
-            if (bal != min) {
-                revert Balance("minimum invalid", min);
+            // Disputes require an exact amount to be matched for the minimum
+            // balance required. This amount is a multiple of the preceding
+            // claim.  We enforce a fixed minimum amount for disputes to prevent
+            // malicious actors to artificially price out other market
+            // participants. Once a dispute is created, anyone can still stake
+            // as much reputation as they are willing to risk.
+            if (bal != (min * 2)) {
+                // TODO test the exact minimum balance required over multiple disputes
+                revert Balance("minimum invalid", (min * 2));
             }
         }
 
