@@ -276,16 +276,31 @@ contract Claims is AccessControl {
     // createDispute may be called by anyone to dispute an already existing
     // claim. This means that a new market is created, which disputes the
     // resolution of the provided claim. The given claim ID "dis" must be
-    // unique. The given balance "bal" must be at least twice as high as the
-    // minimum balance required to participate in the market of the provided
+    // unique. The given balance "bal" must be exactly twice as high as the
+    // minimum balance required to participate in the market of the disputed
     // propose. The caller must further own the given balance either as
     // available balance inside this Claims contract or as available balance
     // inside the relevant token contract. The given expiry must be at least 72
     // hours in the future and must not be farther in the future than 30 days
     // from now. Disputes may be layered up to a maximum of 3 instances so that
-    // resolutions may be definitive and binding. Only one dispute per disputed
-    // claim can be active at a time. Punished claims without valid resolution
-    // cannot be disputed.
+    // resolutions may be definitive and binding eventually. Only one dispute
+    // per disputed claim can be active at a time. Punished claims without valid
+    // resolution cannot be disputed.
+    //
+    // Note that createDispute does not guard against creating disputes on
+    // disputes directly. Meaning, createDispute does not revert if "pro" is in
+    // fact the ID of a claim with lifecycle phase "dispute". At this point the
+    // created dispute will effectively be useless, because it cannot have any
+    // effect on any outcome of any claim. It is important to call createDispute
+    // only with "pro" claim IDs that actually point to claims with lifecycle
+    // phase "propose". Below is shown how propose 33 can be challenged three
+    // times, where 101, 102 and 103 are the unique IDs of the new disputes to
+    // create.
+    //
+    //     createDispute(101, ..., ..., ..., 33)
+    //     createDispute(102, ..., ..., ..., 33)
+    //     createDispute(103, ..., ..., ..., 33)
+    //
     function createDispute(uint256 dis, uint256 bal, bool vot, uint256 exp, uint256 pro) public {
         if (dis == 0) {
             revert Mapping("dispute invalid");
@@ -297,7 +312,6 @@ contract Claims is AccessControl {
 
         uint256 len = _claimDispute[pro];
         if (len >= 3) {
-            // TODO test dispute limit
             revert Process("dispute limit");
         }
 

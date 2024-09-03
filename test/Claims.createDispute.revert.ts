@@ -11,6 +11,7 @@ import { Side } from "./src/Side";
 import { UpdateDispute20True30False } from "./src/Deploy";
 import { UpdateDisputedBalance20True30False } from "./src/Deploy";
 import { UpdateResolve20True30False } from "./src/Deploy";
+import { UpdateResolveMaxDispute } from "./src/Deploy";
 import { UpdateResolvePunishNoVotes } from "./src/Deploy";
 import { UpdateResolvePunishEqualVotes } from "./src/Deploy";
 
@@ -448,6 +449,20 @@ describe("Claims", function () {
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if dispute limit reached", async function () {
+        const { Claims, Signer } = await loadFixture(UpdateResolveMaxDispute);
+
+        const txn = Claims.connect(Signer(1)).createDispute(
+          Claim(104),
+          Amount(80),
+          Side(true),
+          Expiry(37, "days"), // 4 days from the 33 days above
+          Claim(1),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
     });
   });
