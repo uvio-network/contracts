@@ -6,8 +6,10 @@ import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { maxUint256 } from "viem";
 import { network } from "hardhat";
+import { ResolveDispute20True30False } from "./src/Deploy";
 import { Role } from "./src/Role";
 import { Side } from "./src/Side";
+import { UpdateDispute20True30False } from "./src/Deploy";
 import { UpdateResolve20True30False } from "./src/Deploy";
 
 const MAX = maxUint256;
@@ -60,7 +62,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
       });
 
-      it("if dispute active", async function () {
+      it("if dispute created", async function () {
         const { Balance, Claims, Signer } = await loadFixture(UpdateResolve20True30False);
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
@@ -85,6 +87,75 @@ describe("Claims", function () {
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if dispute active", async function () {
+        const { Claims, Signer } = await loadFixture(UpdateDispute20True30False);
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(1),
+            100,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(13),
+            100,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        }
+      });
+
+      it("if dispute challenge, started", async function () {
+        const { Claims, Signer } = await loadFixture(ResolveDispute20True30False);
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(1),
+            100,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(13),
+            100,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        }
+      });
+
+      it("if dispute challenge, before end", async function () {
+        const { Claims, Signer } = await loadFixture(ResolveDispute20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(28, "days")]);
+        await network.provider.send("evm_mine");
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(1),
+            100,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(13),
+            100,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+        }
       });
     });
   });

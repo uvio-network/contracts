@@ -193,7 +193,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(4)).createDispute(
           Claim(13),
-          Amount(20),
+          Amount(20), // minimum in claim 1 was 10
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
           Claim(1),
@@ -212,13 +212,51 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(4)).createDispute(
           Claim(13),
-          Amount(20),
+          Amount(10), // minimum in claim 1 was 5
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
           Claim(1),
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Process");
+      });
+
+      it("if minimum balance is below double", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(UpdateResolvePunishEqualVotes);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 20);
+
+        const txn = Claims.connect(Signer(4)).createDispute(
+          Claim(13),
+          Amount(9), // minimum in claim 1 was 5
+          Side(true),
+          Expiry(15, "days"), // 7 days from the 8 days above
+          Claim(1),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+      });
+
+      it("if minimum balance is above double", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(UpdateResolvePunishEqualVotes);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 20);
+
+        const txn = Claims.connect(Signer(4)).createDispute(
+          Claim(13),
+          Amount(11), // minimum in claim 1 was 5
+          Side(true),
+          Expiry(15, "days"), // 7 days from the 8 days above
+          Claim(1),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
     });
   });
