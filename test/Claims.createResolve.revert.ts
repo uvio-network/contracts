@@ -62,6 +62,21 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
       });
 
+      it("if signer not part of multiple signers, signer 8", async function () {
+        const { Address, Claims, Signer } = await loadFixture(CreatePropose16);
+
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+        await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+        const txn = Claims.connect(Signer(8)).createResolve(
+          Claim(1),
+          [0, MAX], // address 1 and 9
+          Expiry(7, "days"),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "AccessControlUnauthorizedAccount");
+      });
+
       it("if propose is empty", async function () {
         const { Address, Claims, Signer } = await loadFixture(CreatePropose16Expired);
 
