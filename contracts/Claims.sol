@@ -372,7 +372,6 @@ contract Claims is AccessControl {
         uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
         uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
         if (!(yay > nah || yay < nah)) {
-            // TODO what happens if dispute resolution is invalid?
             revert Process("dispute invalid");
         }
 
@@ -402,8 +401,6 @@ contract Claims is AccessControl {
         // Keep track of the number of disputes in this tree, so that we can
         // enforce a maximum amount of disputes on the given propose.
         {
-            // TODO can we get gas refunds by deleting those mappings after
-            // updateBalance?
             _claimDispute[pro]++;
         }
 
@@ -615,13 +612,16 @@ contract Claims is AccessControl {
     // can be updated. In a tree of claims, the outcome of the last dispute is
     // effectively applied to all claims in that tree. For markets with large
     // amounts of participants, updateBalance may be called multiple times using
-    // "max" as the maximum amount of users processed during each call.
+    // "max" as the maximum amount of users processed at a time. "max" must not
+    // be zero.
     function updateBalance(uint256 cla, uint256 max) public {
         if (_claimBalance[cla].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
         }
 
-        // TODO what happens when max is 0 ?
+        if (max == 0) {
+            revert Mapping("max invalid");
+        }
 
         // Lookup the amounts of votes that we have recorded on either side. It
         // may very well be that there are no votes or that we have a tied
@@ -761,8 +761,6 @@ contract Claims is AccessControl {
     function withdraw(uint256 bal) public {
         address use = msg.sender;
 
-        // TODO what happens if bal is 0?
-
         if (_availBalance[use] < bal) {
             revert Balance("insufficient funds", _availBalance[use]);
         }
@@ -858,7 +856,6 @@ contract Claims is AccessControl {
     // All fees must be provided in basis points. Fees taken must not be greater
     // than 50%. All basis points must always sum to 10,000.
     function updateFees(uint16 fee, uint16 psr, uint16 ptc) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        // TODO make sure we can assign multiple addresses to DEFAULT_ADMIN_ROLE
         if (fee < 5_000 || fee + psr + ptc != BASIS_TOTAL) {
             revert Process("fees invalid");
         }

@@ -1117,7 +1117,7 @@ export const UpdateDisputedBalance20True30False = async () => {
   return { Address, Balance, Claims, Signer, Token };
 };
 
-export const UpdateResolveMaxDispute = async () => {
+export const UpdateProposeMaxDispute = async () => {
   const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
 
   await Balance([1, 2], 500);
@@ -1231,6 +1231,12 @@ export const UpdateResolveMaxDispute = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(18, "days")]);
   await network.provider.send("evm_mine");
 
+  return { Address, Balance, Claims, Signer, Token };
+};
+
+export const UpdateResolveMaxDispute = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateProposeMaxDispute);
+
   {
     await Claims.connect(Signer(9)).createResolve(
       Claim(102),
@@ -1271,6 +1277,85 @@ export const UpdateBalanceMaxDispute = async () => {
     Claim(1),
     100,
   );
+
+  return { Address, Balance, Claims, Signer, Token };
+};
+
+export const UpdateBalanceMaxDisputeEqualVotes = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateProposeMaxDispute);
+
+  {
+    await Claims.connect(Signer(9)).createResolve(
+      Claim(102),
+      [0, MAX], //           address 1 and 2
+      Expiry(20, "days"), // 2 days from the 18 days above
+    );
+
+    await Claims.connect(Signer(1)).updateResolve(
+      Claim(102),
+      Side(true),
+    );
+    await Claims.connect(Signer(2)).updateResolve(
+      Claim(102),
+      Side(false),
+    );
+  }
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(21, "days")]);
+  await network.provider.send("evm_mine");
+
+  {
+    await Claims.connect(Signer(0)).updateBalance(
+      Claim(102),
+      100,
+    );
+
+    await Claims.connect(Signer(0)).updateBalance(
+      Claim(101),
+      100,
+    );
+
+    await Claims.connect(Signer(0)).updateBalance(
+      Claim(1),
+      100,
+    );
+  }
+
+  return { Address, Balance, Claims, Signer, Token };
+};
+
+export const UpdateBalanceMaxDisputeNoVotes = async () => {
+  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateProposeMaxDispute);
+
+  {
+    await Claims.connect(Signer(9)).createResolve(
+      Claim(102),
+      [0, MAX], //           address 1 and 2
+      Expiry(20, "days"), // 2 days from the 18 days above
+    );
+
+    // no votes
+  }
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(21, "days")]);
+  await network.provider.send("evm_mine");
+
+  {
+    await Claims.connect(Signer(0)).updateBalance(
+      Claim(102),
+      100,
+    );
+
+    await Claims.connect(Signer(0)).updateBalance(
+      Claim(101),
+      100,
+    );
+
+    await Claims.connect(Signer(0)).updateBalance(
+      Claim(1),
+      100,
+    );
+  }
 
   return { Address, Balance, Claims, Signer, Token };
 };
