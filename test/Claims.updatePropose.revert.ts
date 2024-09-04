@@ -144,7 +144,7 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
       });
 
-      it("if signer 1 tries to stake within last 10% expiry threshold", async function () {
+      it("if signer 1 tries to stake within last 10% expiry threshold, 7 days", async function () {
         const { Claims, Signer } = await loadFixture(CreatePropose7WeekExpiry);
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(152, "hours")]); // 6 days + 8 hours
@@ -159,13 +159,48 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
       });
 
-      it("if somebody tries to stake within last 10% expiry threshold", async function () {
+      it("if somebody tries to stake within last 10% expiry threshold, 7 days", async function () {
         const { Claims, Signer } = await loadFixture(CreatePropose7WeekExpiry);
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(153, "hours")]); // 6 days + 9 hours
         await network.provider.send("evm_mine");
 
         const txn = Claims.connect(Signer(5)).updatePropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if signer 1 tries to stake within last 7 days expiry threshold, 3 months", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1, 2, 3], 100);
+
+        await Claims.connect(Signer(2)).createPropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+          Expiry(90, "days"),
+        );
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1991, "hours")]); // 82 days + 23 hours
+        await network.provider.send("evm_mine");
+
+        await Claims.connect(Signer(1)).updatePropose(
+          Claim(1),
+          Amount(10),
+          Side(true),
+        );
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1993, "hours")]); // 83 days + 1 hour
+        await network.provider.send("evm_mine");
+
+        // By default durationMax is 7 days. Here we ensure that staking within
+        // the last 7 days fails.
+        const txn = Claims.connect(Signer(1)).updatePropose(
           Claim(1),
           Amount(10),
           Side(true),
