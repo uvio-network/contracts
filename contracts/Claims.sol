@@ -537,7 +537,7 @@ contract Claims is AccessControl {
 
             // Ensure anyone can stake up until the defined expiry threshold.
             if (_claimExpired[cla][CLAIM_EXPIRY_S] < block.timestamp) {
-                revert Expired("expiry invalid", _claimExpired[cla][CLAIM_EXPIRY_S]);
+                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_S]);
             }
 
             // Ensure that the claim being staked on does in fact exist.
