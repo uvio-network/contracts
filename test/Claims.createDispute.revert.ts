@@ -305,6 +305,25 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
       });
 
+      it("if dispute ID used as propose ID", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(ResolveDispute20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(27, "days")]);
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 50);
+
+        const txn = Claims.connect(Signer(4)).createDispute(
+          Claim(14),
+          Amount(40), // minimum in claim 1 was 20
+          Side(true),
+          Expiry(35, "days"), // 7 days from the 27 days above
+          Claim(13), // must not be previous dispute ID
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+      });
+
       it("if dispute already created, signer 4 immediately", async function () {
         const { Balance, Claims, Signer } = await loadFixture(UpdateResolve20True30False);
 
@@ -458,7 +477,7 @@ describe("Claims", function () {
           Claim(104),
           Amount(80),
           Side(true),
-          Expiry(37, "days"), // 4 days from the 33 days above
+          Expiry(25, "days"), // 4 days from the 21 days above
           Claim(1),
         );
 
