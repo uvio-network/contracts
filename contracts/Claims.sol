@@ -168,7 +168,7 @@ contract Claims is AccessControl {
     // dispute index for number of disputes in _claimMapping
     mapping(uint256 => uint256) private _claimDispute;
     //
-    mapping(uint256 => mapping(uint256 => uint256)) private _claimMapping;
+    mapping(uint256 => uint256) private _claimMapping;
     // _indexAddress tracks the user addresses that have reputation staked in
     // any given market. This mapping works in conjunction with _indexMembers.
     // The position of the user addresses are divided by side of the bet that
@@ -282,24 +282,15 @@ contract Claims is AccessControl {
     // available balance inside this Claims contract or as available balance
     // inside the relevant token contract. The given expiry must be at least 72
     // hours in the future and must not be farther in the future than 30 days
-    // from now. Disputes may be layered up to a maximum of 3 instances so that
-    // resolutions may be definitive and binding eventually. Only one dispute
-    // per disputed claim can be active at a time. Punished claims without valid
-    // resolution cannot be disputed.
-    //
-    // Note that createDispute does not guard against creating disputes on
-    // disputes directly. Meaning, createDispute does not revert if "pro" is in
-    // fact the ID of a claim with lifecycle phase "dispute". At this point the
-    // created dispute will effectively be useless, because it cannot have any
-    // effect on any outcome of any claim. It is important to call createDispute
-    // only with "pro" claim IDs that actually point to claims with lifecycle
-    // phase "propose". Below is shown how propose 33 can be challenged three
-    // times, where 101, 102 and 103 are the unique IDs of the new disputes to
-    // create.
+    // from now. Disputes may be layered up to a maximum of 2 instances on top
+    // of the original claim, so that resolutions may be definitive and binding
+    // eventually. Only one dispute per disputed claim can be active at a time.
+    // Punished claims without valid resolution cannot be disputed. Below is
+    // shown how the resolution of propose 33 can be challenged twice, where 101
+    // and 102 are the unique IDs of the new disputes to create.
     //
     //     createDispute(101, ..., ..., ..., 33)
     //     createDispute(102, ..., ..., ..., 33)
-    //     createDispute(103, ..., ..., ..., 33)
     //
     function createDispute(uint256 dis, uint256 bal, bool vot, uint256 exp, uint256 pro) public {
         if (dis == 0) {
@@ -311,20 +302,33 @@ contract Claims is AccessControl {
         }
 
         uint256 len = _claimDispute[pro];
-        if (len >= 3) {
+        if (len >= 2) {
             revert Process("dispute limit");
         }
 
+        uint256 lat = _claimMapping[pro];
         unchecked {
             uint256 min;
             uint256 xpn;
             if (len == 0) {
-                min = (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
-                xpn = _claimExpired[pro][CLAIM_EXPIRY_R];
+                // If len is zero, then it means there are no disputes recorded.
+                // If lat is not zero, then it means there is a mapping from
+                // dispute to dispute within the same tree. This inconsistency
+                // suggests that the caller made a mistake by providing a
+                // dispute ID as "pro" instead of a propose ID.
+                if (lat != 0) {
+                    revert Mapping("dispute conflict");
+                }
+
+                {
+                    min = (_stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B]);
+                    xpn = _claimExpired[pro][CLAIM_EXPIRY_R];
+                }
             } else {
-                uint256 prv = _claimMapping[pro][len - 1];
-                min = (_stakePropose[prv][CLAIM_STAKE_A] + _stakePropose[prv][CLAIM_STAKE_B]);
-                xpn = _claimExpired[prv][CLAIM_EXPIRY_R];
+                {
+                    min = (_stakePropose[lat][CLAIM_STAKE_A] + _stakePropose[lat][CLAIM_STAKE_B]);
+                    xpn = _claimExpired[lat][CLAIM_EXPIRY_R];
+                }
             }
 
             // The first dispute can only be created if the disputed claim has
@@ -368,14 +372,38 @@ contract Claims is AccessControl {
         uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
         uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
         if (!(yay > nah || yay < nah)) {
+            // TODO what happens if dispute resolution is invalid?
             revert Process("dispute invalid");
         }
 
-        // The disputed claim points to its own disputes. That way we can lookup
-        // disputes when updating user balances only having the claim ID of the
-        // original propose available.
+        // Every claim in a tree of disputes points to the latest dispute
+        // recorded in that tree. If a previous dispute was already recorded for
+        // the given propose, then this value will be overwritten by the
+        // currently provided dispute.
         {
-            _claimMapping[pro][len] = dis;
+            _claimMapping[pro] = dis;
+        }
+
+        // The exception for pointing to the latest dispute, is the latest
+        // dispute itself. Below we make it point back to the originally
+        // disputed propose, so that we can lookup the origin of the tree in
+        // updateBalance.
+        {
+            _claimMapping[dis] = pro;
+        }
+
+        // If there was a latest dispute recorded before the currently given
+        // dispute was tried to be created, then we are effectively creating a
+        // mapping from the first dispute to the second dispute.
+        if (lat != 0) {
+            _claimMapping[lat] = dis;
+        }
+
+        // Keep track of the number of disputes in this tree, so that we can
+        // enforce a maximum amount of disputes on the given propose.
+        {
+            // TODO can we get gas refunds by deleting those mappings after
+            // updateBalance?
             _claimDispute[pro]++;
         }
 
@@ -578,11 +606,22 @@ contract Claims is AccessControl {
         }
     }
 
-    // can be called by anyone
-    function updateBalance(uint256 pro, uint256 max) public {
-        if (_claimBalance[pro].get(CLAIM_BALANCE_U)) {
+    // updateBalance allows anyone to effectively distribute staked reputation
+    // according to the resolution of the underlying market provided by the
+    // claim ID "cla". This claim ID might be the ID of a propose or dispute.
+    // Every undisputed propose can be finalized using updateBalance after its
+    // own challenge window expired. Since every dispute is just another claim,
+    // their respective challenge windows must expire too, before any balances
+    // can be updated. In a tree of claims, the outcome of the last dispute is
+    // effectively applied to all claims in that tree. For markets with large
+    // amounts of participants, updateBalance may be called multiple times using
+    // "max" as the maximum amount of users processed during each call.
+    function updateBalance(uint256 cla, uint256 max) public {
+        if (_claimBalance[cla].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
         }
+
+        // TODO what happens when max is 0 ?
 
         // Lookup the amounts of votes that we have recorded on either side. It
         // may very well be that there are no votes or that we have a tied
@@ -592,11 +631,33 @@ contract Claims is AccessControl {
         uint256 yay;
         uint256 nah;
 
-        uint256 len = _claimDispute[pro];
-        if (len == 0) {
-            uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
+        // If there is no claim mapping for the given claim ID, then there is no
+        // dispute recorded that we would have to account for otherwise. If we
+        // have a valid dispute ID mapped to the given claim ID, then we need to
+        // account for the latest dispute.
+        uint256 lat = _claimMapping[cla];
+        uint256 len = _claimDispute[lat];
+        if (lat == 0) {
+            lat = cla;
+        } else {
+            if (len != 0) {
+                lat = cla;
+            } else {
+                uint256 fir = _claimMapping[lat];
+                if (fir == lat) {
+                    lat = fir;
+                } else {
+                    len = _claimDispute[fir];
+                }
+            }
+        }
 
-            //
+        {
+            uint256 exp = _claimExpired[lat][CLAIM_EXPIRY_R];
+
+            // Ensure that any resolution, whether it is the resolution of a
+            // propose or dispute, can conclude in their own right, before we
+            // allow for updating any balances.
             if (exp == 0 || exp > block.timestamp) {
                 revert Expired("resolve active", exp);
             }
@@ -605,43 +666,35 @@ contract Claims is AccessControl {
             // after the resolving claim expired, AND only after some designated
             // challenge period passed on top of the claim's expiry, only then
             // can a claim be finalized and user balances be updated.
-            if (exp + 7 days > block.timestamp) {
-                revert Expired("challenge active", exp + 7 days);
-            }
-
-            {
-                yay = _truthResolve[pro][CLAIM_TRUTH_Y];
-                nah = _truthResolve[pro][CLAIM_TRUTH_N];
-            }
-        } else {
-            uint256 dis = _claimMapping[pro][len - 1];
-            uint256 exp = _claimExpired[dis][CLAIM_EXPIRY_R];
-
             //
-            if (exp == 0 || exp > block.timestamp) {
-                revert Expired("dispute active", exp);
-            }
-
             // Similar to challenging the outcomes of the original claims with
             // lifecycle phase "propose", disputes may also be challenged.
             // Therefore we apply challenge periods to all disputes, except the
             // last ones. Once the maximum amount of disputes has been reached,
             // the final dispute is definitive and binding, meaning balances can
             // be updated immediately after the final dispute resolved.
-            if (exp + 7 days > block.timestamp && len < 3) {
-                // TODO test final disputes have no challenge period
+            if (exp + 7 days > block.timestamp && len < 2) {
                 revert Expired("challenge active", exp + 7 days);
             }
 
+            // If lat is just an undisputed propose, then we refer to its own
+            // resolution. If lat on the other hand is the latest dispute of a
+            // tree, then we overwrite the resolution of every claim in the
+            // given tree with the outcome of the latest dispute.
             {
-                yay = _truthResolve[dis][CLAIM_TRUTH_Y];
-                nah = _truthResolve[dis][CLAIM_TRUTH_N];
+                yay = _truthResolve[lat][CLAIM_TRUTH_Y];
+                nah = _truthResolve[lat][CLAIM_TRUTH_N];
             }
         }
 
-        //
-        uint256 lef = _indexMembers[pro][CLAIM_ADDRESS_N];
-        uint256 rig = _indexMembers[pro][CLAIM_ADDRESS_Y];
+        // We are processing user balances one by one, on a circle of the
+        // numerical sequence that is underlying our address indices. We go from
+        // left to right, overflowing the max uint in the process. Here lef is
+        // the latest first time staker in disagreement with the associated
+        // claim, and rig is the latest first time staker in agreement on the
+        // other side of the market.
+        uint256 lef = _indexMembers[cla][CLAIM_ADDRESS_N];
+        uint256 rig = _indexMembers[cla][CLAIM_ADDRESS_Y];
 
         //
         uint256 mnl = lef;
@@ -652,60 +705,63 @@ contract Claims is AccessControl {
 
         uint256 all = rig + (MAX_UINT256 - mnl);
 
-        //
+        // Account for any addresses that we already processed, by moving the
+        // left most pointer further to the right.
         unchecked {
-            lef += _stakePropose[pro][CLAIM_STAKE_D];
+            lef += _stakePropose[cla][CLAIM_STAKE_D];
         }
 
         //
         if (all == 1) {
             if (yay == nah) {
-                return punishOne(pro);
+                return punishOne(cla);
             } else {
-                return rewardOne(pro, yay > nah);
+                return rewardOne(cla, yay > nah);
             }
         }
 
-        uint256 toy = _stakePropose[pro][CLAIM_STAKE_Y];
-        uint256 ton = _stakePropose[pro][CLAIM_STAKE_N];
+        uint256 toy = _stakePropose[cla][CLAIM_STAKE_Y];
+        uint256 ton = _stakePropose[cla][CLAIM_STAKE_N];
         if (yay > nah || yay < nah) {
-            rewardAll(pro, lef, rig, max, toy, ton, yay > nah);
+            rewardAll(cla, lef, rig, max, toy, ton, yay > nah);
         } else {
-            punishAll(pro, lef, rig, max);
+            punishAll(cla, lef, rig, max);
         }
 
         // Only credit the proposer and the protocol once everyone else got
         // accounted for. The proposer is always the very first user, because
         // they created the claim.
-        if (_stakePropose[pro][CLAIM_STAKE_D] == all) {
+        if (_stakePropose[cla][CLAIM_STAKE_D] == all) {
             unchecked {
                 address first;
-                if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
-                    first = _indexAddress[pro][MAX_UINT256];
+                if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
+                    first = _indexAddress[cla][MAX_UINT256];
                 } else {
-                    first = _indexAddress[pro][0];
+                    first = _indexAddress[cla][0];
                 }
 
                 uint256 total = toy + ton;
                 uint256 share = (total * basisProposer) / BASIS_TOTAL;
 
                 _availBalance[first] += share;
-                _availBalance[owner] += total - (share + _stakePropose[pro][CLAIM_STAKE_C]);
+                _availBalance[owner] += total - (share + _stakePropose[cla][CLAIM_STAKE_C]);
             }
 
             {
-                _claimBalance[pro].set(CLAIM_BALANCE_U);
+                _claimBalance[cla].set(CLAIM_BALANCE_U);
             }
 
             {
-                delete _stakePropose[pro][CLAIM_STAKE_C];
-                delete _stakePropose[pro][CLAIM_STAKE_D];
+                delete _stakePropose[cla][CLAIM_STAKE_C];
+                delete _stakePropose[cla][CLAIM_STAKE_D];
             }
         }
     }
 
     function withdraw(uint256 bal) public {
         address use = msg.sender;
+
+        // TODO what happens if bal is 0?
 
         if (_availBalance[use] < bal) {
             revert Balance("insufficient funds", _availBalance[use]);
@@ -802,6 +858,7 @@ contract Claims is AccessControl {
     // All fees must be provided in basis points. Fees taken must not be greater
     // than 50%. All basis points must always sum to 10,000.
     function updateFees(uint16 fee, uint16 psr, uint16 ptc) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        // TODO make sure we can assign multiple addresses to DEFAULT_ADMIN_ROLE
         if (fee < 5_000 || fee + psr + ptc != BASIS_TOTAL) {
             revert Process("fees invalid");
         }
