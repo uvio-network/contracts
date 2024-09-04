@@ -74,12 +74,12 @@ contract Claims is AccessControl {
     // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
-    // CLAIM_EXPIRY_C is a map index within _claimExpired. This number tracks
-    // the creation timestamp of claims with lifecycle "propose" in unix
-    // seconds.
-    uint8 public constant CLAIM_EXPIRY_C = 0;
+    // CLAIM_EXPIRY_S is a map index within _claimExpired. This number tracks
+    // the timestamp in unix seconds until which staking is still possible.
+    uint8 public constant CLAIM_EXPIRY_S = 0;
     // CLAIM_EXPIRY_P is a map index within _claimExpired. This number tracks
-    // the expiry of claims with lifecycle "propose" in unix seconds.
+    // the expiry of claims with lifecycle "propose" and "dispute" in unix
+    // seconds.
     uint8 public constant CLAIM_EXPIRY_P = 1;
     // CLAIM_EXPIRY_R is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "resolve" in unix seconds.
@@ -208,9 +208,6 @@ contract Claims is AccessControl {
     // VARIABLES
     //
 
-    // basisDuration is the concluding timespan of a claim's expiry in basis
-    // points, during which staking is not allowed anymore.
-    uint16 public basisDuration = 1_000; // TODO make configurable
     // basisFee is the deducated amount of stake in basis points, from which
     // fees are subtracted already. This number is the basis for our internal
     // accounting when distributing staked tokens upon market resolution.
@@ -225,6 +222,23 @@ contract Claims is AccessControl {
     // market resolution. This is the amount that the protocol earns by
     // providing its services.
     uint16 public basisProtocol = 500;
+
+    // durationBasis is the concluding timespan of a claim's expiry in basis
+    // points, during which staking is not allowed anymore. For instance, if a
+    // claim's expiry is in 5 days, then reputation can be staked on this claim
+    // up until the last 10% of those 120 hours, which implies the last 12
+    // hours.
+    uint64 public durationBasis = 1_000;
+    // durationMax is the maximum concluding timespan of a claim's expiry in
+    // seconds, during which staking is not allowed anymore. For instance, if a
+    // claim's expiry is in 90 days, then reputation can be staked on this claim
+    // up until the last 7 days.
+    uint64 public durationMax = 7 days;
+    // durationMax is the minimum concluding timespan of a claim's expiry in
+    // seconds, during which staking is not allowed anymore. For instance, if a
+    // claim's expiry is in 24 hours, then reputation can be staked on this
+    // claim up until the last 3 hours.
+    uint64 public durationMin = 3 hours;
 
     // owner is the owner address of the privileged entity receiving protocol
     // fees.
@@ -292,7 +306,7 @@ contract Claims is AccessControl {
     //     createDispute(101, ..., ..., ..., 33)
     //     createDispute(102, ..., ..., ..., 33)
     //
-    function createDispute(uint256 dis, uint256 bal, bool vot, uint256 exp, uint256 pro) public {
+    function createDispute(uint256 dis, uint256 bal, bool vot, uint64 exp, uint256 pro) public {
         if (dis == 0) {
             revert Mapping("dispute invalid");
         }
@@ -416,8 +430,19 @@ contract Claims is AccessControl {
 
         // Set the given expiry to make the code flow below work.
         {
-            _claimExpired[dis][CLAIM_EXPIRY_C] = block.timestamp;
-            _claimExpired[dis][CLAIM_EXPIRY_P] = exp;
+            uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
+
+            if (dur > durationMax) {
+                _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMax;
+            } else if (dur < durationMin) {
+                _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMin;
+            } else {
+                _claimExpired[dis][CLAIM_EXPIRY_S] = exp - dur;
+            }
+
+            {
+                _claimExpired[dis][CLAIM_EXPIRY_P] = exp;
+            }
         }
 
         // In case this is the creation of a claim with lifecycle "propose",
@@ -442,7 +467,7 @@ contract Claims is AccessControl {
     // must own the given balance either as available balance inside this Claims
     // contract or as available balance inside the relevant token contract. The
     // given expiry must be at least 24 hours in the future.
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint256 exp) public {
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint64 exp) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
         }
@@ -462,8 +487,19 @@ contract Claims is AccessControl {
 
         // Set the given expiry to make the code flow below work.
         {
-            _claimExpired[pro][CLAIM_EXPIRY_C] = block.timestamp;
-            _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
+            uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
+
+            if (dur > durationMax) {
+                _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMax;
+            } else if (dur < durationMin) {
+                _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMin;
+            } else {
+                _claimExpired[pro][CLAIM_EXPIRY_S] = exp - dur;
+            }
+
+            {
+                _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
+            }
         }
 
         // In case this is the creation of a claim with lifecycle "propose",
@@ -500,17 +536,15 @@ contract Claims is AccessControl {
             }
 
             // Ensure anyone can stake up until the defined expiry threshold.
-            uint256 sta = _claimExpired[cla][CLAIM_EXPIRY_C];
-            uint256 end = _claimExpired[cla][CLAIM_EXPIRY_P];
-            if (end - (((end - sta) * basisDuration) / BASIS_TOTAL) < block.timestamp) {
-                revert Expired("expiry invalid", end - (((end - sta) * basisDuration) / BASIS_TOTAL));
+            if (_claimExpired[cla][CLAIM_EXPIRY_S] < block.timestamp) {
+                revert Expired("expiry invalid", _claimExpired[cla][CLAIM_EXPIRY_S]);
             }
 
-            // Ensure the claim that is being staked on does in fact exist. Var
-            // end here refers to the claim expiry tracked under CLAIM_EXPIRY_P,
-            // which is the propose expiry. Only valid claims have a valid
-            // expiry, and that cannot be zero.
-            if (end == 0) {
+            // Ensure that the claim being staked on does in fact exist.
+            // CLAIM_EXPIRY_P is the propose expiry. Only valid claims have a
+            // valid expiry, and so if it is zero, then the given claim does not
+            // exist.
+            if (_claimExpired[cla][CLAIM_EXPIRY_P] == 0) {
                 revert Mapping("claim invalid");
             }
 
@@ -779,7 +813,13 @@ contract Claims is AccessControl {
     //
 
     // must be called by some privileged bot
-    function createResolve(uint256 pro, uint256[] calldata ind, uint256 exp) public onlyRole(BOT_ROLE) {
+    function createResolve(uint256 pro, uint256[] calldata ind, uint256 exp) public {
+        // Inlining the role check instead of using the modifier saves about 140
+        // gas per call.
+        if (!hasRole(BOT_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
+        }
+
         uint256 cep = _claimExpired[pro][CLAIM_EXPIRY_P];
 
         if (cep == 0) {
@@ -852,10 +892,34 @@ contract Claims is AccessControl {
         }
     }
 
+    function updateDuration(uint64 bas, uint64 max, uint64 min) public {
+        // Inlining the role check instead of using the modifier saves about 140
+        // gas per call.
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+
+        if (bas == 0 || bas > 5_000) {
+            revert Process("duration invalid");
+        }
+
+        {
+            durationBasis = bas;
+            durationMax = max;
+            durationMin = min;
+        }
+    }
+
     // updateFees allows the owner to change the fee structure of this contract.
     // All fees must be provided in basis points. Fees taken must not be greater
     // than 50%. All basis points must always sum to 10,000.
-    function updateFees(uint16 fee, uint16 psr, uint16 ptc) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function updateFees(uint16 fee, uint16 psr, uint16 ptc) public {
+        // Inlining the role check instead of using the modifier saves about 140
+        // gas per call.
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+
         if (fee < 5_000 || fee + psr + ptc != BASIS_TOTAL) {
             revert Process("fees invalid");
         }
