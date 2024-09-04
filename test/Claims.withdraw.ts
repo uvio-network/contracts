@@ -10,6 +10,32 @@ import { UpdateBalance70True115False } from "./src/Deploy";
 describe("Claims", function () {
   describe("withdraw", function () {
     describe("25 true", function () {
+      it("should not have any effect if balance is empty", async function () {
+        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance25True);
+
+        {
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(25.00)); // available
+        }
+
+        {
+          expect(await Token.balanceOf(Address(1))).to.equal(0);
+
+          await Claims.connect(Signer(1)).withdraw(0);
+
+          expect(await Token.balanceOf(Address(1))).to.equal(0);
+        }
+
+        {
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(25.00)); // available
+        }
+      });
+
       it("should allow signer 1 to withdraw 25 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance25True);
 
@@ -73,6 +99,32 @@ describe("Claims", function () {
     });
 
     describe("20 true 30 false", function () {
+      it("should not have any effect if balance is empty", async function () {
+        const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance20True30False);
+
+        {
+          const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(22.50)); // available
+        }
+
+        {
+          expect(await Token.balanceOf(Address(2))).to.equal(0);
+
+          await Claims.connect(Signer(2)).withdraw(0);
+
+          expect(await Token.balanceOf(Address(2))).to.equal(0);
+        }
+
+        {
+          const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(22.50)); // available
+        }
+      });
+
       it("should allow signer 0 to withdraw 2.50 tokens once", async function () {
         const { Address, Claims, Signer, Token } = await loadFixture(UpdateBalance20True30False);
 

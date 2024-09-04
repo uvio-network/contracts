@@ -157,6 +157,31 @@ describe("Claims", function () {
           await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
         }
       });
+
+      it("if max empty", async function () {
+        const { Claims, Signer } = await loadFixture(ResolveDispute20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(29, "days")]);
+        await network.provider.send("evm_mine");
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(1),
+            0,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).updateBalance(
+            Claim(13),
+            0,
+          );
+
+          await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
+        }
+      });
     });
   });
 });
