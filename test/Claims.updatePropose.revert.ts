@@ -186,7 +186,7 @@ describe("Claims", function () {
           Expiry(90, "days"),
         );
 
-        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1992, "hours")]); // 83 days
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1991, "hours")]); // 82 days + 23 hours
         await network.provider.send("evm_mine");
 
         await Claims.connect(Signer(1)).updatePropose(
