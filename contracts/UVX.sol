@@ -78,13 +78,11 @@ contract UVX is AccessControlEnumerable, ERC20 {
         // guards at least against EOAs, so that it is not possible anymore to
         // confuse the owner address with the token address.
         {
-            // TODO test
             IERC20(tok).totalSupply();
         }
 
         {
             _grantRole(DEFAULT_ADMIN_ROLE, own);
-            // TODO test that token role is granted to the given token, but not to others
             _grantRole(TOKEN_ROLE, tok);
         }
 
@@ -174,12 +172,10 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // address, to the extend of the given balance amount.
     function mint(address dst, uint256 bal) public {
         if (!hasRole(BOT_ROLE, msg.sender)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
         {
-            // TODO test
             _mint(dst, bal);
         }
     }

@@ -45,7 +45,7 @@ export const Deploy = async () => {
       return sig[ind];
     },
     Stablecoin: Stablecoin,
-    Token: UVX,
+    UVX: UVX,
   };
 };
 
@@ -255,7 +255,7 @@ export const CreatePropose16Expired = async () => {
 };
 
 export const ResolveDispute20True30False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateDispute20True30False);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateDispute20True30False);
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(15, "days")]);
   await network.provider.send("evm_mine");
@@ -287,11 +287,11 @@ export const ResolveDispute20True30False = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(23, "days")]);
   await network.provider.send("evm_mine");
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalance25True = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1], 25);
 
@@ -326,11 +326,11 @@ export const UpdateBalance25True = async () => {
     100,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalance25TrueNoVote = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1], 25);
 
@@ -362,11 +362,11 @@ export const UpdateBalance25TrueNoVote = async () => {
     100,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalance25False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1], 25);
 
@@ -401,11 +401,11 @@ export const UpdateBalance25False = async () => {
     100,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalance20True30False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolve20True30False);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolve20True30False);
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge period
   await network.provider.send("evm_mine");
@@ -415,11 +415,11 @@ export const UpdateBalance20True30False = async () => {
     100,
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalance30True20False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2, 3, 4, 5], 10);
 
@@ -485,11 +485,11 @@ export const UpdateBalance30True20False = async () => {
     2,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalance70True115False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2, 3, 4, 5, 6, 7, 8], 50);
 
@@ -581,11 +581,11 @@ export const UpdateBalance70True115False = async () => {
     5,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalance12TTrue46MFalse = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2, 3, 4, 5, 6, 7, 8], 10_000_000_000_000);
 
@@ -666,11 +666,11 @@ export const UpdateBalance12TTrue46MFalse = async () => {
     100,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalancePunishNoVotes = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolvePunishNoVotes);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolvePunishNoVotes);
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
   await network.provider.send("evm_mine");
@@ -680,11 +680,11 @@ export const UpdateBalancePunishNoVotes = async () => {
     100,
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalancePunishEqualVotes = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolvePunishEqualVotes);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolvePunishEqualVotes);
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
   await network.provider.send("evm_mine");
@@ -699,11 +699,11 @@ export const UpdateBalancePunishEqualVotes = async () => {
     2,
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalanceBoth22True33False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1], 100);
 
@@ -759,11 +759,11 @@ export const UpdateBalanceBoth22True33False = async () => {
     100,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateBalanceBoth44True17False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1], 100);
 
@@ -809,11 +809,11 @@ export const UpdateBalanceBoth44True17False = async () => {
     1,
   );
 
-  return { Address, Claims, Signer, Token };
+  return { Address, Claims, Signer, UVX };
 };
 
 export const UpdateDispute20True30False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolve20True30False);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolve20True30False);
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
   await network.provider.send("evm_mine");
@@ -918,11 +918,11 @@ export const UpdateDispute20True30False = async () => {
     Side(true),
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateResolve20True30False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2, 3, 4, 5], 10);
 
@@ -975,11 +975,11 @@ export const UpdateResolve20True30False = async () => {
     Side(true),
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateResolvePunishNoVotes = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2, 3, 4, 5], 10);
 
@@ -1024,11 +1024,11 @@ export const UpdateResolvePunishNoVotes = async () => {
 
   // no votes cast
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateResolvePunishEqualVotes = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2, 3, 4, 5], 50);
 
@@ -1101,7 +1101,7 @@ export const UpdateResolvePunishEqualVotes = async () => {
     Side(false),
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 // Here we show that the balances calculated change according to the flipped
@@ -1109,7 +1109,7 @@ export const UpdateResolvePunishEqualVotes = async () => {
 // in test/Claims.updateBalance.reward.ts where we use the fixture
 // UpdateBalance20True30False.
 export const UpdateDisputedBalance20True30False = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(ResolveDispute20True30False);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(ResolveDispute20True30False);
 
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(29, "days")]);
   await network.provider.send("evm_mine");
@@ -1124,11 +1124,11 @@ export const UpdateDisputedBalance20True30False = async () => {
     100,
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateProposeMaxDispute = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
   await Balance([1, 2], 500);
   await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
@@ -1241,11 +1241,11 @@ export const UpdateProposeMaxDispute = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(18, "days")]);
   await network.provider.send("evm_mine");
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateResolveMaxDispute = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateProposeMaxDispute);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateProposeMaxDispute);
 
   {
     await Claims.connect(Signer(9)).createResolve(
@@ -1267,11 +1267,11 @@ export const UpdateResolveMaxDispute = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(21, "days")]);
   await network.provider.send("evm_mine");
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalanceMaxDispute = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateResolveMaxDispute);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolveMaxDispute);
 
   await Claims.connect(Signer(0)).updateBalance(
     Claim(102),
@@ -1288,11 +1288,11 @@ export const UpdateBalanceMaxDispute = async () => {
     100,
   );
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalanceMaxDisputeEqualVotes = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateProposeMaxDispute);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateProposeMaxDispute);
 
   {
     await Claims.connect(Signer(9)).createResolve(
@@ -1331,11 +1331,11 @@ export const UpdateBalanceMaxDisputeEqualVotes = async () => {
     );
   }
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };
 
 export const UpdateBalanceMaxDisputeNoVotes = async () => {
-  const { Address, Balance, Claims, Signer, Token } = await loadFixture(UpdateProposeMaxDispute);
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateProposeMaxDispute);
 
   {
     await Claims.connect(Signer(9)).createResolve(
@@ -1367,5 +1367,5 @@ export const UpdateBalanceMaxDisputeNoVotes = async () => {
     );
   }
 
-  return { Address, Balance, Claims, Signer, Token };
+  return { Address, Balance, Claims, Signer, UVX };
 };

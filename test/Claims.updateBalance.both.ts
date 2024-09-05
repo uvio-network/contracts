@@ -39,9 +39,9 @@ describe("Claims", function () {
         });
 
         it("should result in the Claims contract owning 55 tokens", async function () {
-          const { Claims, Token } = await loadFixture(UpdateBalanceBoth22True33False);
+          const { Claims, UVX } = await loadFixture(UpdateBalanceBoth22True33False);
 
-          expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(55));
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(55));
         });
 
         it("should calculate balances accurately for signer 0", async function () {
@@ -94,9 +94,9 @@ describe("Claims", function () {
         });
 
         it("should result in the Claims contract owning 61 tokens", async function () {
-          const { Claims, Token } = await loadFixture(UpdateBalanceBoth44True17False);
+          const { Claims, UVX } = await loadFixture(UpdateBalanceBoth44True17False);
 
-          expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(61));
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(61));
         });
 
         it("should calculate balances accurately for signer 0", async function () {

@@ -22,7 +22,7 @@ describe("Claims", function () {
     describe("punish", function () {
       describe("25 true", function () {
         const updateResolve = async () => {
-          const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+          const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
           await Balance([1], 25);
 
@@ -49,11 +49,11 @@ describe("Claims", function () {
             Side(false),
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         const updateBalance = async () => {
-          const { Address, Claims, Signer, Token } = await loadFixture(updateResolve);
+          const { Address, Claims, Signer, UVX } = await loadFixture(updateResolve);
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
@@ -63,7 +63,7 @@ describe("Claims", function () {
             1,
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         it("should record all votes", async function () {
@@ -122,7 +122,7 @@ describe("Claims", function () {
 
       describe("25 false", function () {
         const updateResolve = async () => {
-          const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+          const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
           await Balance([1], 25);
 
@@ -149,11 +149,11 @@ describe("Claims", function () {
             Side(true),
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         const updateBalance = async () => {
-          const { Address, Claims, Signer, Token } = await loadFixture(updateResolve);
+          const { Address, Claims, Signer, UVX } = await loadFixture(updateResolve);
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
@@ -163,7 +163,7 @@ describe("Claims", function () {
             1,
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         it("should record all votes", async function () {
@@ -540,9 +540,9 @@ describe("Claims", function () {
         });
 
         it("should result in the Claims contract owning 90 tokens", async function () {
-          const { Claims, Token } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
+          const { Claims, UVX } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
 
-          expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(90));
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(90));
         });
 
         it("should calculate balances accurately for signer 0", async function () {
@@ -648,9 +648,9 @@ describe("Claims", function () {
         });
 
         it("should result in the Claims contract owning 90 tokens", async function () {
-          const { Claims, Token } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
+          const { Claims, UVX } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
 
-          expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(90));
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(90));
         });
 
         it("should calculate balances accurately for signer 0", async function () {

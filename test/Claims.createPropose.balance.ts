@@ -16,7 +16,7 @@ describe("Claims", function () {
   describe("createPropose", function () {
     describe("balance", function () {
       const updateBalance = async () => {
-        const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
         await Balance([1, 3], 50);
 
@@ -83,9 +83,9 @@ describe("Claims", function () {
           expect(res[1]).to.equal(0); // available (being wrong)
         }
 
-        expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(100));
+        expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(100));
 
-        return { Address, Balance, Claims, Signer, Token };
+        return { Address, Balance, Claims, Signer, UVX };
       }
 
       it("should use 30 tokens of the available balance without token transfer", async function () {
@@ -121,7 +121,7 @@ describe("Claims", function () {
       });
 
       it("should require token transfer without sufficient available balance", async function () {
-        const { Address, Balance, Claims, Signer, Token } = await loadFixture(updateBalance);
+        const { Address, Balance, Claims, Signer, UVX } = await loadFixture(updateBalance);
 
         // Signer 1 has 95 available tokens. Staking 96 tokens should fail on
         // the token contract level, because the token transfer reverts.
@@ -133,12 +133,12 @@ describe("Claims", function () {
             Expiry(16, "days"),
           );
 
-          await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
+          await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
         }
 
         // Make sure the user has no token balance right now.
         {
-          expect(await Token.balanceOf(Address(1))).to.equal(0);
+          expect(await UVX.balanceOf(Address(1))).to.equal(0);
         }
 
         // Mint and allow for the missing token.
@@ -148,7 +148,7 @@ describe("Claims", function () {
 
         // Make sure the user got their 1 additional token.
         {
-          expect(await Token.balanceOf(Address(1))).to.equal(Amount(1));
+          expect(await UVX.balanceOf(Address(1))).to.equal(Amount(1));
         }
 
         await Claims.connect(Signer(1)).createPropose(
@@ -161,14 +161,14 @@ describe("Claims", function () {
         // Make sure the user has no token balance anymore, because it was sent
         // to the Claims contract.
         {
-          expect(await Token.balanceOf(Address(1))).to.equal(0);
+          expect(await UVX.balanceOf(Address(1))).to.equal(0);
         }
 
         // The protocol has 5 tokens available, earned as fees. The user has now
         // 96 tokens available after proposing the claim above. The Claims
         // contract itself should now own 101 tokens.
         {
-          expect(await Token.balanceOf(await Claims.getAddress())).to.equal(Amount(101));
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(101));
         }
 
         {
