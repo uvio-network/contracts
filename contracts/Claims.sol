@@ -6,7 +6,7 @@ import {Bits} from "./lib/Bits.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // Uncomment this line to use console.log
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract Claims is AccessControlEnumerable {
     //
