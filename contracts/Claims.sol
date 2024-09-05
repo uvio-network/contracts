@@ -49,10 +49,11 @@ contract Claims is AccessControlEnumerable {
     uint16 public constant BASIS_TOTAL = 10_000;
 
     // BOT_ROLE is the role assigned internally to designate privileged accounts
-    // with the purpose of automating certain on behalf of the users. The goal
-    // for this automation is to enhance the user experience on the platform, by
-    // ensuring certain chores are done throughout the claim lifecycle without
-    // bothering any user with it.
+    // with the purpose of automating certain tasks on behalf of the users. The
+    // goal for this automation is to enhance the user experience on the
+    // platform, by ensuring certain chores are done throughout the claim
+    // lifecycle without bothering any user with it, nor allowing malicious
+    // actors to exploit the system.
     bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
 
     // CLAIM_ADDRESS_Y is a map index within _indexMembers. This number tracks
@@ -279,10 +280,11 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
-    //
+    // receive is a no-op fallback to prevent any ETH to be sent to this
+    // contract.
     receive() external payable {
         if (msg.value != 0) {
-            revert Balance("invalid token", 0);
+            revert Balance("invalid transfer", msg.value);
         }
     }
 
@@ -833,7 +835,8 @@ contract Claims is AccessControlEnumerable {
     // PUBLIC PRIVILEGED
     //
 
-    // must be called by some privileged bot
+    // createResolve must be called by the privileged BOT_ROLE in order to
+    // initiate the random truth sampling process onchain.
     function createResolve(uint256 pro, uint256[] calldata ind, uint256 exp) public {
         // Inlining the role check instead of using the modifier saves about 140
         // gas per call.
