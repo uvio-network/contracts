@@ -11,21 +11,42 @@ contract UVX is AccessControlEnumerable, ERC20 {
 
     //
     error Address(string why);
+    //
+    error Balance(string why, uint256 bal);
+    //
+    error Process(string why);
 
     //
     // CONSTANTS
     //
 
-    //
+    // BOT_ROLE is the role assigned internally to designate privileged accounts
+    // with the purpose of automating certain tasks on behalf of the users. The
+    // goal for this automation is to enhance the user experience on the
+    // platform, by ensuring certain chores are done throughout the token
+    // lifecycle without bothering any user with it, nor allowing malicious
+    // actors to exploit the system.
     bytes32 public constant BOT_ROLE = keccak256("BOT_ROLE");
-    //
+    // CONTRACT_ROLE is the role assigned internally to designate smart
+    // contracts with the purpose of allowing token transfers from and to those
+    // addresses only, as long as token transferability is restricted. As soon
+    // as "restricted" is set to false, the CONTRACT_ROLE has no effect anymore.
     bytes32 public constant CONTRACT_ROLE = keccak256("CONTRACT_ROLE");
-    //
+    // TOKEN_ROLE is the role assigned internally to designate token contracts
+    // with the purpose of allowing the UVX token to be purchased and redeemed
+    // using those tokens having the TOKEN_ROLE assigned.
     bytes32 public constant TOKEN_ROLE = keccak256("TOKEN_ROLE");
+
+    // VERSION is the code release of https://github.com/uvio-network/contracts.
+    string public constant VERSION = "v0.0.0";
 
     //
     // VARIABLES
     //
+
+    // owner is the owner address of the privileged entity being able to remove
+    // all limitations of token transferability.
+    address public owner;
 
     // restricted ensures that UVX tokens cannot be transferred to unauthorized
     // accounts, as long as it is set to true. Once restricted is set to false,
@@ -33,13 +54,15 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // Further, if restricted is set to false, it cannot be set back to true
     // again. That property makes restricted a kill switch for unrestricted
     // transferability.
-    bool public restricted = true; // TODO implement kill switch
+    bool public restricted = true;
 
     //
     // BUILTIN
     //
 
-    //
+    // constructor initializes an instance of the UVX contract by assigning the
+    // TOKEN_ROLE to the first token contract. The given owner address will be
+    // able to modify the restricted flag and designate the BOT_ROLE.
     constructor(address own, address tok) ERC20("Uvio Network Token", "UVX") {
         if (own == address(0)) {
             revert Address("invalid owner");
@@ -53,11 +76,61 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _grantRole(DEFAULT_ADMIN_ROLE, own);
             _grantRole(TOKEN_ROLE, tok);
         }
+
+        {
+            owner = own;
+        }
     }
+
+    // receive is a no-op fallback to prevent any ETH to be sent to this
+    // contract.
+    receive() external payable {
+        if (msg.value != 0) {
+            revert Balance("invalid transfer", msg.value);
+        }
+    }
+
+    //
+    // PUBLIC
+    //
+
+    //
+    function fund(address tok, uint256 bal) public {
+        // TODO implement token funding to support UVX redemptions in burn()
+    }
+
+    function transfer(address to, uint256 bal) public override returns (bool) {
+        if (restricted && !hasRole(CONTRACT_ROLE, msg.sender) && !hasRole(CONTRACT_ROLE, to)) {
+            // TODO test
+            revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
+        }
+
+        {
+            // TODO test
+            return super.transfer(to, bal);
+        }
+    }
+
+    function transferFrom(address src, address dst, uint256 bal) public override returns (bool) {
+        if (restricted && !hasRole(CONTRACT_ROLE, src) && !hasRole(CONTRACT_ROLE, dst)) {
+            // TODO test
+            revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
+        }
+
+        {
+            // TODO test
+            return super.transferFrom(src, dst, bal);
+        }
+    }
+
+    //
+    // PUBLIC PRIVILEGED
+    //
 
     // burn the given balance amount from the given source address.
     function burn(address tok, address src, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
+            // TODO test
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
@@ -68,13 +141,10 @@ contract UVX is AccessControlEnumerable, ERC20 {
         }
     }
 
-    function fund(address tok, uint256 bal) public {
-        // TODO implement token funding to support UVX redemptions in burn()
-    }
-
     // mint the given balance amount to the given destination address.
     function mint(address dst, uint256 bal) public {
         if (!hasRole(BOT_ROLE, msg.sender)) {
+            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
@@ -85,6 +155,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
 
     function sell(address tok, address dst, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
+            // TODO test
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
@@ -95,23 +166,44 @@ contract UVX is AccessControlEnumerable, ERC20 {
         }
     }
 
-    function transfer(address to, uint256 bal) public override returns (bool) {
-        if (restricted && !hasRole(CONTRACT_ROLE, msg.sender) && !hasRole(CONTRACT_ROLE, to)) {
-            revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
+    // updateOwner allows the owner to transfer ownership to another address.
+    // The new address "own" must not be the zero address, and it must not be
+    // the current owner.
+    function updateOwner(address own) public {
+        // Inlining the role check instead of using the modifier saves about 140
+        // gas per call.
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+
+        if (own == address(0) || own == owner) {
+            revert Process("owner invalid");
         }
 
         {
-            return super.transfer(to, bal);
+            _revokeRole(DEFAULT_ADMIN_ROLE, owner);
+            _grantRole(DEFAULT_ADMIN_ROLE, own);
+        }
+
+        {
+            owner = own;
         }
     }
 
-    function transferFrom(address src, address dst, uint256 bal) public override returns (bool) {
-        if (restricted && !hasRole(CONTRACT_ROLE, src) && !hasRole(CONTRACT_ROLE, dst)) {
-            revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
+    // updateRestricted can be called once by the owner in order to remove all
+    // limitations of token transferability. Once those transfer limitations are
+    // removed, they cannot be put back in place.
+    function updateRestricted() public {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+
+        if (restricted == false) {
+            revert Process("already updated");
         }
 
         {
-            return super.transferFrom(src, dst, bal);
+            restricted = false;
         }
     }
 }

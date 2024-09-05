@@ -139,5 +139,23 @@ describe("Claims", function () {
         expect(await Claims.hasRole(Role("BOT_ROLE"), Address(9))).to.equal(false);
       }
     });
+
+    it("should revoke DEFAULT_ADMIN_ROLE forever", async function () {
+      const { Address, Claims, Signer } = await loadFixture(Deploy);
+
+      // Signer 0 is the only owner.
+      {
+        expect(await Claims.getRoleMemberCount(Role("DEFAULT_ADMIN_ROLE"))).to.equal(1);
+      }
+
+      {
+        await Claims.connect(Signer(0)).revokeRole(Role("DEFAULT_ADMIN_ROLE"), Address(0));
+      }
+
+      // There is no owner anymore.
+      {
+        expect(await Claims.getRoleMemberCount(Role("DEFAULT_ADMIN_ROLE"))).to.equal(0);
+      }
+    });
   });
 });
