@@ -7,7 +7,7 @@ describe("UVX", function () {
   describe("receive", function () {
     describe("revert", function () {
       it("if sending ETH to UVX contract", async function () {
-        const { UVX, Signer } = await loadFixture(Deploy);
+        const { Signer, UVX } = await loadFixture(Deploy);
 
         const txn = Signer(0).sendTransaction({
           to: await UVX.getAddress(),

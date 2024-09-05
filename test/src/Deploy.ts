@@ -18,21 +18,21 @@ export const Deploy = async () => {
   const UVX = await ethers.deployContract("UVX", [sig[0].address, await Stablecoin.getAddress()]);
   const Claims = await ethers.deployContract("Claims", [sig[0].address, await UVX.getAddress()]);
 
+  const add = await Claims.getAddress();
+
   // We grant the BOT_ROLE to the default signer, so that we can simply mint
   // tokens for test users.
   await UVX.grantRole(Role("BOT_ROLE"), sig[0].address);
 
   // We grant the CONTRACT_ROLE to the Claims contract, so that UVX tokens can
   // be transferred to and from the Claims contract.
-  await UVX.grantRole(Role("CONTRACT_ROLE"), await Claims.getAddress());
+  await UVX.grantRole(Role("CONTRACT_ROLE"), add);
 
   return {
     Address: (ind: number): Address => {
       return sig[ind].address as Address;
     },
     Balance: async (ind: number[], amn: number | number[]) => {
-      const add = await Claims.getAddress();
-
       await Promise.all(ind.map(async (x, i) => {
         const val = Amount(Array.isArray(amn) ? amn[i] : amn);
 

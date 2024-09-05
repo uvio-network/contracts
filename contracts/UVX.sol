@@ -105,29 +105,36 @@ contract UVX is AccessControlEnumerable, ERC20 {
 
     //
     function fund(address tok, uint256 bal) public {
+        if (!hasRole(TOKEN_ROLE, tok)) {
+            // TODO test
+            revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
+        }
+
         // TODO implement token funding to support UVX redemptions in burn()
+
+        // Send the given tokens from the caller to this contract.
+        if (!IERC20(tok).transferFrom(msg.sender, address(this), bal)) {
+            // TODO test
+            revert Balance("transfer failed", bal);
+        }
     }
 
     function transfer(address to, uint256 bal) public override returns (bool) {
         if (restrict && !hasRole(CONTRACT_ROLE, msg.sender) && !hasRole(CONTRACT_ROLE, to)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
         }
 
         {
-            // TODO test
             return super.transfer(to, bal);
         }
     }
 
     function transferFrom(address src, address dst, uint256 bal) public override returns (bool) {
         if (restrict && !hasRole(CONTRACT_ROLE, src) && !hasRole(CONTRACT_ROLE, dst)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
         }
 
         {
-            // TODO test
             return super.transferFrom(src, dst, bal);
         }
     }
