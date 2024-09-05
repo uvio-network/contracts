@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import {Bits} from "./lib/Bits.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-contract Claims is AccessControl {
+contract Claims is AccessControlEnumerable {
     //
     // EXTENSIONS
     //
@@ -122,6 +122,9 @@ contract Claims is AccessControl {
     // use this mid point to identify on which sides our indices are along the
     // integer sequence.
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
+
+    // VERSION is the code release of https://github.com/uvio-network/contracts.
+    string public constant VERSION = "v0.0.0";
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
     // users who expressed their opinions by staking in agreement with the
@@ -242,37 +245,37 @@ contract Claims is AccessControl {
 
     // owner is the owner address of the privileged entity receiving protocol
     // fees.
-    address public owner = address(0);
+    address public owner;
     // token is the token address for this instance of the deployed contract.
     // That means every deployed contract is only responsible for serving claims
     // denominated in any given token address.
-    address public immutable token = address(0);
+    address public immutable token;
+
+    //
+    // BUILTIN
+    //
 
     // constructor initializes an instance of the Claims contract by setting the
     // provided token address, which is immutable, meaning any Claims instance
     // will only ever use a single token. Multiple instances may be deployed to
     // support multiple tokens across the platform. The given owner address will
     // be able to modify the fee structure and designate the BOT_ROLE.
-    constructor(address tok, address own) {
-        if (tok == address(0)) {
-            revert Address("invalid token");
-        }
-
+    constructor(address own, address tok) {
         if (own == address(0)) {
             revert Address("invalid owner");
         }
 
-        if (!IERC20(tok).approve(address(this), type(uint256).max)) {
-            revert Balance("approval failed", type(uint256).max);
+        if (tok == address(0)) {
+            revert Address("invalid token");
+        }
+
+        {
+            _grantRole(DEFAULT_ADMIN_ROLE, own);
         }
 
         {
             owner = own;
             token = tok;
-        }
-
-        {
-            _grantRole(DEFAULT_ADMIN_ROLE, own);
         }
     }
 
@@ -647,7 +650,21 @@ contract Claims is AccessControl {
     // effectively applied to all claims in that tree. For markets with large
     // amounts of participants, updateBalance may be called multiple times using
     // "max" as the maximum amount of users processed at a time. "max" must not
-    // be zero.
+    // be zero. updateBalance can be iteratively called until searchResolve
+    // returns true when being called with CLAIM_BALANCE_U.
+    //
+    //     updateBalance(33, 5)
+    //
+    //     searchResolve(33, CLAIM_BALANCE_U) => false
+    //
+    //     updateBalance(33, 5)
+    //
+    //     searchResolve(33, CLAIM_BALANCE_U) => false
+    //
+    //     updateBalance(33, 5)
+    //
+    //     searchResolve(33, CLAIM_BALANCE_U) => true
+    //
     function updateBalance(uint256 cla, uint256 max) public {
         if (_claimBalance[cla].get(CLAIM_BALANCE_U)) {
             revert Process("already updated");
@@ -803,6 +820,10 @@ contract Claims is AccessControl {
             _availBalance[use] -= bal;
         }
 
+        if (!IERC20(token).approve(address(this), bal)) {
+            revert Balance("approval failed", bal);
+        }
+
         if (!IERC20(token).transferFrom(address(this), use, bal)) {
             revert Balance("transfer failed", bal);
         }
@@ -928,6 +949,30 @@ contract Claims is AccessControl {
             basisFee = fee;
             basisProposer = psr;
             basisProtocol = ptc;
+        }
+    }
+
+    // updateOwner allows the owner to transfer ownership to another address.
+    // The new address "own" must not be the zero address, and it must not be
+    // the current owner.
+    function updateOwner(address own) public {
+        // Inlining the role check instead of using the modifier saves about 140
+        // gas per call.
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+
+        if (own == address(0) || own == owner) {
+            revert Process("owner invalid");
+        }
+
+        {
+            _revokeRole(DEFAULT_ADMIN_ROLE, owner);
+            _grantRole(DEFAULT_ADMIN_ROLE, own);
+        }
+
+        {
+            owner = own;
         }
     }
 
@@ -1338,7 +1383,24 @@ contract Claims is AccessControl {
         );
     }
 
-    // can be called by anyone, may not return anything
+    // searchResolve can be called by anyone to check for the current claim
+    // status. The first parameter "pro" must be the ID of a claim with
+    // lifecycle phase "propose". The second parameter "ind" must be one of the
+    // following available indices.
+    //
+    //     CLAIM_BALANCE_P to check whether the given claim resolved in punishing users
+    //
+    //     CLAIM_BALANCE_R to check whether the given claim resolved in rewarding users
+    //
+    //     CLAIM_BALANCE_U to check whether the given claim finalized by updating user balances
+    //
+    // The example call below shows whether propose 33 concluded by returning
+    // either true or false. Once true is returned, claim 33 will be finalized
+    // and cannot change anymore. That also means claim 33 cannot be disputed
+    // anymore, since its resolution has become definitive and binding.
+    //
+    //     searchResolve(33, CLAIM_BALANCE_U)
+    //
     function searchResolve(uint256 pro, uint8 ind) public view returns (bool) {
         return _claimBalance[pro].get(ind);
     }

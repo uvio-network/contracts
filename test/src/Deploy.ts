@@ -14,8 +14,17 @@ const MAX = maxUint256;
 export const Deploy = async () => {
   const sig = await ethers.getSigners();
 
-  const tok = await ethers.deployContract("Token");
-  const cla = await ethers.deployContract("Claims", [await tok.getAddress(), sig[0].address]);
+  const stb = await ethers.deployContract("Stablecoin");
+  const uvx = await ethers.deployContract("UVX", [sig[0].address, await stb.getAddress()]);
+  const cla = await ethers.deployContract("Claims", [sig[0].address, await uvx.getAddress()]);
+
+  // We grant the BOT_ROLE to the default signer, so that we can simply mint
+  // tokens for test users.
+  await uvx.grantRole(Role("BOT_ROLE"), sig[0].address);
+
+  // We grant the CONTRACT_ROLE to the Claims contract, so that UVX tokens can
+  // be transferred to and from the Claims contract.
+  await uvx.grantRole(Role("CONTRACT_ROLE"), await cla.getAddress());
 
   return {
     Address: (ind: number): Address => {
@@ -27,15 +36,15 @@ export const Deploy = async () => {
       await Promise.all(ind.map(async (x, i) => {
         const val = Amount(Array.isArray(amn) ? amn[i] : amn);
 
-        await tok.mint(sig[x].address, val);
-        await tok.connect(sig[x]).approve(add, val);
+        await uvx.mint(sig[x].address, val);
+        await uvx.connect(sig[x]).approve(add, val);
       }));
     },
     Claims: cla,
     Signer: (ind: number) => {
       return sig[ind];
     },
-    Token: tok,
+    Token: uvx,
   };
 };
 
