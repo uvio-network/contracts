@@ -44,9 +44,21 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // VARIABLES
     //
 
+    // freeze ensures that no tokens can be minted anymore without providing
+    // payment in return. That means, if freeze will eventually be true, then
+    // mint() will become disabled, while sell() will remain functional.
+    // Further, if freeze is set to true, it cannot be set back to false again.
+    // That property makes freeze a kill switch for dilluting the UVX total
+    // supply.
+    bool public freeze = false;
+
     // owner is the owner address of the privileged entity being able to remove
     // all limitations of token transferability.
     address public owner;
+
+    // outstanding tracks the amount of UVX tokens that cannot yet be fully
+    // redeemed by the equivalent amount of whitelisted tokens.
+    uint256 public outstanding;
 
     // restrict ensures that UVX tokens cannot be transferred to unauthorized
     // accounts, as long as it is set to true. Once restrict is set to false,
@@ -103,18 +115,20 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // PUBLIC
     //
 
-    //
+    // fund allows anyone to send any amount of whitelisted tokens to this
+    // contract. The purpose of fund is to allow platform revenue to be posted
+    // here, so that all outstanding UVX can be redeemed eventually.
     function fund(address tok, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
-        // TODO implement token funding to support UVX redemptions in burn()
+        {
+            outstanding -= bal;
+        }
 
         // Send the given tokens from the caller to this contract.
         if (!IERC20(tok).transferFrom(msg.sender, address(this), bal)) {
-            // TODO test
             revert Balance("transfer failed", bal);
         }
     }
@@ -152,7 +166,14 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
+        // Remove the given UVX balance from the total supply.
+        {
+            // TODO test
+            _burn(msg.sender, bal);
+        }
+
         if (!IERC20(tok).approve(address(this), bal)) {
+            // TODO test
             revert Balance("approval failed", bal);
         }
 
@@ -160,18 +181,6 @@ contract UVX is AccessControlEnumerable, ERC20 {
         if (!IERC20(tok).transferFrom(address(this), msg.sender, bal)) {
             // TODO test
             revert Balance("transfer failed", bal);
-        }
-
-        // Send UVX from the caller to this contract.
-        if (!IERC20(this).transferFrom(msg.sender, address(this), bal)) {
-            // TODO test
-            revert Balance("transfer failed", bal);
-        }
-
-        // Remove the given UVX balance from the total supply.
-        {
-            // TODO test
-            _burn(msg.sender, bal);
         }
     }
 
@@ -182,22 +191,58 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
+        if (freeze) {
+            // TODO test
+            revert Process("minting disabled");
+        }
+
+        {
+            outstanding += bal;
+        }
+
         {
             _mint(dst, bal);
         }
     }
 
-    function sell(address tok, address dst, uint256 bal) public {
+    // sell allows this contract to sell UVX tokens to anyone who can send the
+    // equal amount of whitelisted tokens in return for the requested balance.
+    // In other words, when you call sell(address, 10), then you have to send 10
+    // tokens in order to get 10 tokens. The provided token address must be a
+    // whitelisted token contract, and the caller must have a sufficient token
+    // balance in order to exchange the requested amount for UVX tokens.
+    function sell(address tok, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
-        // TODO only sell tokens if the equal amount of stablecoins is received from dst
+        // Send the given tokens from the caller to this contract.
+        if (!IERC20(tok).transferFrom(msg.sender, address(this), bal)) {
+            revert Balance("transfer failed", bal);
+        }
+
+        {
+            _mint(msg.sender, bal);
+        }
+    }
+
+    // updateFreeze can be called once by the owner in order to disable unpaid
+    // token minting. Once token minting has been disabled, it cannot be enabled
+    // again.
+    function updateFreeze() public {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
+            // TODO test
+            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
+        }
+
+        if (freeze == true) {
+            // TODO test
+            revert Process("already updated");
+        }
 
         {
             // TODO test
-            _mint(dst, bal);
+            freeze = true;
         }
     }
 
