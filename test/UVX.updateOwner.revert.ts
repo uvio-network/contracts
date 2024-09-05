@@ -7,7 +7,7 @@ describe("UVX", function () {
   describe("updateOwner", function () {
     describe("revert", function () {
       it("if owner is empty", async function () {
-        const { UVX, Signer } = await loadFixture(Deploy);
+        const { Signer, UVX } = await loadFixture(Deploy);
 
         const txn = UVX.connect(Signer(0)).updateOwner(zeroAddress);
 
@@ -15,7 +15,7 @@ describe("UVX", function () {
       });
 
       it("if owner is current owner", async function () {
-        const { Address, UVX, Signer } = await loadFixture(Deploy);
+        const { Address, Signer, UVX } = await loadFixture(Deploy);
 
         const txn = UVX.connect(Signer(0)).updateOwner(Address(0));
 
@@ -23,7 +23,7 @@ describe("UVX", function () {
       });
 
       it("if old owner tries to update owner", async function () {
-        const { Address, UVX, Signer } = await loadFixture(Deploy);
+        const { Address, Signer, UVX } = await loadFixture(Deploy);
 
         await UVX.connect(Signer(0)).updateOwner(Address(7));
 

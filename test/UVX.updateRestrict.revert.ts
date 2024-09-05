@@ -6,7 +6,7 @@ describe("UVX", function () {
   describe("updateRestrict", function () {
     describe("revert", function () {
       it("if owner already restrict", async function () {
-        const { UVX, Signer } = await loadFixture(Deploy);
+        const { Signer, UVX } = await loadFixture(Deploy);
 
         {
           expect(await UVX.restrict()).to.equal(true);
@@ -28,7 +28,7 @@ describe("UVX", function () {
       });
 
       it("if signer 2 tries to change restrict", async function () {
-        const { UVX, Signer } = await loadFixture(Deploy);
+        const { Signer, UVX } = await loadFixture(Deploy);
 
         const txn = UVX.connect(Signer(2)).updateRestrict();
 
@@ -36,7 +36,7 @@ describe("UVX", function () {
       });
 
       it("if old owner tries to change restrict", async function () {
-        const { Address, UVX, Signer } = await loadFixture(Deploy);
+        const { Address, Signer, UVX } = await loadFixture(Deploy);
 
         await UVX.connect(Signer(0)).updateOwner(Address(7));
 

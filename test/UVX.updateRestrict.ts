@@ -5,7 +5,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 describe("UVX", function () {
   describe("updateRestrict", function () {
     it("should initialize and modify restrict flag", async function () {
-      const { UVX, Signer } = await loadFixture(Deploy);
+      const { Signer, UVX } = await loadFixture(Deploy);
 
       {
         expect(await UVX.restrict()).to.equal(true);

@@ -6,7 +6,7 @@ import { Role } from "./src/Role";
 describe("UVX", function () {
   describe("updateOwner", function () {
     it("should initialize and modify owner address", async function () {
-      const { Address, UVX, Signer } = await loadFixture(Deploy);
+      const { Address, Signer, UVX } = await loadFixture(Deploy);
 
       {
         expect(await UVX.hasRole(Role("DEFAULT_ADMIN_ROLE"), Address(0))).to.equal(true);
