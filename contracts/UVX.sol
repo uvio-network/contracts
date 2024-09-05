@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract UVX is AccessControlEnumerable, ERC20 {
     //
@@ -72,8 +72,19 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert Address("invalid token");
         }
 
+        // There is no real way to ensure that the given token contract is in
+        // fact an ERC20. We are simply trying to call some function provided
+        // with that interface and assume we have a real ERC20. This check
+        // guards at least against EOAs, so that it is not possible anymore to
+        // confuse the owner address with the token address.
+        {
+            // TODO test
+            IERC20(tok).totalSupply();
+        }
+
         {
             _grantRole(DEFAULT_ADMIN_ROLE, own);
+            // TODO test that token role is granted to the given token, but not to others
             _grantRole(TOKEN_ROLE, tok);
         }
 
@@ -127,17 +138,35 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // PUBLIC PRIVILEGED
     //
 
-    // burn the given balance amount from the given source address.
-    function burn(address tok, address src, uint256 bal) public {
+    // burn allows the caller to exchange the given balance amount of UVX tokens
+    // for the same amount of tokens represented by the token contract "tok",
+    // which must be
+    function burn(address tok, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
             // TODO test
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
-        // TODO only burn tokens if the equal amount of stablecoins is send to src
+        if (!IERC20(tok).approve(address(this), bal)) {
+            revert Balance("approval failed", bal);
+        }
 
+        // Send the given tokens from this contract to the caller.
+        if (!IERC20(tok).transferFrom(address(this), msg.sender, bal)) {
+            // TODO test
+            revert Balance("transfer failed", bal);
+        }
+
+        // Send UVX from the caller to this contract.
+        if (!IERC20(this).transferFrom(msg.sender, address(this), bal)) {
+            // TODO test
+            revert Balance("transfer failed", bal);
+        }
+
+        // Remove the given UVX balance from the total supply.
         {
-            _burn(src, bal);
+            // TODO test
+            _burn(msg.sender, bal);
         }
     }
 
@@ -145,10 +174,12 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // address, to the extend of the given balance amount.
     function mint(address dst, uint256 bal) public {
         if (!hasRole(BOT_ROLE, msg.sender)) {
+            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
         {
+            // TODO test
             _mint(dst, bal);
         }
     }
@@ -162,6 +193,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
         // TODO only sell tokens if the equal amount of stablecoins is received from dst
 
         {
+            // TODO test
             _mint(dst, bal);
         }
     }

@@ -6,7 +6,7 @@ import {Bits} from "./lib/Bits.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // Uncomment this line to use console.log
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 contract Claims is AccessControlEnumerable {
     //
@@ -268,6 +268,15 @@ contract Claims is AccessControlEnumerable {
 
         if (tok == address(0)) {
             revert Address("invalid token");
+        }
+
+        // There is no real way to ensure that the given token contract is in
+        // fact an ERC20. We are simply trying to call some function provided
+        // with that interface and assume we have a real ERC20. This check
+        // guards at least against EOAs, so that it is not possible anymore to
+        // confuse the owner address with the token address.
+        {
+            IERC20(tok).totalSupply();
         }
 
         {
