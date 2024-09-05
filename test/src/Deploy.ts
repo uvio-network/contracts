@@ -44,6 +44,7 @@ export const Deploy = async () => {
     Signer: (ind: number) => {
       return sig[ind];
     },
+    Stablecoin: stb,
     Token: uvx,
   };
 };

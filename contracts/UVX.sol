@@ -30,7 +30,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // CONTRACT_ROLE is the role assigned internally to designate smart
     // contracts with the purpose of allowing token transfers from and to those
     // addresses only, as long as token transferability is restricted. As soon
-    // as "restricted" is set to false, the CONTRACT_ROLE has no effect anymore.
+    // as "restrict" is set to false, the CONTRACT_ROLE has no effect anymore.
     bytes32 public constant CONTRACT_ROLE = keccak256("CONTRACT_ROLE");
     // TOKEN_ROLE is the role assigned internally to designate token contracts
     // with the purpose of allowing the UVX token to be purchased and redeemed
@@ -48,13 +48,13 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // all limitations of token transferability.
     address public owner;
 
-    // restricted ensures that UVX tokens cannot be transferred to unauthorized
-    // accounts, as long as it is set to true. Once restricted is set to false,
+    // restrict ensures that UVX tokens cannot be transferred to unauthorized
+    // accounts, as long as it is set to true. Once restrict is set to false,
     // UVX tokens can be freely transferred and used without any restrictions.
-    // Further, if restricted is set to false, it cannot be set back to true
-    // again. That property makes restricted a kill switch for unrestricted
+    // Further, if restrict is set to false, it cannot be set back to true
+    // again. That property makes restrict a kill switch for unrestricted
     // transferability.
-    bool public restricted = true;
+    bool public restrict = true;
 
     //
     // BUILTIN
@@ -62,7 +62,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
 
     // constructor initializes an instance of the UVX contract by assigning the
     // TOKEN_ROLE to the first token contract. The given owner address will be
-    // able to modify the restricted flag and designate the BOT_ROLE.
+    // able to modify the restrict flag and designate the BOT_ROLE.
     constructor(address own, address tok) ERC20("Uvio Network Token", "UVX") {
         if (own == address(0)) {
             revert Address("invalid owner");
@@ -100,7 +100,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
     }
 
     function transfer(address to, uint256 bal) public override returns (bool) {
-        if (restricted && !hasRole(CONTRACT_ROLE, msg.sender) && !hasRole(CONTRACT_ROLE, to)) {
+        if (restrict && !hasRole(CONTRACT_ROLE, msg.sender) && !hasRole(CONTRACT_ROLE, to)) {
             // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
         }
@@ -112,7 +112,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
     }
 
     function transferFrom(address src, address dst, uint256 bal) public override returns (bool) {
-        if (restricted && !hasRole(CONTRACT_ROLE, src) && !hasRole(CONTRACT_ROLE, dst)) {
+        if (restrict && !hasRole(CONTRACT_ROLE, src) && !hasRole(CONTRACT_ROLE, dst)) {
             // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
         }
@@ -141,10 +141,10 @@ contract UVX is AccessControlEnumerable, ERC20 {
         }
     }
 
-    // mint the given balance amount to the given destination address.
+    // mint allows the BOT_ROLE to send new tokens to the given destination
+    // address, to the extend of the given balance amount.
     function mint(address dst, uint256 bal) public {
         if (!hasRole(BOT_ROLE, msg.sender)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
@@ -190,20 +190,20 @@ contract UVX is AccessControlEnumerable, ERC20 {
         }
     }
 
-    // updateRestricted can be called once by the owner in order to remove all
+    // updateRestrict can be called once by the owner in order to remove all
     // limitations of token transferability. Once those transfer limitations are
     // removed, they cannot be put back in place.
-    function updateRestricted() public {
+    function updateRestrict() public {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
             revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
         }
 
-        if (restricted == false) {
+        if (restrict == false) {
             revert Process("already updated");
         }
 
         {
-            restricted = false;
+            restrict = false;
         }
     }
 }
