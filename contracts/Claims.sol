@@ -270,6 +270,15 @@ contract Claims is AccessControlEnumerable {
             revert Address("invalid token");
         }
 
+        // There is no real way to ensure that the given token contract is in
+        // fact an ERC20. We are simply trying to call some function provided
+        // with that interface and assume we have a real ERC20. This check
+        // guards at least against EOAs, so that it is not possible anymore to
+        // confuse the owner address with the token address.
+        {
+            IERC20(tok).totalSupply();
+        }
+
         {
             _grantRole(DEFAULT_ADMIN_ROLE, own);
         }
