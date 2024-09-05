@@ -28,5 +28,11 @@ describe("Claims", function () {
 
       expect(await Claims.MID_UINT256()).to.equal("57896044618658097711785492504343953926634992332820282019728792003956564819967");
     });
+
+    it("should expose VERSION constant", async function () {
+      const { Claims } = await loadFixture(Deploy);
+
+      expect(await Claims.VERSION()).to.equal("v0.0.0");
+    });
   });
 });
