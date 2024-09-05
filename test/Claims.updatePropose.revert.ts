@@ -34,7 +34,7 @@ describe("Claims", function () {
       });
 
       it("if minimum balance not available, have 10 need 10 want 20", async function () {
-        const { Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
         await Balance([1, 2], [10, 10]);
 
@@ -51,11 +51,11 @@ describe("Claims", function () {
           Side(true),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
+        await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
       });
 
       it("if minimum balance not available, have 10 need 10 want max", async function () {
-        const { Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
         await Balance([1, 2], [10, 10]);
 
@@ -72,7 +72,7 @@ describe("Claims", function () {
           Side(true),
         );
 
-        await expect(txn).to.be.revertedWithCustomError(Token, "ERC20InsufficientAllowance");
+        await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
       });
 
       it("if balance is empty", async function () {

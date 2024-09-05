@@ -15,7 +15,7 @@ const MAX = maxUint256;
 describe("Claims", function () {
   describe("createResolve", function () {
     const createPropose = async () => {
-      const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+      const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
       await Balance([1, 2, 3, 4, 5], 10);
 
@@ -50,7 +50,7 @@ describe("Claims", function () {
       await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
       await network.provider.send("evm_mine");
 
-      return { Address, Claims, Signer, Token };
+      return { Address, Claims, Signer, UVX };
     }
 
     it("resolve can be created with 25 hour expiry", async function () {

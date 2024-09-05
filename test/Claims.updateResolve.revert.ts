@@ -16,7 +16,7 @@ describe("Claims", function () {
   describe("updateResolve", function () {
     describe("revert", function () {
       const createResolve = async () => {
-        const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+        const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
         await Balance([1, 2, 3, 4, 5], 10);
 
@@ -59,7 +59,7 @@ describe("Claims", function () {
           Expiry(7, "days"),
         );
 
-        return { Address, Balance, Claims, Signer, Token };
+        return { Address, Balance, Claims, Signer, UVX };
       }
 
       it("if owner tries to stake reputation", async function () {

@@ -17,7 +17,7 @@ describe("Claims", function () {
     describe("multiple", function () {
       describe("30 true 20 false, no overlap", function () {
         const updateResolve = async () => {
-          const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+          const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
           await Balance([1, 2, 3, 4, 5], 10);
 
@@ -70,11 +70,11 @@ describe("Claims", function () {
             Side(true),
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         const updateBalance = async () => {
-          const { Address, Claims, Signer, Token } = await loadFixture(updateResolve);
+          const { Address, Claims, Signer, UVX } = await loadFixture(updateResolve);
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
@@ -102,7 +102,7 @@ describe("Claims", function () {
             1,
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         it("should update balances by rewarding users", async function () {
@@ -194,7 +194,7 @@ describe("Claims", function () {
 
       describe("70 true 115 false, overlap", function () {
         const updateResolve = async () => {
-          const { Address, Balance, Claims, Signer, Token } = await loadFixture(Deploy);
+          const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
           await Balance([1, 2, 3, 4, 5, 6, 7, 8], 50);
 
@@ -267,11 +267,11 @@ describe("Claims", function () {
             Side(true),
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         const updateBalance = async () => {
-          const { Address, Claims, Signer, Token } = await loadFixture(updateResolve);
+          const { Address, Claims, Signer, UVX } = await loadFixture(updateResolve);
 
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
@@ -299,7 +299,7 @@ describe("Claims", function () {
             8,
           );
 
-          return { Address, Claims, Signer, Token };
+          return { Address, Claims, Signer, UVX };
         }
 
         it("should record all votes", async function () {
