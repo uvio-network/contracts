@@ -11,11 +11,15 @@ describe("UVX", function () {
       const udd = await UVX.getAddress();
       const sdd = await Stablecoin.getAddress();
 
+      expect(await UVX.outstanding()).to.equal(0);
+
       expect(await Stablecoin.balanceOf(Address(1))).to.equal(0);
       expect(await Stablecoin.balanceOf(udd)).to.equal(0);
       expect(await UVX.balanceOf(Address(1))).to.equal(0);
 
       await Stablecoin.connect(Signer(0)).mint(Address(1), Amount(10));
+
+      expect(await UVX.outstanding()).to.equal(0);
 
       expect(await Stablecoin.balanceOf(Address(1))).to.equal(Amount(10));
       expect(await Stablecoin.balanceOf(udd)).to.equal(0);
@@ -23,6 +27,8 @@ describe("UVX", function () {
 
       await Stablecoin.connect(Signer(1)).approve(udd, Amount(10));
       await UVX.connect(Signer(1)).sell(sdd, Amount(10));
+
+      expect(await UVX.outstanding()).to.equal(0);
 
       expect(await Stablecoin.balanceOf(Address(1))).to.equal(0);
       expect(await Stablecoin.balanceOf(udd)).to.equal(Amount(10));
