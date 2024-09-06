@@ -4,6 +4,9 @@ pragma solidity ^0.8.24;
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+// Uncomment this line to use console.log
+// import "hardhat/console.sol";
+
 contract UVX is AccessControlEnumerable, ERC20 {
     //
     // ERRORS
@@ -117,7 +120,9 @@ contract UVX is AccessControlEnumerable, ERC20 {
 
     // fund allows anyone to send any amount of whitelisted tokens to this
     // contract. The purpose of fund is to allow platform revenue to be posted
-    // here, so that all outstanding UVX can be redeemed eventually.
+    // here, so that all outstanding UVX can be redeemed eventually. fund does
+    // not provide UVX in exchange for the sent tokens. Therefore fund decreases
+    // UVX outstanding.
     function fund(address tok, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
@@ -162,37 +167,41 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // which must be
     function burn(address tok, uint256 bal) public {
         if (!hasRole(TOKEN_ROLE, tok)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
+        }
+
+        // Send UVX from the caller to this contract. With this extra step we
+        // require the user to specify an allowance for their own tokens to be
+        // spent, because the user sends their own tokens away. Only once we own
+        // the UVX sent to us, only then we can burn that portion of the supply.
+        if (!super.transferFrom(msg.sender, address(this), bal)) {
+            revert Balance("transfer failed", bal);
         }
 
         // Remove the given UVX balance from the total supply.
         {
-            // TODO test
-            _burn(msg.sender, bal);
+            _burn(address(this), bal);
         }
 
         if (!IERC20(tok).approve(address(this), bal)) {
-            // TODO test
             revert Balance("approval failed", bal);
         }
 
         // Send the given tokens from this contract to the caller.
         if (!IERC20(tok).transferFrom(address(this), msg.sender, bal)) {
-            // TODO test
             revert Balance("transfer failed", bal);
         }
     }
 
     // mint allows the BOT_ROLE to send new tokens to the given destination
-    // address, to the extend of the given balance amount.
+    // address, to the extend of the given balance amount without expecting any
+    // tokens in return. mint therefore increases UVX outstanding.
     function mint(address dst, uint256 bal) public {
         if (!hasRole(BOT_ROLE, msg.sender)) {
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
         if (freeze) {
-            // TODO test
             revert Process("minting disabled");
         }
 
@@ -231,17 +240,14 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // again.
     function updateFreeze() public {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
         }
 
         if (freeze == true) {
-            // TODO test
             revert Process("already updated");
         }
 
         {
-            // TODO test
             freeze = true;
         }
     }
