@@ -22,12 +22,14 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         const txn = Claims.connect(Signer(2)).updatePropose(
           Claim(1),
           Amount(5), // minimum is 10
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
@@ -43,12 +45,14 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         const txn = Claims.connect(Signer(2)).updatePropose(
           Claim(1),
           Amount(20), // only 10 available
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
@@ -64,12 +68,14 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         const txn = Claims.connect(Signer(2)).updatePropose(
           Claim(1),
           maxUint256, // only 10 available
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
@@ -85,12 +91,14 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         const txn = Claims.connect(Signer(2)).updatePropose(
           Claim(1),
           Amount(0), // minimum is 10
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
@@ -106,6 +114,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(49, "hours")]); // 2 days and 1 hour later
@@ -115,6 +124,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -130,6 +140,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(49, "hours")]); // 2 days and 1 hour later
@@ -139,6 +150,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -154,6 +166,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -169,6 +182,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -184,6 +198,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(90, "days"),
+          [],
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1991, "hours")]); // 82 days + 23 hours
@@ -193,6 +208,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(1993, "hours")]); // 83 days + 1 hour
@@ -204,6 +220,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");

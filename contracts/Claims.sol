@@ -201,6 +201,13 @@ contract Claims is AccessControlEnumerable {
     // market represent the address indices of the respective stakers as
     // maintained by _indexAddress.
     mapping(uint256 => mapping(uint8 => uint256)) private _indexMembers;
+    // _proposeToken is the optional per claim token whitelist that can be set
+    // when calling createPropose. If set, users must have a non-zero balance of
+    // any of the tokens whitelisted here, in order to participate in the given
+    // market. This can be used to limit staking to community addresses holding
+    // the community token. Relevant here is that balanceOf returns any amount
+    // greater than 0.
+    mapping(uint256 => address[]) private _proposeToken;
     // _truthResolve tracks the amount of votes cast per claim, on either side
     // of the market. The uint8 keys are either CLAIM_TRUTH_Y or CLAIM_TRUTH_N.
     // The uint256 values are the amounts of votes cast respectively.
@@ -428,7 +435,7 @@ contract Claims is AccessControlEnumerable {
 
         // Keep track of the number of disputes in this tree, so that we can
         // enforce a maximum amount of disputes on the given propose.
-        {
+        unchecked {
             _claimDispute[pro]++;
         }
 
@@ -442,23 +449,6 @@ contract Claims is AccessControlEnumerable {
             revert Expired("expiry invalid", exp);
         }
 
-        // Set the given expiry to make the code flow below work.
-        {
-            uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
-
-            if (dur > durationMax) {
-                _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMax;
-            } else if (dur < durationMin) {
-                _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMin;
-            } else {
-                _claimExpired[dis][CLAIM_EXPIRY_S] = exp - dur;
-            }
-
-            {
-                _claimExpired[dis][CLAIM_EXPIRY_P] = exp;
-            }
-        }
-
         // In case this is the creation of a claim with lifecycle "propose",
         // store the first balance for the side of the stake as provided, so
         // that we can remember the minimum balance required for staking
@@ -470,8 +460,113 @@ contract Claims is AccessControlEnumerable {
             _stakePropose[dis][CLAIM_STAKE_B] = bal;
         }
 
-        {
-            updatePropose(dis, bal, vot);
+        address use = msg.sender;
+
+        unchecked {
+            // Set the given expiry to make the code flow below work.
+            {
+                // TODO verify that unchecked is solid here
+                uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
+
+                if (dur > durationMax) {
+                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMax;
+                } else if (dur < durationMin) {
+                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMin;
+                } else {
+                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - dur;
+                }
+
+                {
+                    _claimExpired[dis][CLAIM_EXPIRY_P] = exp;
+                }
+            }
+
+            // Account for the balance required in order to stake reputation
+            // according to the requested amount. We try to prevent token
+            // transfers if the available user balance is sufficient. Any tokens
+            // missing will be requested from the configured token contract. The
+            // caller then needs to provide an allowance that is able to cover
+            // the difference transferred.
+            uint256 avl = _availBalance[use];
+            if (avl >= bal) {
+                _availBalance[use] -= bal;
+            } else {
+                if (avl > 0) {
+                    {
+                        _availBalance[use] = 0;
+                    }
+
+                    if (!IERC20(token).transferFrom(use, address(this), (bal - avl))) {
+                        revert Balance("transfer failed", (bal - avl));
+                    }
+                } else {
+                    if (!IERC20(token).transferFrom(use, address(this), bal)) {
+                        revert Balance("transfer failed", bal);
+                    }
+                }
+            }
+
+            // Track the user's allocated balance so we can tell people where
+            // they stand any time. The allocated balances are all funds that
+            // are currently bound in active markets. The user's available
+            // balance does not change here because the user is directly staking
+            // their deposited balance when participating in any given market.
+            // The user's available balances may only increase later, if, and
+            // only if a user is rewarded upon market resolution.
+            {
+                _allocBalance[use] += bal;
+            }
+
+            // Track the stakers expressed opinion by remembering the side they
+            // picked using the boolean voting flag. True means the user agrees
+            // with the given statement. False means the user disagrees
+            // respectively. We do also account for the cumulative balances on
+            // either side of the bet, so we can write this kind of data once
+            // and read it for cheap many times later on when updating user
+            // balances.
+            if (vot) {
+                {
+                    _addressVotes[dis][use].set(VOTE_STAKE_Y);
+                    _stakePropose[dis][CLAIM_STAKE_Y] += bal;
+                }
+
+                // Allocate the user stakes and keep track of the user address
+                // based on their position in our index list. Consecutive calls
+                // by the same user will maintain the user's individual index.
+                if (_addressStake[dis][use][ADDRESS_STAKE_Y] + _addressStake[dis][use][ADDRESS_STAKE_N] == 0) {
+                    {
+                        _addressStake[dis][use][ADDRESS_STAKE_Y] = bal;
+                    }
+
+                    {
+                        _indexAddress[dis][_indexMembers[dis][CLAIM_ADDRESS_Y]] = use;
+                        _indexMembers[dis][CLAIM_ADDRESS_Y]++; // base is 0
+                    }
+                } else {
+                    _addressStake[dis][use][ADDRESS_STAKE_Y] += bal;
+                }
+            } else {
+                {
+                    _addressVotes[dis][use].set(VOTE_STAKE_N);
+                    _stakePropose[dis][CLAIM_STAKE_N] += bal;
+                }
+
+                // Allocate the user stakes and keep track of the user address
+                // based on their position in our index list. Consecutive calls
+                // by the same user will maintain the user's individual index.
+                if (_addressStake[dis][use][ADDRESS_STAKE_Y] + _addressStake[dis][use][ADDRESS_STAKE_N] == 0) {
+                    {
+                        _addressStake[dis][use][ADDRESS_STAKE_N] = bal;
+                    }
+
+                    {
+                        _indexMembers[dis][CLAIM_ADDRESS_N]--; // base is 2^256-1
+                        _indexAddress[dis][_indexMembers[dis][CLAIM_ADDRESS_N]] = use;
+                    }
+                } else {
+                    _addressStake[dis][use][ADDRESS_STAKE_N] += bal;
+                }
+            }
         }
     }
 
@@ -481,7 +576,7 @@ contract Claims is AccessControlEnumerable {
     // must own the given balance either as available balance inside this Claims
     // contract or as available balance inside the relevant token contract. The
     // given expiry must be at least 24 hours in the future.
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint64 exp) public {
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint64 exp, address[] calldata tok) public {
         if (pro == 0) {
             revert Mapping("claim invalid");
         }
@@ -499,23 +594,6 @@ contract Claims is AccessControlEnumerable {
             revert Balance("balance invalid", bal);
         }
 
-        // Set the given expiry to make the code flow below work.
-        {
-            uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
-
-            if (dur > durationMax) {
-                _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMax;
-            } else if (dur < durationMin) {
-                _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMin;
-            } else {
-                _claimExpired[pro][CLAIM_EXPIRY_S] = exp - dur;
-            }
-
-            {
-                _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
-            }
-        }
-
         // In case this is the creation of a claim with lifecycle "propose",
         // store the first balance for the side of the stake as provided, so
         // that we can remember the minimum balance required for staking
@@ -527,8 +605,118 @@ contract Claims is AccessControlEnumerable {
             _stakePropose[pro][CLAIM_STAKE_B] = bal;
         }
 
-        {
-            updatePropose(pro, bal, vot);
+        if (tok.length != 0) {
+            // TODO test
+            _proposeToken[pro] = tok;
+        }
+
+        address use = msg.sender;
+
+        unchecked {
+            // Set the given expiry to make the code flow below work.
+            {
+                // TODO verify that unchecked is solid here
+                uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
+
+                if (dur > durationMax) {
+                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMax;
+                } else if (dur < durationMin) {
+                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMin;
+                } else {
+                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - dur;
+                }
+
+                {
+                    _claimExpired[pro][CLAIM_EXPIRY_P] = exp;
+                }
+            }
+
+            // Account for the balance required in order to stake reputation
+            // according to the requested amount. We try to prevent token
+            // transfers if the available user balance is sufficient. Any tokens
+            // missing will be requested from the configured token contract. The
+            // caller then needs to provide an allowance that is able to cover
+            // the difference transferred.
+            uint256 avl = _availBalance[use];
+            if (avl >= bal) {
+                _availBalance[use] -= bal;
+            } else {
+                if (avl > 0) {
+                    {
+                        _availBalance[use] = 0;
+                    }
+
+                    if (!IERC20(token).transferFrom(use, address(this), (bal - avl))) {
+                        revert Balance("transfer failed", (bal - avl));
+                    }
+                } else {
+                    if (!IERC20(token).transferFrom(use, address(this), bal)) {
+                        revert Balance("transfer failed", bal);
+                    }
+                }
+            }
+
+            // Track the user's allocated balance so we can tell people where
+            // they stand any time. The allocated balances are all funds that
+            // are currently bound in active markets. The user's available
+            // balance does not change here because the user is directly staking
+            // their deposited balance when participating in any given market.
+            // The user's available balances may only increase later, if, and
+            // only if a user is rewarded upon market resolution.
+            {
+                _allocBalance[use] += bal;
+            }
+
+            // Track the stakers expressed opinion by remembering the side they
+            // picked using the boolean voting flag. True means the user agrees
+            // with the given statement. False means the user disagrees
+            // respectively. We do also account for the cumulative balances on
+            // either side of the bet, so we can write this kind of data once
+            // and read it for cheap many times later on when updating user
+            // balances.
+            if (vot) {
+                {
+                    _addressVotes[pro][use].set(VOTE_STAKE_Y);
+                    _stakePropose[pro][CLAIM_STAKE_Y] += bal;
+                }
+
+                // Allocate the user stakes and keep track of the user address
+                // based on their position in our index list. Consecutive calls
+                // by the same user will maintain the user's individual index.
+                if (_addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N] == 0) {
+                    {
+                        _addressStake[pro][use][ADDRESS_STAKE_Y] = bal;
+                    }
+
+                    {
+                        _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_Y]] = use;
+                        _indexMembers[pro][CLAIM_ADDRESS_Y]++; // base is 0
+                    }
+                } else {
+                    _addressStake[pro][use][ADDRESS_STAKE_Y] += bal;
+                }
+            } else {
+                {
+                    _addressVotes[pro][use].set(VOTE_STAKE_N);
+                    _stakePropose[pro][CLAIM_STAKE_N] += bal;
+                }
+
+                // Allocate the user stakes and keep track of the user address
+                // based on their position in our index list. Consecutive calls
+                // by the same user will maintain the user's individual index.
+                if (_addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N] == 0) {
+                    {
+                        _addressStake[pro][use][ADDRESS_STAKE_N] = bal;
+                    }
+
+                    {
+                        _indexMembers[pro][CLAIM_ADDRESS_N]--; // base is 2^256-1
+                        _indexAddress[pro][_indexMembers[pro][CLAIM_ADDRESS_N]] = use;
+                    }
+                } else {
+                    _addressStake[pro][use][ADDRESS_STAKE_N] += bal;
+                }
+            }
         }
     }
 
@@ -538,10 +726,18 @@ contract Claims is AccessControlEnumerable {
     // user staking on a new claim becomes the proposer, defining the minimum
     // balance required to participate in the new market. Proposer rewards may
     // apply upon market resolution.
-    function updatePropose(uint256 cla, uint256 bal, bool vot) public {
+    function updatePropose(uint256 cla, uint256 bal, bool vot, uint256 tok) public {
         address use = msg.sender;
 
         unchecked {
+            // If there is a token whitelist setup, verify that the caller has a
+            // non zero balance of the tokens that are required to participate
+            // in this claim.
+            if (_proposeToken[cla].length != 0 && IERC20(_proposeToken[cla][tok]).balanceOf(use) == 0) {
+                // TODO test
+                revert Balance("token missing", 0);
+            }
+
             // Ensure that every staker provides at least the minimum balance
             // required in order to participate in this market.
             uint256 min = _stakePropose[cla][CLAIM_STAKE_A] + _stakePropose[cla][CLAIM_STAKE_B];

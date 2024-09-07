@@ -136,7 +136,12 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
+        // Decrease the outstanding balance by the funded amount. We do not use
+        // "unchecked" here because we want to revert on underflows. This
+        // ensures that we can only at maximum fund the UVX deficit until it is
+        // completely eliminated.
         {
+            // TODO this needs to account for decimals
             outstanding -= bal;
         }
 
@@ -203,10 +208,14 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _tokenDecimals[tok] = dec;
         }
 
-        if (dec < 18) {
-            bal = bal / (10 ** (18 - dec));
-        } else if (dec > 18) {
-            bal = bal * (10 ** (dec - 18));
+        // Translate the given balance into the given tokens precision, relative
+        // to its own decimals and ours. Ours here is 18 decimals.
+        unchecked {
+            if (dec < 18) {
+                bal = bal / (10 ** (18 - dec));
+            } else if (dec > 18) {
+                bal = bal * (10 ** (dec - 18));
+            }
         }
 
         if (!IERC20(tok).approve(address(this), bal)) {
@@ -268,10 +277,14 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _tokenDecimals[tok] = dec;
         }
 
-        if (dec < 18) {
-            bal = bal * (10 ** (18 - dec));
-        } else if (dec > 18) {
-            bal = bal / (10 ** (dec - 18));
+        // Translate the given balance into the given tokens precision, relative
+        // to its own decimals and ours. Ours here is 18 decimals.
+        unchecked {
+            if (dec < 18) {
+                bal = bal * (10 ** (18 - dec));
+            } else if (dec > 18) {
+                bal = bal / (10 ** (dec - 18));
+            }
         }
 
         {

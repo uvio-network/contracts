@@ -25,12 +25,14 @@ describe("Claims", function () {
           Amount(50),
           Side(true),
           EXPIRY,
+          [],
         );
 
         await Claims.connect(Signer(3)).updatePropose(
           Claim(1),
           Amount(50),
           Side(false),
+          0,
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -96,6 +98,7 @@ describe("Claims", function () {
           Amount(30),
           Side(true),
           Expiry(16, "days"),
+          [],
         );
 
         const res = await Claims.searchBalance(Address(1));
@@ -112,6 +115,7 @@ describe("Claims", function () {
           Amount(95),
           Side(true),
           Expiry(16, "days"),
+          [],
         );
 
         const res = await Claims.searchBalance(Address(1));
@@ -131,6 +135,7 @@ describe("Claims", function () {
             Amount(96),
             Side(true),
             Expiry(16, "days"),
+            [],
           );
 
           await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
@@ -156,6 +161,7 @@ describe("Claims", function () {
           Amount(96),
           Side(true),
           Expiry(16, "days"),
+          [],
         );
 
         // Make sure the user has no token balance anymore, because it was sent

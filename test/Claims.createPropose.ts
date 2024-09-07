@@ -21,6 +21,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY,
+        [],
       );
 
       return { Address, Claims };
@@ -36,38 +37,45 @@ describe("Claims", function () {
         Amount(5),
         Side(true),
         EXPIRY,
+        [],
       );
       await Claims.connect(Signer(2)).updatePropose(
         Claim(1),
         Amount(30),
         Side(true),
+        0,
       );
       await Claims.connect(Signer(3)).updatePropose(
         Claim(1),
         Amount(50),
         Side(true),
+        0,
       );
 
       await Claims.connect(Signer(1)).updatePropose(
         Claim(1),
         Amount(20),
         Side(true),
+        0,
       );
       await Claims.connect(Signer(2)).updatePropose(
         Claim(1),
         Amount(5),
         Side(true),
+        0,
       );
 
       await Claims.connect(Signer(2)).updatePropose(
         Claim(1),
         Amount(5),
         Side(true),
+        0,
       );
       await Claims.connect(Signer(2)).updatePropose(
         Claim(1),
         Amount(5),
         Side(true),
+        0,
       );
 
       return { Address, Claims };
@@ -83,6 +91,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         Expiry(25, "hours"),
+        [],
       );
 
       const res = await Claims.searchBalance(Address(2));
@@ -101,6 +110,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         Expiry(5, "hours"),
+        [],
       );
 
       await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -110,6 +120,7 @@ describe("Claims", function () {
         Amount(50),
         Side(true),
         EXPIRY,
+        [],
       );
 
       const res = await Claims.searchBalance(Address(2));
@@ -128,6 +139,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         Expiry(5, "hours"),
+        [],
       );
 
       await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -137,6 +149,7 @@ describe("Claims", function () {
         Amount(30),
         Side(true),
         EXPIRY,
+        [],
       );
 
       const res = await Claims.searchBalance(Address(2));

@@ -17,6 +17,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
@@ -32,6 +33,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
@@ -47,6 +49,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Mapping");
@@ -62,6 +65,7 @@ describe("Claims", function () {
           Amount(0),
           Side(true),
           Expiry(2, "days"),
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
@@ -77,6 +81,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           0,
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -92,6 +97,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(5, "hours"),
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -107,6 +113,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(23, "hours"),
+          [],
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
