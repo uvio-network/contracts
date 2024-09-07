@@ -14,7 +14,7 @@ const MAX = maxUint256;
 export const Deploy = async () => {
   const sig = await ethers.getSigners();
 
-  const Stablecoin = await ethers.deployContract("Stablecoin");
+  const Stablecoin = await ethers.deployContract("Stablecoin", [18]);
   const UVX = await ethers.deployContract("UVX", [sig[0].address, await Stablecoin.getAddress()]);
   const Claims = await ethers.deployContract("Claims", [sig[0].address, await UVX.getAddress()]);
 
