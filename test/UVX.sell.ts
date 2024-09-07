@@ -147,7 +147,7 @@ describe("UVX", function () {
     });
 
     describe("multi", function () {
-      it("should sell 10 UVX to signer 1 for 10 stablecoins, 6 decimals", async function () {
+      it("should sell 100 UVX to signer 1 for 100 stablecoins, 6 decimals", async function () {
         const { Address, Signer, Stablecoin, UVX } = await deployStablecoin(6);
 
         const udd = await UVX.getAddress();
@@ -201,7 +201,7 @@ describe("UVX", function () {
         }
       });
 
-      it("should sell 10 UVX to signer 1 for 10 stablecoins, 18 decimals", async function () {
+      it("should sell 100 UVX to signer 1 for 100 stablecoins, 18 decimals", async function () {
         const { Address, Signer, Stablecoin, UVX } = await deployStablecoin(18);
 
         const udd = await UVX.getAddress();
@@ -255,7 +255,7 @@ describe("UVX", function () {
         }
       });
 
-      it("should sell 10 UVX to signer 1 for 10 stablecoins, 30 decimals", async function () {
+      it("should sell 100 UVX to signer 1 for 100 stablecoins, 30 decimals", async function () {
         const { Address, Signer, Stablecoin, UVX } = await deployStablecoin(30);
 
         const udd = await UVX.getAddress();

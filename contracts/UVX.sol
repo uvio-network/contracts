@@ -47,7 +47,8 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // MAPPINGS
     //
 
-    //
+    // _tokenDecimals caches the decimal numbers of our whitelisted token
+    // contracts for more gas efficient reads during burn and sell.
     mapping(address => uint8) private _tokenDecimals;
 
     //
