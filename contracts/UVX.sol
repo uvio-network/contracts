@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
-import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20, IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
@@ -183,13 +183,27 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _burn(address(this), bal);
         }
 
-        if (!IERC20(tok).approve(address(this), bal)) {
-            revert Balance("approval failed", bal);
+        uint256 uxb;
+        {
+            uint8 tkd = IERC20Metadata(tok).decimals();
+            uint8 uxd = super.decimals();
+
+            if (tkd < uxd) {
+                uxb = bal / (10 ** (uxd - tkd));
+            } else if (tkd > uxd) {
+                uxb = bal * (10 ** (tkd - uxd));
+            } else {
+                uxb = bal;
+            }
+        }
+
+        if (!IERC20(tok).approve(address(this), uxb)) {
+            revert Balance("approval failed", uxb);
         }
 
         // Send the given tokens from this contract to the caller.
-        if (!IERC20(tok).transferFrom(address(this), msg.sender, bal)) {
-            revert Balance("transfer failed", bal);
+        if (!IERC20(tok).transferFrom(address(this), msg.sender, uxb)) {
+            revert Balance("transfer failed", uxb);
         }
     }
 
@@ -230,8 +244,22 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert Balance("transfer failed", bal);
         }
 
+        uint256 uxb;
         {
-            _mint(msg.sender, bal);
+            uint8 tkd = IERC20Metadata(tok).decimals();
+            uint8 uxd = super.decimals();
+
+            if (tkd < uxd) {
+                uxb = bal * (10 ** (uxd - tkd));
+            } else if (tkd > uxd) {
+                uxb = bal / (10 ** (tkd - uxd));
+            } else {
+                uxb = bal;
+            }
+        }
+
+        {
+            _mint(msg.sender, uxb);
         }
     }
 

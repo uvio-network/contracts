@@ -6,7 +6,7 @@ describe("UVX", function () {
   describe("deployment", function () {
     describe("revert", function () {
       it("if owner address is empty", async function () {
-        const Stablecoin = await ethers.deployContract("Stablecoin");
+        const Stablecoin = await ethers.deployContract("Stablecoin", [6]);
         const UVX = await ethers.getContractFactory("UVX");
 
         const txn = ethers.deployContract("UVX", [zeroAddress, await Stablecoin.getAddress()]);
