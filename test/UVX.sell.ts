@@ -41,6 +41,11 @@ describe("UVX", function () {
         expect(await UVX.balanceOf(udd)).to.equal(0);
       }
 
+      // Selling happens between three parties, where UVX acts on behalf of
+      // signer 1 in order to transfer stablecoins. From the point of view of
+      // the stablecoin contract, msg.sender is UVX, on behalf of signer 1. Thus
+      // UVX must be declared as spender, because UVX is the facilitating
+      // middleman.
       {
         await Stablecoin.connect(Signer(1)).approve(udd, Amount(10, 6));
         await UVX.connect(Signer(1)).sell(sdd, Amount(10, 6));

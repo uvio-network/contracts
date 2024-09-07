@@ -47,8 +47,11 @@ describe("UVX", function () {
         expect(await UVX.totalSupply()).to.equal(Amount(10, 18)); // supply created
       }
 
+      // Burning happens only between signer 1 and UVX itself. There are only
+      // two parties involved. That is why from the perspective of UVX,
+      // msg.sender, and thus the spender is in first instance signer 1.
       {
-        await UVX.connect(Signer(1)).approve(Signer(1), Amount(10, 18)); // TODO how does this approval make any sense?
+        await UVX.connect(Signer(1)).approve(Signer(1), Amount(10, 18));
         await UVX.connect(Signer(1)).burn(sdd, Amount(10, 18));
       }
 
