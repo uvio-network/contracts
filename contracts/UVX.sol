@@ -44,6 +44,14 @@ contract UVX is AccessControlEnumerable, ERC20 {
     string public constant VERSION = "v0.0.0";
 
     //
+    // MAPPINGS
+    //
+
+    // _tokenDecimals caches the decimal numbers of our whitelisted token
+    // contracts for more gas efficient reads during burn and sell.
+    mapping(address => uint8) private _tokenDecimals;
+
+    //
     // VARIABLES
     //
 
@@ -183,27 +191,31 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _burn(address(this), bal);
         }
 
-        uint256 uxb;
-        {
-            uint8 tkd = IERC20Metadata(tok).decimals();
-            uint8 uxd = super.decimals();
-
-            if (tkd < uxd) {
-                uxb = bal / (10 ** (uxd - tkd));
-            } else if (tkd > uxd) {
-                uxb = bal * (10 ** (tkd - uxd));
-            } else {
-                uxb = bal;
-            }
+        // Cache the whitelisted token decimals on the first call and use the
+        // cached version forever in order to safe gas. This caching mechanism
+        // reduces the gas usage of burn calls. We don't care about tokens that
+        // may have been removed from the whitelisted contracts, since the
+        // number of tokens for which that is practically going to happen will
+        // never reach double digits.
+        uint8 dec = _tokenDecimals[tok];
+        if (dec == 0) {
+            dec = IERC20Metadata(tok).decimals();
+            _tokenDecimals[tok] = dec;
         }
 
-        if (!IERC20(tok).approve(address(this), uxb)) {
-            revert Balance("approval failed", uxb);
+        if (dec < 18) {
+            bal = bal / (10 ** (18 - dec));
+        } else if (dec > 18) {
+            bal = bal * (10 ** (dec - 18));
+        }
+
+        if (!IERC20(tok).approve(address(this), bal)) {
+            revert Balance("approval failed", bal);
         }
 
         // Send the given tokens from this contract to the caller.
-        if (!IERC20(tok).transferFrom(address(this), msg.sender, uxb)) {
-            revert Balance("transfer failed", uxb);
+        if (!IERC20(tok).transferFrom(address(this), msg.sender, bal)) {
+            revert Balance("transfer failed", bal);
         }
     }
 
@@ -244,22 +256,26 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert Balance("transfer failed", bal);
         }
 
-        uint256 uxb;
-        {
-            uint8 tkd = IERC20Metadata(tok).decimals();
-            uint8 uxd = super.decimals();
+        // Cache the whitelisted token decimals on the first call and use the
+        // cached version forever in order to safe gas. This caching mechanism
+        // reduces the gas usage of sell calls. We don't care about tokens that
+        // may have been removed from the whitelisted contracts, since the
+        // number of tokens for which that is practically going to happen will
+        // never reach double digits.
+        uint8 dec = _tokenDecimals[tok];
+        if (dec == 0) {
+            dec = IERC20Metadata(tok).decimals();
+            _tokenDecimals[tok] = dec;
+        }
 
-            if (tkd < uxd) {
-                uxb = bal * (10 ** (uxd - tkd));
-            } else if (tkd > uxd) {
-                uxb = bal / (10 ** (tkd - uxd));
-            } else {
-                uxb = bal;
-            }
+        if (dec < 18) {
+            bal = bal * (10 ** (18 - dec));
+        } else if (dec > 18) {
+            bal = bal / (10 ** (dec - 18));
         }
 
         {
-            _mint(msg.sender, uxb);
+            _mint(msg.sender, bal);
         }
     }
 
