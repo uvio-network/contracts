@@ -248,25 +248,34 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
         }
     }
 
-    // lend allows the LOAN_ROLE to effectively take out a flash loan of one
-    // token "tk1" to the extend of this token's balance "bl1", under the
+    // lend allows the LOAN_ROLE to effectively take out a flash loan of token
+    // one "tk1" to the extend of this token's balance "bl1", under the
     // guarantee that the whitelisted receiver "rec" repays all of its debt in
-    // the equivalent amount of the whitelisted token two "tk2".
+    // the equivalent amount of the whitelisted token two "tk2". The whitelisted
+    // receiver "rec" is a contract implementing the interface IReceiver. This
+    // trusted smart contract may be invoked by anyone, by simply calling lend
+    // and paying the gas for it. The trusted receiver implementation should
+    // always be stateless and never hold funds for longer than the duration of
+    // the currently processed transaction. Tokens one and two, here "tk1" and
+    // "tk2" must both be whitelisted token contracts having the TOKEN_ROLE. Any
+    // decimal differences between both tokens will be accounted for. The input
+    // token balance "bl1" is always the balance of token one "tk1". The
+    // inferred and subsequently injected token balance "bl2" refers to the
+    // amount of tokens of token two "tk2", which must be repayed within the
+    // same transaction. Token one and token two may be the same token.
     function lend(address rec, address tk1, address tk2, uint256 bl1) public nonReentrant {
-        if (!hasRole(LOAN_ROLE, msg.sender)) {
-            // TODO test
-            revert AccessControlUnauthorizedAccount(msg.sender, LOAN_ROLE);
+        if (!hasRole(LOAN_ROLE, rec)) {
+            revert AccessControlUnauthorizedAccount(rec, LOAN_ROLE);
         }
 
-        // We only need to whitelist token two, because that token is given from
-        // the outside. Token one is implicitly whitelisted already, because
-        // only whitelisted tokens can be deposited into the UVX contract.
+        if (!hasRole(TOKEN_ROLE, tk1)) {
+            revert AccessControlUnauthorizedAccount(tk1, TOKEN_ROLE);
+        }
+
         if (!hasRole(TOKEN_ROLE, tk2)) {
-            // TODO test
             revert AccessControlUnauthorizedAccount(tk2, TOKEN_ROLE);
         }
 
-        // TODO account for decimals
         uint256 bl2 = bl1;
         {
             uint8 dc1 = _tokenDecimals[tk1];
@@ -283,27 +292,21 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
 
             unchecked {
                 if (dc1 < dc2) {
-                    // TODO test
                     bl2 = bl1 * (10 ** (dc2 - dc1));
                 } else if (dc1 > dc2) {
-                    // TODO test
                     bl2 = bl1 / (10 ** (dc1 - dc2));
                 }
-                // TODO test equal decimals
             }
         }
 
         // Send token one to the receiver. This is the part where we credit the
         // borrower temporarily.
         if (!IERC20(tk1).transfer(rec, bl1)) {
-            // TODO test
             revert Balance("borrow failed", bl1);
         }
 
+        // Allow the borrower to execute their own arbitrary business logic.
         {
-            // TODO test success
-            // TODO test failure
-            // TODO test tk1 and tk2 equal
             IReceiver(rec).execute(tk1, tk2, bl1, bl2);
         }
 
@@ -311,7 +314,6 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
         // the receiver did not approve the transfer below, then the entire
         // flash loan will revert.
         if (!IERC20(tk2).transferFrom(rec, address(this), bl2)) {
-            // TODO test
             revert Balance("repayment failed", bl2);
         }
     }
