@@ -1027,11 +1027,7 @@ contract Claims is AccessControlEnumerable {
             _availBalance[use] -= bal;
         }
 
-        if (!IERC20(token).approve(address(this), bal)) {
-            revert Balance("approval failed", bal);
-        }
-
-        if (!IERC20(token).transferFrom(address(this), use, bal)) {
+        if (!IERC20(token).transfer(use, bal)) {
             revert Balance("transfer failed", bal);
         }
     }
