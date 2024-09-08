@@ -136,12 +136,29 @@ contract UVX is AccessControlEnumerable, ERC20 {
             revert AccessControlUnauthorizedAccount(tok, TOKEN_ROLE);
         }
 
+        // Cache the whitelisted token decimals on the first call and use the
+        // cached version forever in order to safe gas. This caching mechanism
+        // reduces the gas usage of fund calls. We don't care about tokens that
+        // may have been removed from the whitelisted contracts, since the
+        // number of tokens for which that is practically going to happen will
+        // never reach double digits.
+        uint8 dec = _tokenDecimals[tok];
+        if (dec == 0) {
+            dec = IERC20Metadata(tok).decimals();
+            _tokenDecimals[tok] = dec;
+        }
+
         // Decrease the outstanding balance by the funded amount. We do not use
         // "unchecked" here because we want to revert on underflows. This
         // ensures that we can only at maximum fund the UVX deficit until it is
-        // completely eliminated.
-        {
-            // TODO this needs to account for decimals
+        // completely eliminated. Here we also need to translate the given
+        // balance into the given token precision, relative to its own decimals
+        // and ours. Ours here is 18 decimals.
+        if (dec < 18) {
+            outstanding -= bal * (10 ** (18 - dec));
+        } else if (dec > 18) {
+            outstanding -= bal / (10 ** (dec - 18));
+        } else {
             outstanding -= bal;
         }
 
@@ -208,7 +225,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _tokenDecimals[tok] = dec;
         }
 
-        // Translate the given balance into the given tokens precision, relative
+        // Translate the given balance into the given token precision, relative
         // to its own decimals and ours. Ours here is 18 decimals.
         unchecked {
             if (dec < 18) {
@@ -277,7 +294,7 @@ contract UVX is AccessControlEnumerable, ERC20 {
             _tokenDecimals[tok] = dec;
         }
 
-        // Translate the given balance into the given tokens precision, relative
+        // Translate the given balance into the given token precision, relative
         // to its own decimals and ours. Ours here is 18 decimals.
         unchecked {
             if (dec < 18) {
