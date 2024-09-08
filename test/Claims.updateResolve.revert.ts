@@ -25,27 +25,32 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           EXPIRY,
+          [],
         );
         await Claims.connect(Signer(2)).updatePropose(
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await Claims.connect(Signer(3)).updatePropose(
           Claim(1),
           Amount(10),
           Side(false),
+          0,
         );
         await Claims.connect(Signer(4)).updatePropose(
           Claim(1),
           Amount(10),
           Side(false),
+          0,
         );
         await Claims.connect(Signer(5)).updatePropose(
           Claim(1),
           Amount(10),
           Side(false),
+          0,
         );
 
         await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
@@ -71,6 +76,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
@@ -85,6 +91,7 @@ describe("Claims", function () {
           Claim(1),
           Amount(10),
           Side(true),
+          0,
         );
 
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
