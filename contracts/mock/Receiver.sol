@@ -30,7 +30,6 @@ contract Receiver is IReceiver {
             IStablecoin(tk2).mint(address(this), bl2);
         }
 
-        // TODO test with approval
         if (!IERC20(tk2).approve(msg.sender, bl2)) {
             revert Balance("approval failed", bl2);
         }
@@ -54,23 +53,6 @@ contract ReceiverMintLess is IReceiver {
     }
 }
 
-contract ReceiverMintMore is IReceiver {
-    error Balance(string why, uint256 bal);
-
-    constructor() {}
-
-    function execute(address tk1, address tk2, uint256 bl1, uint256 bl2) external {
-        {
-            IStablecoin(tk1).burn(address(this), bl1);
-            IStablecoin(tk2).mint(address(this), bl2 + 1); // mint more than requested
-        }
-
-        if (!IERC20(tk2).approve(msg.sender, bl2)) {
-            revert Balance("approval failed", bl2);
-        }
-    }
-}
-
 contract ReceiverNoApprove is IReceiver {
     error Balance(string why, uint256 bal);
 
@@ -79,7 +61,6 @@ contract ReceiverNoApprove is IReceiver {
     function execute(address tk1, address tk2, uint256 bl1, uint256 bl2) external {
         IStablecoin(tk1).burn(address(this), bl1);
         IStablecoin(tk2).mint(address(this), bl2);
-        // TODO test without approval
     }
 }
 
@@ -94,7 +75,6 @@ contract ReceiverReentrance is IReceiver {
         }
 
         {
-            // TODO test this reverts approval
             ILender(msg.sender).lend(address(this), tk1, tk2, bl1);
         }
 
