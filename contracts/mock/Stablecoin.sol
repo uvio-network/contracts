@@ -18,11 +18,15 @@ contract Stablecoin is ERC20 {
         }
     }
 
+    function burn(address src, uint256 bal) external {
+        _burn(src, bal);
+    }
+
     function decimals() public view override returns (uint8) {
         return _decimals;
     }
 
-    function mint(address dst, uint256 bal) public {
+    function mint(address dst, uint256 bal) external {
         _mint(dst, bal);
     }
 }

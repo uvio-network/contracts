@@ -3,11 +3,13 @@ pragma solidity ^0.8.24;
 
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import {ERC20, IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IReceiver} from "./interface/IReceiver.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
-contract UVX is AccessControlEnumerable, ERC20 {
+contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
     //
     // ERRORS
     //
@@ -35,6 +37,11 @@ contract UVX is AccessControlEnumerable, ERC20 {
     // addresses only, as long as token transferability is restricted. As soon
     // as "restrict" is set to false, the CONTRACT_ROLE has no effect anymore.
     bytes32 public constant CONTRACT_ROLE = keccak256("CONTRACT_ROLE");
+    // LOAN_ROLE is the role assigned internally to designate privileged
+    // accounts with the purpose of automating flash loans. The goal for this
+    // automation is to increase protocol revenue using the otherwise idle
+    // tokens deposited into this smart contract.
+    bytes32 public constant LOAN_ROLE = keccak256("LOAN_ROLE");
     // TOKEN_ROLE is the role assigned internally to designate token contracts
     // with the purpose of allowing the UVX token to be purchased and redeemed
     // using those tokens having the TOKEN_ROLE assigned.
@@ -235,13 +242,77 @@ contract UVX is AccessControlEnumerable, ERC20 {
             }
         }
 
-        if (!IERC20(tok).approve(address(this), bal)) {
-            revert Balance("approval failed", bal);
+        // Send the given tokens from this contract to the caller.
+        if (!IERC20(tok).transfer(msg.sender, bal)) {
+            revert Balance("transfer failed", bal);
+        }
+    }
+
+    // lend allows the LOAN_ROLE to effectively take out a flash loan of one
+    // token "tk1" to the extend of this token's balance "bl1", under the
+    // guarantee that the whitelisted receiver "rec" repays all of its debt in
+    // the equivalent amount of the whitelisted token two "tk2".
+    function lend(address rec, address tk1, address tk2, uint256 bl1) public nonReentrant {
+        if (!hasRole(LOAN_ROLE, msg.sender)) {
+            // TODO test
+            revert AccessControlUnauthorizedAccount(msg.sender, LOAN_ROLE);
         }
 
-        // Send the given tokens from this contract to the caller.
-        if (!IERC20(tok).transferFrom(address(this), msg.sender, bal)) {
-            revert Balance("transfer failed", bal);
+        // We only need to whitelist token two, because that token is given from
+        // the outside. Token one is implicitly whitelisted already, because
+        // only whitelisted tokens can be deposited into the UVX contract.
+        if (!hasRole(TOKEN_ROLE, tk2)) {
+            // TODO test
+            revert AccessControlUnauthorizedAccount(tk2, TOKEN_ROLE);
+        }
+
+        // TODO account for decimals
+        uint256 bl2 = bl1;
+        {
+            uint8 dc1 = _tokenDecimals[tk1];
+            if (dc1 == 0) {
+                dc1 = IERC20Metadata(tk1).decimals();
+                _tokenDecimals[tk1] = dc1;
+            }
+
+            uint8 dc2 = _tokenDecimals[tk2];
+            if (dc2 == 0) {
+                dc2 = IERC20Metadata(tk2).decimals();
+                _tokenDecimals[tk2] = dc2;
+            }
+
+            unchecked {
+                if (dc1 < dc2) {
+                    // TODO test
+                    bl2 = bl1 * (10 ** (dc2 - dc1));
+                } else if (dc1 > dc2) {
+                    // TODO test
+                    bl2 = bl1 / (10 ** (dc1 - dc2));
+                }
+                // TODO test equal decimals
+            }
+        }
+
+        // Send token one to the receiver. This is the part where we credit the
+        // borrower temporarily.
+        if (!IERC20(tk1).transfer(rec, bl1)) {
+            // TODO test
+            revert Balance("borrow failed", bl1);
+        }
+
+        {
+            // TODO test success
+            // TODO test failure
+            // TODO test tk1 and tk2 equal
+            IReceiver(rec).execute(tk1, tk2, bl1, bl2);
+        }
+
+        // Pull the expected amount of token two in order to settle the loan. If
+        // the receiver did not approve the transfer below, then the entire
+        // flash loan will revert.
+        if (!IERC20(tk2).transferFrom(rec, address(this), bl2)) {
+            // TODO test
+            revert Balance("repayment failed", bl2);
         }
     }
 
