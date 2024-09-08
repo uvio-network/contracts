@@ -9,6 +9,7 @@ describe("UVX", function () {
   describe("burn", function () {
     const deployStablecoin = async (dec: number) => {
       const { Address, Signer } = await loadFixture(Deploy);
+
       const Stablecoin = await ethers.deployContract("Stablecoin", [dec]);
       const UVX = await ethers.deployContract("UVX", [Address(0), await Stablecoin.getAddress()]);
 
