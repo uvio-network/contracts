@@ -126,7 +126,7 @@ contract Claims is AccessControlEnumerable {
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.0.0";
+    string public constant VERSION = "v0.1.0";
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
     // users who expressed their opinions by staking in agreement with the
@@ -271,11 +271,11 @@ contract Claims is AccessControlEnumerable {
     // be able to modify the fee structure and designate the BOT_ROLE.
     constructor(address own, address tok) {
         if (own == address(0)) {
-            revert Address("invalid owner");
+            revert Address("owner invalid");
         }
 
         if (tok == address(0)) {
-            revert Address("invalid token");
+            revert Address("token invalid");
         }
 
         // There is no real way to ensure that the given token contract is in

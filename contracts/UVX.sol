@@ -48,7 +48,7 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
     bytes32 public constant TOKEN_ROLE = keccak256("TOKEN_ROLE");
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.0.0";
+    string public constant VERSION = "v0.1.0";
 
     //
     // MAPPINGS
@@ -95,11 +95,11 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
     // able to modify the restrict flag and designate the BOT_ROLE.
     constructor(address own, address tok) ERC20("Uvio Network Token", "UVX") {
         if (own == address(0)) {
-            revert Address("invalid owner");
+            revert Address("owner invalid");
         }
 
         if (tok == address(0)) {
-            revert Address("invalid token");
+            revert Address("token invalid");
         }
 
         // There is no real way to ensure that the given token contract is in
@@ -276,7 +276,7 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
             revert AccessControlUnauthorizedAccount(tk2, TOKEN_ROLE);
         }
 
-        uint256 bl2 = bl1;
+        uint256 bl2;
         {
             uint8 dc1 = _tokenDecimals[tk1];
             if (dc1 == 0) {
@@ -295,6 +295,8 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
                     bl2 = bl1 * (10 ** (dc2 - dc1));
                 } else if (dc1 > dc2) {
                     bl2 = bl1 / (10 ** (dc1 - dc2));
+                } else {
+                    bl2 = bl1;
                 }
             }
         }
