@@ -52,7 +52,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 1 to withdraw 25 tokens with multiple calls", async function () {
@@ -73,7 +73,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
     });
 
@@ -94,7 +94,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
     });
 
@@ -141,7 +141,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 0 to withdraw 2.50 tokens with multiple calls", async function () {
@@ -162,7 +162,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 1 to withdraw 25 tokens once", async function () {
@@ -181,7 +181,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 2 to withdraw 22.50 tokens once", async function () {
@@ -200,7 +200,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(2)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
     });
 
@@ -221,7 +221,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 1 to withdraw 2.50 tokens once", async function () {
@@ -240,7 +240,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 3 to withdraw about 15 tokens once", async function () {
@@ -259,7 +259,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(3)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 3 to withdraw about 15 tokens with multiple calls", async function () {
@@ -279,7 +279,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(3)).withdraw(Amount(5));
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 4 to withdraw about 15 tokens once", async function () {
@@ -298,7 +298,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(4)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 5 to withdraw about 15 tokens once", async function () {
@@ -317,7 +317,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(5)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
     });
 
@@ -338,7 +338,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(0)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 1 to withdraw 65.69 tokens once", async function () {
@@ -357,7 +357,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(1)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 2 to withdraw 56.44 tokens once", async function () {
@@ -376,7 +376,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(2)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
       it("should allow signer 3 to withdraw 53.62 tokens once", async function () {
@@ -395,7 +395,7 @@ describe("Claims", function () {
 
         const txn = Claims.connect(Signer(3)).withdraw(1);
 
-        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
     });
   });

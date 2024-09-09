@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import {Bits} from "./lib/Bits.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IToken} from "./interface/IToken.sol";
 
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
@@ -283,7 +284,7 @@ contract Claims is AccessControlEnumerable {
         // guards at least against EOAs, so that it is not possible anymore to
         // confuse the owner address with the token address.
         {
-            IERC20(tok).totalSupply();
+            IToken(tok).totalSupply();
         }
 
         {
@@ -736,8 +737,7 @@ contract Claims is AccessControlEnumerable {
             // If there is a token whitelist setup, verify that the caller has a
             // non zero balance of the tokens that are required to participate
             // in this claim.
-            if (_proposeToken[cla].length != 0 && IERC20(_proposeToken[cla][tok]).balanceOf(use) == 0) {
-                // TODO test
+            if (_proposeToken[cla].length != 0 && IToken(_proposeToken[cla][tok]).balanceOf(use) == 0) {
                 revert Balance("token missing", 0);
             }
 
@@ -1019,14 +1019,15 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
+    // withdraw allows anyone to withdraw their own available balance as
+    // distributed by this smart contract.
     function withdraw(uint256 bal) public {
         address use = msg.sender;
 
-        if (_availBalance[use] < bal) {
-            revert Balance("insufficient funds", _availBalance[use]);
-        }
-
-        unchecked {
+        // The arithmetic below is intentionally defined outside of an
+        // "unchecked" block, so that anyone trying to withdraw more than they
+        // are owed causes their own transaction to revert with a panic.
+        {
             _availBalance[use] -= bal;
         }
 
@@ -1120,6 +1121,11 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
+    // updateDuration allows the owner to change the global staking cliff
+    // applied to all active and upcoming claims. "bas" cannot be more than 50%,
+    // which means that the end of a staking expiry of 10 days cannot be
+    // shortened to more than 5 days. "max" and "min" may be set to any
+    // reasonable amount of seconds.
     function updateDuration(uint64 bas, uint64 max, uint64 min) public {
         // Inlining the role check instead of using the modifier saves about 140
         // gas per call.
@@ -1354,6 +1360,7 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
+    //
     function rewardAllLoop(uint256 pro, address use, bool win, uint256 fey, uint256 fen) private {
         uint256 sty = _addressStake[pro][use][ADDRESS_STAKE_Y];
         uint256 stn = _addressStake[pro][use][ADDRESS_STAKE_N];
@@ -1759,7 +1766,36 @@ contract Claims is AccessControlEnumerable {
         return lis;
     }
 
-    // can be called by anyone, may not return anything
+    // searchToken can be called by anyone to lookup the token whitelist of any
+    // given propose. Returns an empty list if no token whitelist is configured
+    // for the given claim. The returned list can be used to determine the token
+    // index required when calling updatePropose on claims with token
+    // whitelists. Frontends should fetch the entire token whitelist, which
+    // should not contain more tha 5 addresses, and check the user balances of
+    // either token. Any token index of any token for which the user at hand has
+    // in fact a non-zero balance may be used when calling updatePropose on
+    // behalf of the user. Consider the following token whitelist for claim 33.
+    //
+    //     [
+    //         Address(1), // user has balance 50.5977
+    //         Address(2), // user has balance 0
+    //         Address(3)  // user has balance 1
+    //     ]
+    //
+    // Following from the information above, when calling updatePropose on
+    // behalf of the user that owns tokens of the whitelisted addresses 1 and 3,
+    // either token index 0 or 2 may be valid to stake in claim 33.
+    function searchToken(uint256 pro) public view returns (address[] memory) {
+        return _proposeToken[pro];
+    }
+
+    // searchVotes can be called by anyone to lookup the latest votes on either
+    // side of any given market. The given claim ID must be the ID of the claim
+    // with the lifecycle phase "propose".
+    //
+    //     out[0] the number of votes that verified events in the real world with true
+    //     out[1] the number of votes that verified events in the real world with false
+    //
     function searchVotes(uint256 pro) public view returns (uint256, uint256) {
         return (_truthResolve[pro][CLAIM_TRUTH_Y], _truthResolve[pro][CLAIM_TRUTH_N]);
     }
