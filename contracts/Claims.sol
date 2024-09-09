@@ -465,7 +465,6 @@ contract Claims is AccessControlEnumerable {
         unchecked {
             // Set the given expiry to make the code flow below work.
             {
-                // TODO verify that unchecked is solid here
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
 
                 if (dur > durationMax) {
@@ -605,8 +604,13 @@ contract Claims is AccessControlEnumerable {
             _stakePropose[pro][CLAIM_STAKE_B] = bal;
         }
 
+        // If a token whitelist is provided, simply set it up for this claim.
+        // The proposer does not need to own the whitelisted tokens in order to
+        // propose the claim. That way whitelisted claims can be setup as a
+        // service and the initial balance is valid as any other. The proposer
+        // must still own whitelisted tokens in order to participate further
+        // using updatePropose.
         if (tok.length != 0) {
-            // TODO test
             _proposeToken[pro] = tok;
         }
 
@@ -615,7 +619,6 @@ contract Claims is AccessControlEnumerable {
         unchecked {
             // Set the given expiry to make the code flow below work.
             {
-                // TODO verify that unchecked is solid here
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
 
                 if (dur > durationMax) {
