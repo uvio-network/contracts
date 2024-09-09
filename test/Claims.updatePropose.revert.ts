@@ -9,6 +9,9 @@ import { network } from "hardhat";
 import { Side } from "./src/Side";
 import { maxUint256 } from "viem";
 
+// TODO test that proposer cannot stake again without whitelisted tokens
+// TODO test that staking fails with wrong token index
+
 describe("Claims", function () {
   describe("updatePropose", function () {
     describe("revert", function () {

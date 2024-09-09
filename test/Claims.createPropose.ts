@@ -5,6 +5,7 @@ import { Deploy } from "./src/Deploy";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import { maxUint64 } from "viem";
 import { Side } from "./src/Side";
 
 const EXPIRY = Expiry(2, "days");
@@ -219,6 +220,22 @@ describe("Claims", function () {
 
       expect(res[0]).to.equal(Amount(50)); // allocated
       expect(res[1]).to.equal(0);          // available
+    });
+
+    it("should create propose with max uint64", async function () {
+      const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([3], 10);
+
+      await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        maxUint64,
+        [],
+      );
+
+      expect(await Claims.searchExpired(Claim(1))).to.deep.equal([maxUint64, 0]);
     });
   });
 });

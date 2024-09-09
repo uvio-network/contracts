@@ -3,7 +3,7 @@ import { Claim } from "./src/Claim";
 import { expect } from "chai";
 import { Expiry } from "./src/Expiry";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { maxUint256 } from "viem";
+import { maxUint256, maxUint64 } from "viem";
 import { network } from "hardhat";
 import { ResolveDispute20True30False } from "./src/Deploy";
 import { Role } from "./src/Role";
@@ -147,6 +147,25 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(913, "hours"), // 30 days + 1 hour from the 8 days above
+          Claim(1),
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
+      it("if expiry is max uint64", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(UpdateResolve20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 20);
+
+        const txn = Claims.connect(Signer(4)).createDispute(
+          Claim(13),
+          Amount(20),
+          Side(true),
+          maxUint64,
           Claim(1),
         );
 
