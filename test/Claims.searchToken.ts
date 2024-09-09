@@ -26,9 +26,7 @@ describe("Claims", function () {
         [a18],
       );
 
-      expect(await Claims.searchToken(Claim(1))).to.deep.equal([
-        await Stablecoin18.getAddress(),
-      ]);
+      expect(await Claims.searchToken(Claim(1))).to.deep.equal([a18]);
     });
 
     it("should search for whitelisted tokens, multi", async function () {
@@ -52,11 +50,7 @@ describe("Claims", function () {
         [ad6, a18, a30],
       );
 
-      expect(await Claims.searchToken(Claim(1))).to.deep.equal([
-        await Stablecoin6.getAddress(),
-        await Stablecoin18.getAddress(),
-        await Stablecoin30.getAddress(),
-      ]);
+      expect(await Claims.searchToken(Claim(1))).to.deep.equal([ad6, a18, a30]);
     });
 
     it("should not find whitelisted tokens for propose without whitelisted tokens", async function () {
