@@ -14,23 +14,79 @@ contract Claims is AccessControlEnumerable {
     // EXTENSIONS
     //
 
-    //
+    // Bits is a small bitmap library for us to keep track of boolean logic in
+    // the most gas efficient way.
     using Bits for Bits.Map;
 
     //
     // ERRORS
     //
 
-    //
+    // Address is used to revert if any onchain identity was found to be invalid
+    // for its intended purpose, e.g. the current user is not allowed to do
+    // something.
     error Address(string why);
-    //
+    // Balance is used to revert if any token balance related issues are
+    // detected, e.g. the required minimum balance is not being met.
     error Balance(string why, uint256 bal);
-    //
+    // Expired is used to revert if any expiration date related issues are
+    // detected, e.g. the provided expiry is too short.
     error Expired(string why, uint256 unx);
-    //
+    // Mapping is used to revert if any object relationship was found to be
+    // violated, e.g. a claim was tried to be created using an ID of another
+    // claim that already exists.
     error Mapping(string why);
-    //
+    // Process is used to revert if any logical mechanism was found to be
+    // prohibited, e.g. a dispute was tried to be created for a propose that got
+    // already disputed the maximum amount of times.
     error Process(string why);
+
+    //
+    // EVENTS
+    //
+
+    // DisputeCreated is emitted when a dispute is created.
+    //
+    //     use is the user creating the dispute
+    //     bal is the amount of reputation initially staked
+    //     exp is the expiry of the new dispute
+    //
+    event DisputeCreated(address use, uint256 bal, uint64 exp);
+    // DisputeSettled is emitted when a dispute is settled. Once a dispute is
+    // settled all user balances are updated, which makes the consensus reached
+    // definitive and binding. For the final dispute in a tree of claims that
+    // means the outcome generated here will be applied to the whole tree.
+    //
+    //     all is the amount of stakers that participated in that market
+    //     yay is the amount of voters having voted true
+    //     nah is the amount of voters having voted false
+    //     tot is the amount of staked reputation being distributed
+    //
+    event DisputeSettled(uint256 all, uint256 yay, uint256 nah, uint256 tot);
+    // ProposeCreated is emitted when a propose is created.
+    //
+    //     use is the user creating the propose
+    //     bal is the amount of reputation initially staked
+    //     exp is the expiry of the new propose
+    //
+    event ProposeCreated(address use, uint256 bal, uint64 exp);
+    // ProposeSettled is emitted when a propose is settled. Once a propose is
+    // settled all user balances are updated, which makes the consensus reached
+    // definitive and binding.
+    //
+    //     all is the amount of stakers that participated in that market
+    //     yay is the amount of voters having voted true
+    //     nah is the amount of voters having voted false
+    //     tot is the amount of staked reputation being distributed
+    //
+    event ProposeSettled(uint256 all, uint256 yay, uint256 nah, uint256 tot);
+    // ResolveCreated is emitted when a resolve is created.
+    //
+    //     use is the user creating the resolve
+    //     len is the amount of voters randomly sampled
+    //     exp is the expiry of the new resolve
+    //
+    event ResolveCreated(address use, uint256 len, uint64 exp);
 
     //
     // CONSTANTS
@@ -76,16 +132,16 @@ contract Claims is AccessControlEnumerable {
     // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
-    // CLAIM_EXPIRY_S is a map index within _claimExpired. This number tracks
-    // the timestamp in unix seconds until which staking is still possible.
-    uint8 public constant CLAIM_EXPIRY_S = 0;
     // CLAIM_EXPIRY_P is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "propose" and "dispute" in unix
     // seconds.
-    uint8 public constant CLAIM_EXPIRY_P = 1;
+    uint8 public constant CLAIM_EXPIRY_P = 0;
     // CLAIM_EXPIRY_R is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "resolve" in unix seconds.
-    uint8 public constant CLAIM_EXPIRY_R = 2;
+    uint8 public constant CLAIM_EXPIRY_R = 1;
+    // CLAIM_EXPIRY_T is a map index within _claimExpired. This number tracks
+    // the timestamp in unix seconds until which staking is still possible.
+    uint8 public constant CLAIM_EXPIRY_T = 2;
 
     // CLAIM_STAKE_Y is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation agreeing with the associated claim.
@@ -101,15 +157,15 @@ contract Claims is AccessControlEnumerable {
     // minimum amount of stake required in order to participate in any given
     // claim when the proposed claim first voted false.
     uint8 public constant CLAIM_STAKE_B = 3;
+    // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
+    // amount of distributed stake that we carried over during multiple calls of
+    // updateBalance.
+    uint8 public constant CLAIM_STAKE_C = 4;
     // CLAIM_STAKE_D is a map index within _stakePropose. This number tracks the
     // amount of users for which we distributed stake already throughout the
     // process of updating user balances. This number must match the total
     // amount of stakers before any claim can fully be resolved.
-    uint8 public constant CLAIM_STAKE_D = 4;
-    // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
-    // amount of distributed stake that we carried over during multiple calls of
-    // updateBalance.
-    uint8 public constant CLAIM_STAKE_C = 5;
+    uint8 public constant CLAIM_STAKE_D = 5;
 
     // CLAIM_TRUTH_Y is a map index within _truthResolve. This number tracks the
     // total amount of votes cast saying the associated claim was true.
@@ -156,23 +212,36 @@ contract Claims is AccessControlEnumerable {
     // MAPPINGS
     //
 
-    //
+    // _addressStake keeps track of staked reputation per claim, per user, per
+    // side of the market. The uint8 index here is either ADDRESS_STAKE_Y or
+    // ADDRESS_STAKE_N. This detailed accounting enables users to bet on either
+    // side of any given market and be rewarded or punished according to the
+    // market's resolution.
     mapping(uint256 => mapping(address => mapping(uint8 => uint256))) private _addressStake;
-    //
+    // _addressVotes maintains voting specific information per claim, per user
+    // in a gas efficient bitmap implementation. For more information on the
+    // various boolean flags used here, see VOTE_STAKE_Y, VOTE_STAKE_N,
+    // VOTE_TRUTH_Y, VOTE_TRUTH_N, VOTE_TRUTH_S and VOTE_TRUTH_V.
     mapping(uint256 => mapping(address => Bits.Map)) private _addressVotes;
     //
     mapping(address => uint256) private _allocBalance;
-    //
+    // TODO put together in one mapping with _allocBalance
     mapping(address => uint256) private _availBalance;
-    //
+    // _claimBalance maintains boolean flags relevant for balance processing
+    // states per claim. For more information on the overall process and logic,
+    // see updateBalance, CLAIM_BALANCE_P, CLAIM_BALANCE_R and CLAIM_BALANCE_U.
     mapping(uint256 => Bits.Map) private _claimBalance;
-    //
+    // _claimExpired tracks expiration dates for every claim. For more
+    // information see CLAIM_EXPIRY_P, CLAIM_EXPIRY_R and CLAIM_EXPIRY_T.
     mapping(uint256 => mapping(uint8 => uint256)) private _claimExpired;
-    //
+    // _claimIndices contains all user indices as selected by the random truth
+    // sampling process. For more information on how those indices are written
+    // and read, see createResolve and searchSamples.
     mapping(uint256 => uint256[]) private _claimIndices;
-    // dispute index for number of disputes in _claimMapping
+    // _claimDispute tracks the number of disputes in _claimMapping per propose.
     mapping(uint256 => uint256) private _claimDispute;
-    //
+    // _claimMapping has any claim ID as key and points to the latest dispute
+    // within that tree, if any.
     mapping(uint256 => uint256) private _claimMapping;
     // _indexAddress tracks the user addresses that have reputation staked in
     // any given market. This mapping works in conjunction with _indexMembers.
@@ -213,7 +282,9 @@ contract Claims is AccessControlEnumerable {
     // of the market. The uint8 keys are either CLAIM_TRUTH_Y or CLAIM_TRUTH_N.
     // The uint256 values are the amounts of votes cast respectively.
     mapping(uint256 => mapping(uint8 => uint256)) private _truthResolve;
-    //
+    // _stakePropose tracks claim specific metrics about user stakes and their
+    // distribution. For more information see CLAIM_STAKE_Y, CLAIM_STAKE_N,
+    // CLAIM_STAKE_A, CLAIM_STAKE_B, CLAIM_STAKE_C and CLAIM_STAKE_D.
     mapping(uint256 => mapping(uint8 => uint256)) private _stakePropose;
 
     //
@@ -469,11 +540,11 @@ contract Claims is AccessControlEnumerable {
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
 
                 if (dur > durationMax) {
-                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMax;
+                    _claimExpired[dis][CLAIM_EXPIRY_T] = exp - durationMax;
                 } else if (dur < durationMin) {
-                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMin;
+                    _claimExpired[dis][CLAIM_EXPIRY_T] = exp - durationMin;
                 } else {
-                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - dur;
+                    _claimExpired[dis][CLAIM_EXPIRY_T] = exp - dur;
                 }
 
                 {
@@ -568,6 +639,10 @@ contract Claims is AccessControlEnumerable {
                 }
             }
         }
+
+        {
+            emit DisputeCreated(use, bal, exp);
+        }
     }
 
     // createPropose may be called by anyone to propose a new claim, which means
@@ -623,11 +698,11 @@ contract Claims is AccessControlEnumerable {
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
 
                 if (dur > durationMax) {
-                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMax;
+                    _claimExpired[pro][CLAIM_EXPIRY_T] = exp - durationMax;
                 } else if (dur < durationMin) {
-                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMin;
+                    _claimExpired[pro][CLAIM_EXPIRY_T] = exp - durationMin;
                 } else {
-                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - dur;
+                    _claimExpired[pro][CLAIM_EXPIRY_T] = exp - dur;
                 }
 
                 {
@@ -722,6 +797,10 @@ contract Claims is AccessControlEnumerable {
                 }
             }
         }
+
+        {
+            emit ProposeCreated(use, bal, exp);
+        }
     }
 
     // updatePropose allows anyone to participate in any active market as long
@@ -749,8 +828,8 @@ contract Claims is AccessControlEnumerable {
             }
 
             // Ensure anyone can stake up until the defined expiry threshold.
-            if (_claimExpired[cla][CLAIM_EXPIRY_S] < block.timestamp) {
-                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_S]);
+            if (_claimExpired[cla][CLAIM_EXPIRY_T] < block.timestamp) {
+                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_T]);
             }
 
             // Ensure that the claim being staked on does in fact exist.
@@ -884,6 +963,59 @@ contract Claims is AccessControlEnumerable {
             revert Mapping("max invalid");
         }
 
+        // If there is no claim mapping for the given claim ID, then there is no
+        // dispute recorded that we would have to account for otherwise. If we
+        // have a valid dispute ID mapped to the given claim ID, then we need to
+        // account for the latest dispute. Below we try to point to the latest
+        // claim in any given tree, while finding the amount of claims within
+        // that tree. On top of that we need to figure out whether cla is of
+        // lifecycle phase "propose" or "dispute", so that we can emit events
+        // accordingly. We will set "kin" to 0 if we update balances for a
+        // propose, and we will set "kin" to 1 if we update balances for a
+        // dispute.
+        //
+        //     cla = 1 || 101 || 102
+        //     lat = 0 || 1 || 102
+        //     len = 0 || 2
+        //
+        uint8 kin;
+        uint256 lat = _claimMapping[cla];
+        uint256 len;
+        if (lat == 0) {
+            // cla = 1
+            // lat = 0
+            // len = 0
+            lat = cla;
+        } else {
+            // cla = 1 || 101 || 102
+            // lat = 1 || 102
+            // len = 0 || 2
+            len = _claimDispute[lat];
+            if (len != 0) {
+                // cla = 102
+                // lat = 1
+                // len = 2
+                kin = 1;
+                lat = cla;
+            } else {
+                // cla = 1 || 101
+                // lat = 102
+                // len = 0 || 2
+                len = _claimDispute[cla];
+                if (len == 0) {
+                    // cla = 101
+                    // lat = 102
+                    // len = 0
+                    kin = 1;
+                    len = _claimDispute[_claimMapping[lat]];
+                }
+                // else
+                // cla = 1
+                // lat = 102
+                // len = 2
+            }
+        }
+
         // Lookup the amounts of votes that we have recorded on either side. It
         // may very well be that there are no votes or that we have a tied
         // result. In those undesired cases, we punish those users who where
@@ -891,28 +1023,6 @@ contract Claims is AccessControlEnumerable {
         // of their staked balances away.
         uint256 yay;
         uint256 nah;
-
-        // If there is no claim mapping for the given claim ID, then there is no
-        // dispute recorded that we would have to account for otherwise. If we
-        // have a valid dispute ID mapped to the given claim ID, then we need to
-        // account for the latest dispute.
-        uint256 lat = _claimMapping[cla];
-        uint256 len = _claimDispute[lat];
-        if (lat == 0) {
-            lat = cla;
-        } else {
-            if (len != 0) {
-                lat = cla;
-            } else {
-                uint256 fir = _claimMapping[lat];
-                if (fir == lat) {
-                    lat = fir;
-                } else {
-                    len = _claimDispute[fir];
-                }
-            }
-        }
-
         {
             uint256 exp = _claimExpired[lat][CLAIM_EXPIRY_R];
 
@@ -953,27 +1063,51 @@ contract Claims is AccessControlEnumerable {
         // left to right, overflowing the max uint in the process. Here lef is
         // the latest first time staker in disagreement with the associated
         // claim, and rig is the latest first time staker in agreement on the
-        // other side of the market.
+        // other side of the market. Also account for any addresses that we
+        // already processed, by moving the left most pointer further to the
+        // right.
+        uint256 all;
+        uint256 dis = _stakePropose[cla][CLAIM_STAKE_D];
         uint256 lef = _indexMembers[cla][CLAIM_ADDRESS_N];
         uint256 rig = _indexMembers[cla][CLAIM_ADDRESS_Y];
-
-        //
-        uint256 mnl = lef;
-
         unchecked {
-            mnl--;
+            // Ensure that our basis for calculating the delta on the negative
+            // spectrum is always at least max uint. If a claim has no false
+            // stakers, then lef is 0, which means we have to turn it into a max
+            // uint in order to get a delta of 0.
+            {
+                lef--;
+            }
+
+            // We calculate the number of all market participants by summing the
+            // positive amount of all true stakers with the delta between max
+            // uint and the negative amount of all false stakers. This works in
+            // all cases because lef got decremented above, causing a potential
+            // underflow.
+            {
+                all = rig + (MAX_UINT256 - lef);
+            }
+
+            // Since we decremented by 1 above in order to make the subtraction
+            // work with max uint, we have to add 1 again in order to account
+            // for all stakers that we already processed. Below lef will be used
+            // to continue updating balances, where lef points to the next user
+            // to be processed.
+            {
+                lef += dis + 1;
+            }
         }
 
-        uint256 all = rig + (MAX_UINT256 - mnl);
+        uint256 toy = _stakePropose[cla][CLAIM_STAKE_Y];
+        uint256 ton = _stakePropose[cla][CLAIM_STAKE_N];
 
-        // Account for any addresses that we already processed, by moving the
-        // left most pointer further to the right.
-        unchecked {
-            lef += _stakePropose[cla][CLAIM_STAKE_D];
-        }
-
-        //
         if (all == 1) {
+            if (kin == 0) {
+                emit ProposeSettled(all, yay, nah, toy + ton);
+            } else {
+                emit DisputeSettled(all, yay, nah, toy + ton);
+            }
+
             if (yay == nah) {
                 return punishOne(cla);
             } else {
@@ -981,41 +1115,30 @@ contract Claims is AccessControlEnumerable {
             }
         }
 
-        uint256 toy = _stakePropose[cla][CLAIM_STAKE_Y];
-        uint256 ton = _stakePropose[cla][CLAIM_STAKE_N];
         if (yay > nah || yay < nah) {
-            rewardAll(cla, lef, rig, max, toy, ton, yay > nah);
+            if (dis == 0) {
+                _claimBalance[cla].set(CLAIM_BALANCE_R);
+            }
+
+            {
+                dis = rewardAll(cla, dis, lef, rig, max, toy, ton, yay > nah);
+            }
         } else {
-            punishAll(cla, lef, rig, max);
+            if (dis == 0) {
+                _claimBalance[cla].set(CLAIM_BALANCE_P);
+            }
+
+            {
+                dis = punishAll(cla, dis, lef, rig, max);
+            }
         }
 
         // Only credit the proposer and the protocol once everyone else got
-        // accounted for. The proposer is always the very first user, because
-        // they created the claim.
-        if (_stakePropose[cla][CLAIM_STAKE_D] == all) {
-            unchecked {
-                address first;
-                if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
-                    first = _indexAddress[cla][MAX_UINT256];
-                } else {
-                    first = _indexAddress[cla][0];
-                }
-
-                uint256 total = toy + ton;
-                uint256 share = (total * basisProposer) / BASIS_TOTAL;
-
-                _availBalance[first] += share;
-                _availBalance[owner] += total - (share + _stakePropose[cla][CLAIM_STAKE_C]);
-            }
-
-            {
-                _claimBalance[cla].set(CLAIM_BALANCE_U);
-            }
-
-            {
-                delete _stakePropose[cla][CLAIM_STAKE_C];
-                delete _stakePropose[cla][CLAIM_STAKE_D];
-            }
+        // accounted for.
+        if (dis == all) {
+            finishAll(cla, kin, all, yay, nah, toy + ton);
+        } else {
+            _stakePropose[cla][CLAIM_STAKE_D] = dis;
         }
     }
 
@@ -1042,7 +1165,7 @@ contract Claims is AccessControlEnumerable {
 
     // createResolve must be called by the privileged BOT_ROLE in order to
     // initiate the random truth sampling process onchain.
-    function createResolve(uint256 pro, uint256[] calldata ind, uint256 exp) public {
+    function createResolve(uint256 pro, uint256[] calldata ind, uint64 exp) public {
         // Inlining the role check instead of using the modifier saves about 140
         // gas per call.
         if (!hasRole(BOT_ROLE, msg.sender)) {
@@ -1118,6 +1241,10 @@ contract Claims is AccessControlEnumerable {
         {
             _claimExpired[pro][CLAIM_EXPIRY_R] = exp;
             _claimIndices[pro] = ind;
+        }
+
+        {
+            emit ResolveCreated(msg.sender, ind.length, exp);
         }
     }
 
@@ -1234,14 +1361,42 @@ contract Claims is AccessControlEnumerable {
     //
 
     //
-    function punishAll(uint256 pro, uint256 lef, uint256 rig, uint256 max) private {
-        if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
-            _claimBalance[pro].set(CLAIM_BALANCE_P);
+    function finishAll(uint256 cla, uint8 kin, uint256 all, uint256 yay, uint256 nah, uint256 tot) private {
+        unchecked {
+            address first;
+            if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
+                first = _indexAddress[cla][MAX_UINT256];
+            } else {
+                first = _indexAddress[cla][0];
+            }
+
+            uint256 share = (tot * basisProposer) / BASIS_TOTAL;
+
+            _availBalance[first] += share;
+            _availBalance[owner] += tot - (share + _stakePropose[cla][CLAIM_STAKE_C]);
         }
 
+        {
+            _claimBalance[cla].set(CLAIM_BALANCE_U);
+        }
+
+        {
+            delete _stakePropose[cla][CLAIM_STAKE_C];
+            delete _stakePropose[cla][CLAIM_STAKE_D];
+        }
+
+        if (kin == 0) {
+            emit ProposeSettled(all, yay, nah, tot);
+        } else {
+            emit DisputeSettled(all, yay, nah, tot);
+        }
+    }
+
+    //
+    function punishAll(uint256 cla, uint256 dis, uint256 lef, uint256 rig, uint256 max) private returns (uint256) {
         while (max != 0) {
-            address use = _indexAddress[pro][lef];
-            uint256 bal = _addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N];
+            address use = _indexAddress[cla][lef];
+            uint256 bal = _addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N];
 
             // Every user loses their allocated balance when claims get
             // resolved. Only those users who were right in the end regain their
@@ -1262,21 +1417,21 @@ contract Claims is AccessControlEnumerable {
             // happens because the selected users did either not come to
             // consensus according to events in the real world, or did not do at
             // all what they have been asked for.
-            if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+            if (_addressVotes[cla][use].get(VOTE_TRUTH_S)) {
                 _availBalance[owner] += ded;
             } else {
                 _availBalance[use] += ded;
             }
 
             {
-                delete _addressStake[pro][use][ADDRESS_STAKE_Y];
-                delete _addressStake[pro][use][ADDRESS_STAKE_N];
+                delete _addressStake[cla][use][ADDRESS_STAKE_Y];
+                delete _addressStake[cla][use][ADDRESS_STAKE_N];
             }
 
             unchecked {
                 {
-                    _stakePropose[pro][CLAIM_STAKE_C] += ded;
-                    _stakePropose[pro][CLAIM_STAKE_D]++;
+                    _stakePropose[cla][CLAIM_STAKE_C] += ded;
+                    dis++;
                 }
 
                 {
@@ -1289,19 +1444,21 @@ contract Claims is AccessControlEnumerable {
                 break;
             }
         }
+
+        return dis;
     }
 
     //
-    function punishOne(uint256 pro) private {
+    function punishOne(uint256 cla) private {
         address use;
-        if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
-            use = _indexAddress[pro][MAX_UINT256];
+        if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
+            use = _indexAddress[cla][MAX_UINT256];
         } else {
-            use = _indexAddress[pro][0];
+            use = _indexAddress[cla][0];
         }
 
         unchecked {
-            uint256 bal = _addressStake[pro][use][ADDRESS_STAKE_Y] + _addressStake[pro][use][ADDRESS_STAKE_N];
+            uint256 bal = _addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N];
 
             {
                 _allocBalance[use] -= bal;
@@ -1309,25 +1466,28 @@ contract Claims is AccessControlEnumerable {
             }
 
             {
-                _claimBalance[pro].set(CLAIM_BALANCE_P);
-                _claimBalance[pro].set(CLAIM_BALANCE_U);
+                _claimBalance[cla].set(CLAIM_BALANCE_P);
+                _claimBalance[cla].set(CLAIM_BALANCE_U);
             }
 
             {
-                delete _addressStake[pro][use][ADDRESS_STAKE_Y];
-                delete _addressStake[pro][use][ADDRESS_STAKE_N];
+                delete _addressStake[cla][use][ADDRESS_STAKE_Y];
+                delete _addressStake[cla][use][ADDRESS_STAKE_N];
             }
         }
     }
 
     //
-    function rewardAll(uint256 pro, uint256 lef, uint256 rig, uint256 max, uint256 toy, uint256 ton, bool win)
-        private
-    {
-        if (_stakePropose[pro][CLAIM_STAKE_D] == 0) {
-            _claimBalance[pro].set(CLAIM_BALANCE_R);
-        }
-
+    function rewardAll(
+        uint256 cla,
+        uint256 dis,
+        uint256 lef,
+        uint256 rig,
+        uint256 max,
+        uint256 toy,
+        uint256 ton,
+        bool win
+    ) private returns (uint256) {
         // Calculate the amounts for total staked assets on either side by
         // deducting all relevant fees. The total staked assets are used as
         // basis for calculating user rewards below, respective to their
@@ -1337,15 +1497,15 @@ contract Claims is AccessControlEnumerable {
         uint256 fen = (ton * basisFee) / BASIS_TOTAL;
 
         while (max != 0) {
-            address use = _indexAddress[pro][lef];
+            address use = _indexAddress[cla][lef];
 
             {
-                rewardAllLoop(pro, use, win, fey, fen);
+                rewardAllLoop(cla, use, win, fey, fen);
             }
 
             unchecked {
                 {
-                    _stakePropose[pro][CLAIM_STAKE_D]++;
+                    dis++;
                 }
 
                 {
@@ -1358,12 +1518,14 @@ contract Claims is AccessControlEnumerable {
                 break;
             }
         }
+
+        return dis;
     }
 
     //
-    function rewardAllLoop(uint256 pro, address use, bool win, uint256 fey, uint256 fen) private {
-        uint256 sty = _addressStake[pro][use][ADDRESS_STAKE_Y];
-        uint256 stn = _addressStake[pro][use][ADDRESS_STAKE_N];
+    function rewardAllLoop(uint256 cla, address use, bool win, uint256 fey, uint256 fen) private {
+        uint256 sty = _addressStake[cla][use][ADDRESS_STAKE_Y];
+        uint256 stn = _addressStake[cla][use][ADDRESS_STAKE_N];
 
         // Every user loses their allocated balance when claims get
         // resolved. Only those users who were right in the end regain their
@@ -1380,7 +1542,7 @@ contract Claims is AccessControlEnumerable {
             // claim will now earn their share of rewards. The users' staked
             // balances plus rewards become now part of the respective
             // available balances.
-            if (_addressVotes[pro][use].get(VOTE_STAKE_Y)) {
+            if (_addressVotes[cla][use].get(VOTE_STAKE_Y)) {
                 // Since we are working with the total amounts of staked assets as
                 // deducted fee basis, we also need to deduct the fees from every single
                 // staked balance here. Otherwise the user's share would inflate
@@ -1393,7 +1555,7 @@ contract Claims is AccessControlEnumerable {
                     uint256 sum = (rew + ded);
 
                     _availBalance[use] += sum;
-                    _stakePropose[pro][CLAIM_STAKE_C] += sum;
+                    _stakePropose[cla][CLAIM_STAKE_C] += sum;
                 }
             }
         } else {
@@ -1403,7 +1565,7 @@ contract Claims is AccessControlEnumerable {
             // proposed claim will now earn their share of rewards. The
             // users' staked balances plus rewards become now part of the
             // respective available balances.
-            if (_addressVotes[pro][use].get(VOTE_STAKE_N)) {
+            if (_addressVotes[cla][use].get(VOTE_STAKE_N)) {
                 // Since we are working with the total amounts of staked assets as
                 // deducted fee basis, we also need to deduct the fees from every single
                 // staked balance here. Otherwise the user's share would inflate
@@ -1416,28 +1578,28 @@ contract Claims is AccessControlEnumerable {
                     uint256 sum = (rew + ded);
 
                     _availBalance[use] += sum;
-                    _stakePropose[pro][CLAIM_STAKE_C] += sum;
+                    _stakePropose[cla][CLAIM_STAKE_C] += sum;
                 }
             }
         }
 
         {
-            delete _addressStake[pro][use][ADDRESS_STAKE_Y];
-            delete _addressStake[pro][use][ADDRESS_STAKE_N];
+            delete _addressStake[cla][use][ADDRESS_STAKE_Y];
+            delete _addressStake[cla][use][ADDRESS_STAKE_N];
         }
     }
 
     //
-    function rewardOne(uint256 pro, bool win) private {
+    function rewardOne(uint256 cla, bool win) private {
         address use;
-        if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
-            use = _indexAddress[pro][MAX_UINT256];
+        if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
+            use = _indexAddress[cla][MAX_UINT256];
         } else {
-            use = _indexAddress[pro][0];
+            use = _indexAddress[cla][0];
         }
 
-        uint256 sty = _addressStake[pro][use][ADDRESS_STAKE_Y];
-        uint256 stn = _addressStake[pro][use][ADDRESS_STAKE_N];
+        uint256 sty = _addressStake[cla][use][ADDRESS_STAKE_Y];
+        uint256 stn = _addressStake[cla][use][ADDRESS_STAKE_N];
 
         unchecked {
             uint256 bal = sty + stn;
@@ -1447,10 +1609,10 @@ contract Claims is AccessControlEnumerable {
             }
 
             if (win) {
-                if (_addressVotes[pro][use].get(VOTE_STAKE_Y)) {
+                if (_addressVotes[cla][use].get(VOTE_STAKE_Y)) {
                     {
                         _availBalance[use] += sty;
-                        _claimBalance[pro].set(CLAIM_BALANCE_R);
+                        _claimBalance[cla].set(CLAIM_BALANCE_R);
                     }
 
                     if (stn != 0) {
@@ -1458,13 +1620,13 @@ contract Claims is AccessControlEnumerable {
                     }
                 } else {
                     _availBalance[owner] += bal;
-                    _claimBalance[pro].set(CLAIM_BALANCE_P);
+                    _claimBalance[cla].set(CLAIM_BALANCE_P);
                 }
             } else {
-                if (_addressVotes[pro][use].get(VOTE_STAKE_N)) {
+                if (_addressVotes[cla][use].get(VOTE_STAKE_N)) {
                     {
                         _availBalance[use] += stn;
-                        _claimBalance[pro].set(CLAIM_BALANCE_R);
+                        _claimBalance[cla].set(CLAIM_BALANCE_R);
                     }
 
                     if (sty != 0) {
@@ -1472,12 +1634,12 @@ contract Claims is AccessControlEnumerable {
                     }
                 } else {
                     _availBalance[owner] += bal;
-                    _claimBalance[pro].set(CLAIM_BALANCE_P);
+                    _claimBalance[cla].set(CLAIM_BALANCE_P);
                 }
             }
 
             {
-                _claimBalance[pro].set(CLAIM_BALANCE_U);
+                _claimBalance[cla].set(CLAIM_BALANCE_U);
             }
         }
     }

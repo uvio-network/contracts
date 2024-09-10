@@ -386,12 +386,12 @@ export const UpdateBalance25TrueNoVote = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(0)).updateBalance(
+  const txn = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
     100,
   );
 
-  return { Address, Claims, Signer, UVX };
+  return { Address, Claims, Signer, txn, UVX };
 };
 
 export const UpdateBalance25False = async () => {
@@ -729,12 +729,12 @@ export const UpdateBalancePunishNoVotes = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(0)).updateBalance(
+  const txn = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
     100,
   );
 
-  return { Address, Balance, Claims, Signer, UVX };
+  return { Address, Balance, Claims, Signer, txn, UVX };
 };
 
 export const UpdateBalancePunishEqualVotes = async () => {
@@ -748,12 +748,12 @@ export const UpdateBalancePunishEqualVotes = async () => {
     3,
   );
 
-  await Claims.connect(Signer(0)).updateBalance(
+  const txn = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
     2,
   );
 
-  return { Address, Balance, Claims, Signer, UVX };
+  return { Address, Balance, Claims, Signer, txn, UVX };
 };
 
 export const UpdateBalanceBoth22True33False = async () => {
@@ -1205,17 +1205,17 @@ export const UpdateDisputedBalance20True30False = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(29, "days")]);
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(0)).updateBalance(
-    Claim(1),
-    100,
-  );
-
-  await Claims.connect(Signer(0)).updateBalance(
+  const tx1 = await Claims.connect(Signer(0)).updateBalance(
     Claim(13),
     100,
   );
 
-  return { Address, Balance, Claims, Signer, UVX };
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(1),
+    100,
+  );
+
+  return { Address, Balance, Claims, Signer, tx1, tx2, UVX };
 };
 
 export const UpdateProposeMaxDispute = async () => {
@@ -1368,22 +1368,22 @@ export const UpdateResolveMaxDispute = async () => {
 export const UpdateBalanceMaxDispute = async () => {
   const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolveMaxDispute);
 
-  await Claims.connect(Signer(0)).updateBalance(
-    Claim(102),
-    100,
-  );
-
-  await Claims.connect(Signer(0)).updateBalance(
+  const tx1 = await Claims.connect(Signer(0)).updateBalance(
     Claim(101),
     100,
   );
 
-  await Claims.connect(Signer(0)).updateBalance(
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
     100,
   );
 
-  return { Address, Balance, Claims, Signer, UVX };
+  const tx3 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(102),
+    100,
+  );
+
+  return { Address, Balance, Claims, Signer, tx1, tx2, tx3, UVX };
 };
 
 export const UpdateBalanceMaxDisputeEqualVotes = async () => {
@@ -1409,24 +1409,22 @@ export const UpdateBalanceMaxDisputeEqualVotes = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(21, "days")]);
   await network.provider.send("evm_mine");
 
-  {
-    await Claims.connect(Signer(0)).updateBalance(
-      Claim(102),
-      100,
-    );
+  const tx1 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(102),
+    100,
+  );
 
-    await Claims.connect(Signer(0)).updateBalance(
-      Claim(101),
-      100,
-    );
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(101),
+    100,
+  );
 
-    await Claims.connect(Signer(0)).updateBalance(
-      Claim(1),
-      100,
-    );
-  }
+  const tx3 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(1),
+    100,
+  );
 
-  return { Address, Balance, Claims, Signer, UVX };
+  return { Address, Balance, Claims, Signer, tx1, tx2, tx3, UVX };
 };
 
 export const UpdateBalanceMaxDisputeNoVotes = async () => {
@@ -1445,22 +1443,105 @@ export const UpdateBalanceMaxDisputeNoVotes = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(21, "days")]);
   await network.provider.send("evm_mine");
 
+  const tx1 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(1),
+    100,
+  );
+
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(102),
+    100,
+  );
+
+  const tx3 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(101),
+    100,
+  );
+
+  return { Address, Balance, Claims, Signer, tx1, tx2, tx3, UVX };
+};
+
+export const UpdateBalanceOneUserOneDispute = async () => {
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
+
+  await Balance([1, 2], 500);
+  await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+  //
+  // Claim 1
+  //
+
   {
-    await Claims.connect(Signer(0)).updateBalance(
-      Claim(102),
-      100,
-    );
-
-    await Claims.connect(Signer(0)).updateBalance(
-      Claim(101),
-      100,
-    );
-
-    await Claims.connect(Signer(0)).updateBalance(
+    await Claims.connect(Signer(1)).createPropose(
       Claim(1),
-      100,
+      Amount(5),
+      Side(true),
+      Expiry(2, "days"),
+      [],
     );
   }
 
-  return { Address, Balance, Claims, Signer, UVX };
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+  await network.provider.send("evm_mine");
+
+  {
+    await Claims.connect(Signer(9)).createResolve(
+      Claim(1),
+      [0], //               address 1
+      Expiry(5, "days"), // 2 days from the 3 days above
+    );
+
+    await Claims.connect(Signer(1)).updateResolve(
+      Claim(1),
+      Side(true),
+    );
+  }
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(6, "days")]);
+  await network.provider.send("evm_mine");
+
+  //
+  // Dispute 1
+  //
+
+  {
+    await Claims.connect(Signer(2)).createDispute(
+      Claim(101),
+      Amount(10),
+      Side(false),
+      Expiry(10, "days"), // 4 days from the 6 days above
+      Claim(1),
+    );
+  }
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(10, "days")]);
+  await network.provider.send("evm_mine");
+
+  {
+    await Claims.connect(Signer(9)).createResolve(
+      Claim(101),
+      [MAX], //              address 2
+      Expiry(12, "days"), // 2 days from the 10 days above
+    );
+
+    await Claims.connect(Signer(2)).updateResolve(
+      Claim(101),
+      Side(false),
+    );
+  }
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(19, "days")]); // 7 days from the 12 days above
+  await network.provider.send("evm_mine");
+
+  const tx1 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(101),
+    100,
+  );
+
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(1),
+    100,
+  );
+
+  return { Address, Balance, Claims, Signer, tx1, tx2, UVX };
 };

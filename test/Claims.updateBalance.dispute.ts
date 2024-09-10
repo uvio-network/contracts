@@ -2,12 +2,109 @@ import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
 import { expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { UpdateBalanceMaxDispute } from "./src/Deploy";
+import { UpdateBalanceMaxDispute, UpdateBalanceOneUserOneDispute } from "./src/Deploy";
 import { UpdateDisputedBalance20True30False } from "./src/Deploy";
 
 describe("Claims", function () {
   describe("updateBalance", function () {
     describe("dispute", function () {
+      describe("one user one dispute", function () {
+        it("should track votes", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 0]);
+          expect(await Claims.searchVotes(Claim(101))).to.deep.equal([0, 1]);
+        });
+
+        it("should update balances by rewarding users", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          // the original claim
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(true); // address 1 got punished by address 2
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+
+          // the dispute
+          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_P())).to.equal(false);
+          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+        });
+
+        it("claim should have 5 tokens staked", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const res = await Claims.searchPropose(Claim(1));
+
+          expect(res[0]).to.equal(Amount(5)); // yay
+          expect(res[1]).to.equal(Amount(5)); // min
+          expect(res[2]).to.equal(0);         // nah
+
+          expect(res[0] + res[2]).to.equal(Amount(5));
+        });
+
+        it("dispute should have 10 tokens staked", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const res = await Claims.searchPropose(Claim(101));
+
+          expect(res[0]).to.equal(0);          // yay
+          expect(res[1]).to.equal(Amount(10)); // min
+          expect(res[2]).to.equal(Amount(10)); // nah
+
+          expect(res[0] + res[2]).to.equal(Amount(10));
+        });
+
+        it("should calculate available balances according to tokens staked in claim and dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const zer = await Claims.searchBalance(Address(0));
+          const one = await Claims.searchBalance(Address(1));
+          const two = await Claims.searchBalance(Address(2));
+
+          expect(zer[1] + one[1] + two[1]).to.equal(Amount(15));
+        });
+
+        it("should result in the Claims contract owning 15 tokens", async function () {
+          const { Claims, UVX } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(15));
+        });
+
+        it("should calculate balances accurately for signer 0", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const res = await Claims.searchBalance(Address(0)); // protocol owner receiving rewards
+
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("5000000000000000000"); // available (5.00)
+        });
+
+        it("should calculate balances accurately for signer 1", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available (all slashed by address 2)
+        });
+
+        it("should calculate balances accurately for signer 2", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0);          // allocated
+          expect(res[1]).to.equal(Amount(10)); // available (keeping all of own initial balance)
+        });
+
+        it("should emit event", async function () {
+          const { Claims, tx1, tx2 } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(1, 0, 1, Amount(10));
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(1, 0, 1, Amount(5));
+        });
+      });
+
       describe("20 true 30 false", function () {
         it("should track votes", async function () {
           const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
@@ -156,6 +253,13 @@ describe("Claims", function () {
           expect(res[0]).to.equal(0);                       // allocated
           expect(res[1]).to.equal("203863636363636363536"); // available (203.87)
         });
+
+        it("should emit event", async function () {
+          const { Claims, tx1, tx2 } = await loadFixture(UpdateDisputedBalance20True30False);
+
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(4, 0, 2, Amount(325));
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(5, 0, 2, Amount(50));
+        });
       });
 
       describe("max disputes", function () {
@@ -263,6 +367,17 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0);                      // allocated
           expect(res[1]).to.equal("81000000000000000000"); // available (81.00)
+        });
+
+        it("should emit event", async function () {
+          const { Claims, tx1, tx2, tx3 } = await loadFixture(UpdateBalanceMaxDispute);
+
+          // Here we do also test that the order of updating balances within a
+          // tree of disputed claims does not matter. The final consensus is
+          // applied throughout the tree.
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 2, Amount(30));
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(2, 0, 2, Amount(10));
+          await expect(tx3).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 2, Amount(50));
         });
       });
     });

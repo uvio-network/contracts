@@ -102,12 +102,12 @@ describe("Claims", function () {
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
-          await Claims.connect(Signer(0)).updateBalance(
+          const txn = await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             1,
           );
 
-          return { Address, Claims, Signer, UVX };
+          return { Address, Claims, Signer, txn, UVX };
         }
 
         it("should update balances by rewarding users", async function () {
@@ -194,6 +194,12 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0);                      // allocated
           expect(res[1]).to.equal("14999999999999999994"); // available (15.00)
+        });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(updateBalance);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(5, 2, 0, Amount(50));
         });
       });
 
@@ -308,12 +314,12 @@ describe("Claims", function () {
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(false);
 
-          await Claims.connect(Signer(0)).updateBalance(
+          const txn = await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             8,
           );
 
-          return { Address, Claims, Signer, UVX };
+          return { Address, Claims, Signer, txn, UVX };
         }
 
         it("should record all votes", async function () {
@@ -432,6 +438,12 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available
+        });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(updateBalance);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(8, 2, 0, Amount(185));
         });
       });
     });
