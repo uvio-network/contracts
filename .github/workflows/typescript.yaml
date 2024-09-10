@@ -20,7 +20,7 @@ jobs:
       - name: "Setup Typescript Env"
         uses: "actions/setup-node@v3"
         with:
-          node-version: "18.x.x"
+          node-version: "20.x.x"
 
       - name: "Install Typescript Dependencies"
         run: |
