@@ -14,36 +14,77 @@ contract Claims is AccessControlEnumerable {
     // EXTENSIONS
     //
 
-    //
+    // Bits is a small bitmap library for us to keep track of boolean logic in
+    // the most gas efficient way.
     using Bits for Bits.Map;
 
     //
     // ERRORS
     //
 
-    //
+    // Address is used to revert if any onchain identity was found to be invalid
+    // for its intended purpose, e.g. the current user is not allowed to do
+    // something.
     error Address(string why);
-    //
+    // Balance is used to revert if any token balance related issues are
+    // detected, e.g. the required minimum balance is not being met.
     error Balance(string why, uint256 bal);
-    //
+    // Expired is used to revert if any expiration date related issues are
+    // detected, e.g. the provided expiry is too short.
     error Expired(string why, uint256 unx);
-    //
+    // Mapping is used to revert if any object relationship was found to be
+    // violated, e.g. a claim was tried to be created using an ID of another
+    // claim that already exists.
     error Mapping(string why);
-    //
+    // Process is used to revert if any logical mechanism was found to be
+    // prohibited, e.g. a dispute was tried to be created for a propose that got
+    // already disputed the maximum amount of times.
     error Process(string why);
 
     //
     // EVENTS
     //
 
+    // DisputeCreated is emitted when a dispute is created.
+    //
+    //     use is the user creating the dispute
+    //     bal is the amount of reputation initially staked
+    //     exp is the expiry of the new dispute
     //
     event DisputeCreated(address use, uint256 bal, uint64 exp);
+    // DisputeSettled is emitted when a dispute is settled. Once a dispute is
+    // settled all user balances are updated, which makes the consensus reached
+    // definitive and binding. For the final dispute in a tree of claims that
+    // means the outcome generated here will be applied to the whole tree.
+    //
+    //     all is the amount of stakers that participated in that market
+    //     yay is the amount of voters having voted true
+    //     nah is the amount of voters having voted false
+    //     tot is the amount of staked reputation being distributed
     //
     event DisputeSettled(uint256 all, uint256 yay, uint256 nah, uint256 tot);
+    // ProposeCreated is emitted when a propose is created.
+    //
+    //     use is the user creating the propose
+    //     bal is the amount of reputation initially staked
+    //     exp is the expiry of the new propose
     //
     event ProposeCreated(address use, uint256 bal, uint64 exp);
+    // ProposeSettled is emitted when a propose is settled. Once a propose is
+    // settled all user balances are updated, which makes the consensus reached
+    // definitive and binding.
+    //
+    //     all is the amount of stakers that participated in that market
+    //     yay is the amount of voters having voted true
+    //     nah is the amount of voters having voted false
+    //     tot is the amount of staked reputation being distributed
     //
     event ProposeSettled(uint256 all, uint256 yay, uint256 nah, uint256 tot);
+    // ResolveCreated is emitted when a resolve is created.
+    //
+    //     use is the user creating the resolve
+    //     len is the amount of voters randomly sampled
+    //     exp is the expiry of the new resolve
     //
     event ResolveCreated(address use, uint256 len, uint64 exp);
 
@@ -91,16 +132,16 @@ contract Claims is AccessControlEnumerable {
     // tracks claims that got already fully resolved.
     uint8 public constant CLAIM_BALANCE_U = 2;
 
-    // CLAIM_EXPIRY_S is a map index within _claimExpired. This number tracks
-    // the timestamp in unix seconds until which staking is still possible.
-    uint8 public constant CLAIM_EXPIRY_S = 0;
     // CLAIM_EXPIRY_P is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "propose" and "dispute" in unix
     // seconds.
-    uint8 public constant CLAIM_EXPIRY_P = 1;
+    uint8 public constant CLAIM_EXPIRY_P = 0;
     // CLAIM_EXPIRY_R is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "resolve" in unix seconds.
-    uint8 public constant CLAIM_EXPIRY_R = 2;
+    uint8 public constant CLAIM_EXPIRY_R = 1;
+    // CLAIM_EXPIRY_T is a map index within _claimExpired. This number tracks
+    // the timestamp in unix seconds until which staking is still possible.
+    uint8 public constant CLAIM_EXPIRY_T = 2;
 
     // CLAIM_STAKE_Y is a map index within _stakePropose. This number tracks the
     // total amount of staked reputation agreeing with the associated claim.
@@ -116,15 +157,15 @@ contract Claims is AccessControlEnumerable {
     // minimum amount of stake required in order to participate in any given
     // claim when the proposed claim first voted false.
     uint8 public constant CLAIM_STAKE_B = 3;
+    // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
+    // amount of distributed stake that we carried over during multiple calls of
+    // updateBalance.
+    uint8 public constant CLAIM_STAKE_C = 4;
     // CLAIM_STAKE_D is a map index within _stakePropose. This number tracks the
     // amount of users for which we distributed stake already throughout the
     // process of updating user balances. This number must match the total
     // amount of stakers before any claim can fully be resolved.
-    uint8 public constant CLAIM_STAKE_D = 4;
-    // CLAIM_STAKE_C is a map index within _stakePropose. This number tracks the
-    // amount of distributed stake that we carried over during multiple calls of
-    // updateBalance.
-    uint8 public constant CLAIM_STAKE_C = 5;
+    uint8 public constant CLAIM_STAKE_D = 5;
 
     // CLAIM_TRUTH_Y is a map index within _truthResolve. This number tracks the
     // total amount of votes cast saying the associated claim was true.
@@ -171,19 +212,31 @@ contract Claims is AccessControlEnumerable {
     // MAPPINGS
     //
 
-    //
+    // _addressStake keeps track of staked reputation per claim, per user, per
+    // side of the market. The uint8 index here is either ADDRESS_STAKE_Y or
+    // ADDRESS_STAKE_N. This detailed accounting enables users to bet on either
+    // side of any given market and be rewarded or punished according to the
+    // market's resolution.
     mapping(uint256 => mapping(address => mapping(uint8 => uint256))) private _addressStake;
-    //
+    // _addressVotes maintains voting specific information per claim, per user
+    // in a gas efficient bitmap implementation. For more information on the
+    // various boolean flags used here, see VOTE_STAKE_Y, VOTE_STAKE_N,
+    // VOTE_TRUTH_Y, VOTE_TRUTH_N, VOTE_TRUTH_S and VOTE_TRUTH_V.
     mapping(uint256 => mapping(address => Bits.Map)) private _addressVotes;
     //
     mapping(address => uint256) private _allocBalance;
-    //
+    // TODO put together in one mapping with _allocBalance
     mapping(address => uint256) private _availBalance;
-    //
+    // _claimBalance maintains boolean flags relevant for balance processing
+    // states per claim. For more information on the overall process and logic,
+    // see updateBalance, CLAIM_BALANCE_P, CLAIM_BALANCE_R and CLAIM_BALANCE_U.
     mapping(uint256 => Bits.Map) private _claimBalance;
-    //
+    // _claimExpired tracks expiration dates for every claim. For more
+    // information see CLAIM_EXPIRY_P, CLAIM_EXPIRY_R and CLAIM_EXPIRY_T.
     mapping(uint256 => mapping(uint8 => uint256)) private _claimExpired;
-    //
+    // _claimIndices contains all user indices as selected by the random truth
+    // sampling process. For more information on how those indices are written
+    // and read, see createResolve and searchSamples.
     mapping(uint256 => uint256[]) private _claimIndices;
     // _claimDispute tracks the number of disputes in _claimMapping per propose.
     mapping(uint256 => uint256) private _claimDispute;
@@ -229,7 +282,9 @@ contract Claims is AccessControlEnumerable {
     // of the market. The uint8 keys are either CLAIM_TRUTH_Y or CLAIM_TRUTH_N.
     // The uint256 values are the amounts of votes cast respectively.
     mapping(uint256 => mapping(uint8 => uint256)) private _truthResolve;
-    //
+    // _stakePropose tracks claim specific metrics about user stakes and their
+    // distribution. For more information see CLAIM_STAKE_Y, CLAIM_STAKE_N,
+    // CLAIM_STAKE_A, CLAIM_STAKE_B, CLAIM_STAKE_C and CLAIM_STAKE_D.
     mapping(uint256 => mapping(uint8 => uint256)) private _stakePropose;
 
     //
@@ -485,11 +540,11 @@ contract Claims is AccessControlEnumerable {
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
 
                 if (dur > durationMax) {
-                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMax;
+                    _claimExpired[dis][CLAIM_EXPIRY_T] = exp - durationMax;
                 } else if (dur < durationMin) {
-                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - durationMin;
+                    _claimExpired[dis][CLAIM_EXPIRY_T] = exp - durationMin;
                 } else {
-                    _claimExpired[dis][CLAIM_EXPIRY_S] = exp - dur;
+                    _claimExpired[dis][CLAIM_EXPIRY_T] = exp - dur;
                 }
 
                 {
@@ -643,11 +698,11 @@ contract Claims is AccessControlEnumerable {
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
 
                 if (dur > durationMax) {
-                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMax;
+                    _claimExpired[pro][CLAIM_EXPIRY_T] = exp - durationMax;
                 } else if (dur < durationMin) {
-                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - durationMin;
+                    _claimExpired[pro][CLAIM_EXPIRY_T] = exp - durationMin;
                 } else {
-                    _claimExpired[pro][CLAIM_EXPIRY_S] = exp - dur;
+                    _claimExpired[pro][CLAIM_EXPIRY_T] = exp - dur;
                 }
 
                 {
@@ -773,8 +828,8 @@ contract Claims is AccessControlEnumerable {
             }
 
             // Ensure anyone can stake up until the defined expiry threshold.
-            if (_claimExpired[cla][CLAIM_EXPIRY_S] < block.timestamp) {
-                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_S]);
+            if (_claimExpired[cla][CLAIM_EXPIRY_T] < block.timestamp) {
+                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_T]);
             }
 
             // Ensure that the claim being staked on does in fact exist.
