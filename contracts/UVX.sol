@@ -14,11 +14,16 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
     // ERRORS
     //
 
-    //
+    // Address is used to revert if any onchain identity was found to be invalid
+    // for its intended purpose, e.g. the current token is not allowed to be
+    // used.
     error Address(string why);
-    //
+    // Balance is used to revert if any token balance related issues are
+    // detected, e.g. the required balance repayment failed.
     error Balance(string why, uint256 bal);
-    //
+    // Process is used to revert if any logical mechanism was found to be
+    // prohibited, e.g. UVX could not be minted anymore because of the mint
+    // function being frozen.
     error Process(string why);
 
     //
@@ -48,7 +53,7 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
     bytes32 public constant TOKEN_ROLE = keccak256("TOKEN_ROLE");
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.1.0";
+    string public constant VERSION = "v0.2.0";
 
     //
     // MAPPINGS
@@ -175,6 +180,10 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
         }
     }
 
+    // transfer overwrites the ERC20 transfer function in order to ensure an
+    // initial transferability restriction. This restriction aims to bootstrap a
+    // controlled market inside of the Uvio platform without allowing financial
+    // speculation to occur prematurely.
     function transfer(address to, uint256 bal) public override returns (bool) {
         if (restrict && !hasRole(CONTRACT_ROLE, msg.sender) && !hasRole(CONTRACT_ROLE, to)) {
             revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);
@@ -185,6 +194,10 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
         }
     }
 
+    // transferFrom overwrites the ERC20 transferFrom function in order to
+    // ensure an initial transferability restriction. This restriction aims to
+    // bootstrap a controlled market inside of the Uvio platform without
+    // allowing financial speculation to occur prematurely.
     function transferFrom(address src, address dst, uint256 bal) public override returns (bool) {
         if (restrict && !hasRole(CONTRACT_ROLE, src) && !hasRole(CONTRACT_ROLE, dst)) {
             revert AccessControlUnauthorizedAccount(msg.sender, CONTRACT_ROLE);

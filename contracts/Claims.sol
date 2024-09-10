@@ -182,7 +182,7 @@ contract Claims is AccessControlEnumerable {
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.1.0";
+    string public constant VERSION = "v0.2.0";
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
     // users who expressed their opinions by staking in agreement with the
@@ -223,9 +223,16 @@ contract Claims is AccessControlEnumerable {
     // various boolean flags used here, see VOTE_STAKE_Y, VOTE_STAKE_N,
     // VOTE_TRUTH_Y, VOTE_TRUTH_N, VOTE_TRUTH_S and VOTE_TRUTH_V.
     mapping(uint256 => mapping(address => Bits.Map)) private _addressVotes;
-    //
+    // _allocBalance contains the allocated balance every user has in this smart
+    // contract. Allocated balances may increase by creating claims or by
+    // participating in their markets through staking. The allocated balance is
+    // the part of the user balance that cannot be withdrawn.
     mapping(address => uint256) private _allocBalance;
-    // TODO put together in one mapping with _allocBalance
+    // _availBalance contains the available balance every user has in this smart
+    // contract. Available balances may increase if staked reputation is
+    // distributed to users who where found to be right upon market resolution.
+    // The available balance is the part of the user balance that can be
+    // withdrawn any time.
     mapping(address => uint256) private _availBalance;
     // _claimBalance maintains boolean flags relevant for balance processing
     // states per claim. For more information on the overall process and logic,
@@ -1360,7 +1367,8 @@ contract Claims is AccessControlEnumerable {
     // PRIVATE
     //
 
-    //
+    // finishAll is the final stage to settle claims with more than 1
+    // participating user.
     function finishAll(uint256 cla, uint8 kin, uint256 all, uint256 yay, uint256 nah, uint256 tot) private {
         unchecked {
             address first;
@@ -1392,7 +1400,8 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
-    //
+    // punishAll ensures that invalid market resolutions are accounted for
+    // properly by punishing voters and reimbursing stakers after fees.
     function punishAll(uint256 cla, uint256 dis, uint256 lef, uint256 rig, uint256 max) private returns (uint256) {
         while (max != 0) {
             address use = _indexAddress[cla][lef];
@@ -1448,7 +1457,8 @@ contract Claims is AccessControlEnumerable {
         return dis;
     }
 
-    //
+    // punishOne settles claims for wich the only participating user did either
+    // not vote or confirmed that their prior opinion was wrong.
     function punishOne(uint256 cla) private {
         address use;
         if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
@@ -1477,7 +1487,8 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
-    //
+    // rewardAll processes user balances in order to settle any claim in which
+    // many users participated.
     function rewardAll(
         uint256 cla,
         uint256 dis,
@@ -1522,7 +1533,8 @@ contract Claims is AccessControlEnumerable {
         return dis;
     }
 
-    //
+    // rewardAllLoop processes a single user as part of the balance updating
+    // process initiated by rewardAll.
     function rewardAllLoop(uint256 cla, address use, bool win, uint256 fey, uint256 fen) private {
         uint256 sty = _addressStake[cla][use][ADDRESS_STAKE_Y];
         uint256 stn = _addressStake[cla][use][ADDRESS_STAKE_N];
@@ -1589,7 +1601,8 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
-    //
+    // rewardOne finalizes any claim for which there was one participating user
+    // that was found to be right by consensus.
     function rewardOne(uint256 cla, bool win) private {
         address use;
         if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
