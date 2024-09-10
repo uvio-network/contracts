@@ -59,12 +59,12 @@ describe("Claims", function () {
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
 
-          await Claims.connect(Signer(0)).updateBalance(
+          const txn = await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             1,
           );
 
-          return { Address, Claims, Signer, UVX };
+          return { Address, Claims, Signer, txn, UVX };
         }
 
         it("should record all votes", async function () {
@@ -119,6 +119,12 @@ describe("Claims", function () {
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available
         });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(updateBalance);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(1, 0, 1, Amount(25));
+        });
       });
 
       describe("25 false", function () {
@@ -160,12 +166,12 @@ describe("Claims", function () {
           await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
           await network.provider.send("evm_mine");
 
-          await Claims.connect(Signer(0)).updateBalance(
+          const txn = await Claims.connect(Signer(0)).updateBalance(
             Claim(1),
             1,
           );
 
-          return { Address, Claims, Signer, UVX };
+          return { Address, Claims, Signer, txn, UVX };
         }
 
         it("should record all votes", async function () {
@@ -219,6 +225,12 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available
+        });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(updateBalance);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(1, 1, 0, Amount(25));
         });
       });
 
@@ -274,6 +286,12 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available (slashed for being lazy)
+        });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(UpdateBalance25TrueNoVote);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(1, 0, 0, Amount(25));
         });
       });
 
@@ -370,6 +388,12 @@ describe("Claims", function () {
           expect(res[0]).to.equal(0);            // allocated
           expect(res[1]).to.equal(Amount(9.00)); // available (9.00 is 90% of initial)
         });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(UpdateBalancePunishNoVotes);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(5, 0, 0, Amount(50));
+        });
       });
 
       describe("all equal votes", function () {
@@ -464,6 +488,12 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available (lost it all due to equal vote)
+        });
+
+        it("should emit event", async function () {
+          const { Claims, txn } = await loadFixture(UpdateBalancePunishEqualVotes);
+
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(5, 1, 1, Amount(118));
         });
       });
 
@@ -573,6 +603,14 @@ describe("Claims", function () {
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available (all slashed)
         });
+
+        it("should emit event", async function () {
+          const { Claims, tx1, tx2, tx3 } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
+
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 0, Amount(50));
+          await expect(tx2).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 0, Amount(30));
+          await expect(tx3).to.emit(Claims, "ProposeSettled").withArgs(2, 0, 0, Amount(10));
+        });
       });
 
       describe("max disputes, equal votes", function () {
@@ -680,6 +718,14 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0); // allocated
           expect(res[1]).to.equal(0); // available (all slashed)
+        });
+
+        it("should emit event", async function () {
+          const { Claims, tx1, tx2, tx3 } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
+
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(2, 1, 1, Amount(50));
+          await expect(tx2).to.emit(Claims, "DisputeSettled").withArgs(2, 1, 1, Amount(30));
+          await expect(tx3).to.emit(Claims, "ProposeSettled").withArgs(2, 1, 1, Amount(10));
         });
       });
     });

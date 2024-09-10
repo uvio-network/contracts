@@ -144,5 +144,20 @@ describe("Claims", function () {
       expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
       expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
+
+    it("should emit events", async function () {
+      const { Address, Claims, Signer } = await loadFixture(createPropose);
+
+      await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+      await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(9));
+
+      const txn = await Claims.connect(Signer(9)).createResolve(
+        Claim(1),
+        [0, MAX], // address 1 and 3
+        Expiry(6, "days"), // 3 days from the 3 days above
+      );
+
+      await expect(txn).to.emit(Claims, "ResolveCreated").withArgs(Address(9), 2, Expiry(6, "days"));
+    });
   });
 });

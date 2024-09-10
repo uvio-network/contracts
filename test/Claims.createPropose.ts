@@ -237,5 +237,21 @@ describe("Claims", function () {
 
       expect(await Claims.searchExpired(Claim(1))).to.deep.equal([maxUint64, 0]);
     });
+
+    it("should emit event", async function () {
+      const { Address, Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([3], 10);
+
+      const txn = await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        Expiry(14, "days"),
+        [],
+      );
+
+      await expect(txn).to.emit(Claims, "ProposeCreated").withArgs(Address(3), Amount(10), Expiry(14, "days"));
+    });
   });
 });
