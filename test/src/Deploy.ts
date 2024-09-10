@@ -1369,17 +1369,17 @@ export const UpdateBalanceMaxDispute = async () => {
   const { Address, Balance, Claims, Signer, UVX } = await loadFixture(UpdateResolveMaxDispute);
 
   const tx1 = await Claims.connect(Signer(0)).updateBalance(
-    Claim(102),
-    100,
-  );
-
-  const tx2 = await Claims.connect(Signer(0)).updateBalance(
     Claim(101),
     100,
   );
 
-  const tx3 = await Claims.connect(Signer(0)).updateBalance(
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
+    100,
+  );
+
+  const tx3 = await Claims.connect(Signer(0)).updateBalance(
+    Claim(102),
     100,
   );
 
@@ -1444,17 +1444,17 @@ export const UpdateBalanceMaxDisputeNoVotes = async () => {
   await network.provider.send("evm_mine");
 
   const tx1 = await Claims.connect(Signer(0)).updateBalance(
-    Claim(102),
+    Claim(1),
     100,
   );
 
   const tx2 = await Claims.connect(Signer(0)).updateBalance(
-    Claim(101),
+    Claim(102),
     100,
   );
 
   const tx3 = await Claims.connect(Signer(0)).updateBalance(
-    Claim(1),
+    Claim(101),
     100,
   );
 
