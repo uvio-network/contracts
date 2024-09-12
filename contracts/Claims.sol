@@ -408,7 +408,7 @@ contract Claims is AccessControlEnumerable {
     //
     function createDispute(uint256 dis, uint256 bal, bool vot, uint64 exp, uint256 pro) public {
         if (dis == 0) {
-            revert Mapping("dispute invalid");
+            revert Mapping("dispute zero");
         }
 
         if (_claimExpired[dis][CLAIM_EXPIRY_P] != 0) {
@@ -520,12 +520,12 @@ contract Claims is AccessControlEnumerable {
 
         // Dispute expiries must be at least 3 days in the future.
         if (exp < block.timestamp + 3 days) {
-            revert Expired("expiry invalid", exp);
+            revert Expired("too short", exp);
         }
 
         // Dispute expiries must not be more than 1 month in the future.
         if (exp > block.timestamp + 30 days) {
-            revert Expired("expiry invalid", exp);
+            revert Expired("too long", exp);
         }
 
         // In case this is the creation of a claim with lifecycle "propose",
@@ -660,20 +660,20 @@ contract Claims is AccessControlEnumerable {
     // given expiry must be at least 24 hours in the future.
     function createPropose(uint256 pro, uint256 bal, bool vot, uint64 exp, address[] calldata tok) public {
         if (pro == 0) {
-            revert Mapping("claim invalid");
+            revert Mapping("propose zero");
         }
 
         if (_claimExpired[pro][CLAIM_EXPIRY_P] != 0) {
-            revert Mapping("claim invalid");
+            revert Mapping("propose invalid");
         }
 
         // Expiries must be at least 24 hours in the future.
         if (exp < block.timestamp + 24 hours) {
-            revert Expired("expiry invalid", exp);
+            revert Expired("too short", exp);
         }
 
         if (bal == 0) {
-            revert Balance("balance invalid", bal);
+            revert Balance("balance zero", bal);
         }
 
         // In case this is the creation of a claim with lifecycle "propose",
@@ -834,17 +834,17 @@ contract Claims is AccessControlEnumerable {
                 revert Balance("below minimum", min);
             }
 
-            // Ensure anyone can stake up until the defined expiry threshold.
-            if (_claimExpired[cla][CLAIM_EXPIRY_T] < block.timestamp) {
-                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_T]);
-            }
-
             // Ensure that the claim being staked on does in fact exist.
             // CLAIM_EXPIRY_P is the propose expiry. Only valid claims have a
             // valid expiry, and so if it is zero, then the given claim does not
             // exist.
             if (_claimExpired[cla][CLAIM_EXPIRY_P] == 0) {
                 revert Mapping("claim invalid");
+            }
+
+            // Ensure anyone can stake up until the defined expiry threshold.
+            if (_claimExpired[cla][CLAIM_EXPIRY_T] < block.timestamp) {
+                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_T]);
             }
 
             // Account for the balance required in order to stake reputation
