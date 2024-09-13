@@ -7,13 +7,13 @@ const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || "";
 //     npx hardhat run ./scripts/grantRole.ts --network localhost
 //
 const main = async () => {
-  const UVX = await ethers.getContractAt("UVX", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+  const UVX = await ethers.getContractAt("UVX", "0x04Ec0582e2700Db583e3BCb9b913D181Ac2D68A8");
 
   const wal = new ethers.Wallet(DEPLOYER_PRIVATE_KEY, ethers.provider);
-  const add = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  const add = "0x48455E0c620D46239BE9358C9B2Bd6D0bf1F3AA6";
 
   try {
-    await UVX.connect(wal).grantRole(Role("BOT_ROLE"), add);
+    await UVX.connect(wal).grantRole(Role("CONTRACT_ROLE"), add);
   } catch (error) {
     console.error("Error:", error);
   }

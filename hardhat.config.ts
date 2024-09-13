@@ -2,6 +2,7 @@ import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-verify";
 import "hardhat-gas-reporter";
+import "hardhat-storage-layout";
 
 import { HardhatUserConfig } from "hardhat/config";
 
