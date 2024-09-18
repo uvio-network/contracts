@@ -1714,7 +1714,7 @@ contract Claims is AccessControlEnumerable {
 
     // searchContent allows anyone to lookup the given claim's content
     // reference, which may point to external offchain or onchain resources
-    // associated to the given claim.
+    // associated with the given claim.
     function searchContent(uint256 cla) public view returns (string memory) {
         return _claimContent[cla];
     }
