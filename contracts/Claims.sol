@@ -263,7 +263,7 @@ contract Claims is AccessControlEnumerable {
     // _claimMapping has any claim ID as key and points to the latest dispute
     // within that tree, if any.
     mapping(uint256 => uint256) private _claimMapping;
-    // _claimContent contains arbitrary references to proof the integrity of the
+    // _claimContent contains arbitrary references to prove the integrity of the
     // claim's associated content in external systems, whether those external
     // systems are offchain or onchain. If the external content source is
     // offchain, then the proof linked here may be the checksum of the hashed
