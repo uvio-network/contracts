@@ -24,6 +24,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           EXPIRY,
+          "",
           [],
         );
 
@@ -65,6 +66,7 @@ describe("Claims", function () {
           Amount(10),
           Side(false),
           EXPIRY,
+          "",
           [],
         );
 
@@ -106,6 +108,7 @@ describe("Claims", function () {
           Amount(5),
           Side(true),
           EXPIRY,
+          "",
           [],
         );
         await Claims.connect(Signer(3)).updatePropose(
@@ -191,6 +194,7 @@ describe("Claims", function () {
           Amount(50),
           Side(true),
           EXPIRY,
+          "",
           [],
         );
         await Claims.connect(Signer(2)).updatePropose(
@@ -296,6 +300,7 @@ describe("Claims", function () {
           Amount(50),
           Side(false),
           EXPIRY,
+          "",
           [],
         );
         await Claims.connect(Signer(2)).updatePropose(

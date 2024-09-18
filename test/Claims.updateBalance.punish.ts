@@ -31,6 +31,7 @@ describe("Claims", function () {
             Amount(25),
             Side(true),
             EXPIRY,
+            "",
             [],
           );
 
@@ -123,7 +124,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(updateBalance);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(1, 0, 1, Amount(25));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 1, 0, 1, Amount(25));
         });
       });
 
@@ -138,6 +139,7 @@ describe("Claims", function () {
             Amount(25),
             Side(false),
             Expiry(2, "days"),
+            "",
             [],
           );
 
@@ -230,7 +232,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(updateBalance);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(1, 1, 0, Amount(25));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 1, 1, 0, Amount(25));
         });
       });
 
@@ -291,7 +293,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(UpdateBalance25TrueNoVote);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(1, 0, 0, Amount(25));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 1, 0, 0, Amount(25));
         });
       });
 
@@ -392,7 +394,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(UpdateBalancePunishNoVotes);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(5, 0, 0, Amount(50));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 5, 0, 0, Amount(50));
         });
       });
 
@@ -493,7 +495,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(UpdateBalancePunishEqualVotes);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(5, 1, 1, Amount(118));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 5, 1, 1, Amount(118));
         });
       });
 
@@ -610,9 +612,9 @@ describe("Claims", function () {
           // Here we do also test that the order of updating balances within a
           // tree of disputed claims does not matter. The final consensus is
           // applied throughout the tree.
-          await expect(tx1).to.emit(Claims, "ProposeSettled").withArgs(2, 0, 0, Amount(10));
-          await expect(tx2).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 0, Amount(50));
-          await expect(tx3).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 0, Amount(30));
+          await expect(tx1).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 2, 0, 0, Amount(10));
+          await expect(tx2).to.emit(Claims, "DisputeSettled").withArgs(Claim(102), 2, 0, 0, Amount(50));
+          await expect(tx3).to.emit(Claims, "DisputeSettled").withArgs(Claim(101), 2, 0, 0, Amount(30));
         });
       });
 
@@ -726,9 +728,9 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, tx1, tx2, tx3 } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
 
-          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(2, 1, 1, Amount(50));
-          await expect(tx2).to.emit(Claims, "DisputeSettled").withArgs(2, 1, 1, Amount(30));
-          await expect(tx3).to.emit(Claims, "ProposeSettled").withArgs(2, 1, 1, Amount(10));
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(Claim(102), 2, 1, 1, Amount(50));
+          await expect(tx2).to.emit(Claims, "DisputeSettled").withArgs(Claim(101), 2, 1, 1, Amount(30));
+          await expect(tx3).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 2, 1, 1, Amount(10));
         });
       });
     });

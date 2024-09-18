@@ -33,6 +33,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -52,6 +53,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(0),
         );
 
@@ -71,6 +73,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(201),
         );
 
@@ -90,6 +93,7 @@ describe("Claims", function () {
           Amount(19),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -109,6 +113,7 @@ describe("Claims", function () {
           Amount(0),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -128,6 +133,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(11, "days"), // 3 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -147,6 +153,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(913, "hours"), // 30 days + 1 hour from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -166,6 +173,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           maxUint64,
+          "",
           Claim(1),
         );
 
@@ -185,6 +193,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -204,6 +213,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -223,6 +233,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 10
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -242,6 +253,7 @@ describe("Claims", function () {
           Amount(10), // minimum in claim 1 was 5
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -261,6 +273,7 @@ describe("Claims", function () {
           Amount(9), // minimum in claim 1 was 5
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -280,6 +293,7 @@ describe("Claims", function () {
           Amount(11), // minimum in claim 1 was 5
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -299,6 +313,7 @@ describe("Claims", function () {
           Amount(39), // minimum in claim 1 was 20
           Side(true),
           Expiry(35, "days"), // 7 days from the 27 days above
+          "",
           Claim(1),
         );
 
@@ -318,6 +333,7 @@ describe("Claims", function () {
           Amount(41), // minimum in claim 1 was 20
           Side(true),
           Expiry(35, "days"), // 7 days from the 27 days above
+          "",
           Claim(1),
         );
 
@@ -337,6 +353,7 @@ describe("Claims", function () {
           Amount(40), // minimum in claim 1 was 20
           Side(true),
           Expiry(35, "days"), // 7 days from the 27 days above
+          "",
           Claim(13), // must not be previous dispute ID
         );
 
@@ -356,6 +373,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 10
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -364,6 +382,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 5
           Side(true),
           Expiry(21, "days"), // 7 days from the 14 days above
+          "",
           Claim(1),
         );
 
@@ -383,6 +402,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 10
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -391,6 +411,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 5
           Side(true),
           Expiry(21, "days"), // 7 days from the 14 days above
+          "",
           Claim(1),
         );
 
@@ -410,6 +431,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 10
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -421,6 +443,7 @@ describe("Claims", function () {
           Amount(20), // minimum in claim 1 was 5
           Side(true),
           Expiry(21, "days"), // 7 days from the 14 days above
+          "",
           Claim(1),
         );
 
@@ -437,6 +460,7 @@ describe("Claims", function () {
           Amount(40), // minimum in claim 1 was 20
           Side(true),
           Expiry(35, "days"), // 7 days from the 29 days above
+          "",
           Claim(1),
         );
 
@@ -453,6 +477,7 @@ describe("Claims", function () {
           Amount(40), // minimum in claim 1 was 20
           Side(true),
           Expiry(35, "days"), // 7 days from the 29 days above
+          "",
           Claim(1),
         );
 
@@ -483,6 +508,7 @@ describe("Claims", function () {
           Amount(40), // minimum in claim 1 was 20
           Side(true),
           Expiry(35, "days"), // 7 days from the 29 days above
+          "",
           Claim(1),
         );
 
@@ -497,6 +523,7 @@ describe("Claims", function () {
           Amount(80),
           Side(true),
           Expiry(25, "days"), // 4 days from the 21 days above
+          "",
           Claim(1),
         );
 

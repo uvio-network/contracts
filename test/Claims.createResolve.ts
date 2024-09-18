@@ -24,6 +24,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY,
+        "",
         [],
       );
       await Claims.connect(Signer(2)).updatePropose(
@@ -157,7 +158,7 @@ describe("Claims", function () {
         Expiry(6, "days"), // 3 days from the 3 days above
       );
 
-      await expect(txn).to.emit(Claims, "ResolveCreated").withArgs(Address(9), 2, Expiry(6, "days"));
+      await expect(txn).to.emit(Claims, "ResolveCreated").withArgs(Claim(1), Address(9), 2, Expiry(6, "days"));
     });
   });
 });

@@ -23,6 +23,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -45,6 +46,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(265, "hours"), // 3 days + 1 hour from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -67,6 +69,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(38, "days"), // 30 days from the 8 days above
+          "",
           Claim(1),
         );
 
@@ -89,6 +92,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(21, "days"), // 7 days from the 14 days above
+          "",
           Claim(1),
         );
 
@@ -96,6 +100,46 @@ describe("Claims", function () {
 
         expect(res[0]).to.equal(Amount(30)); // allocated (20 + 10 from before)
         expect(res[1]).to.equal(0);          // available
+      });
+
+      it("should create dispute without content reference", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(UpdateResolve20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(335, "hours")]); // 14 days after resolve expiry -1 hour
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 20);
+
+        await Claims.connect(Signer(4)).createDispute(
+          Claim(13),
+          Amount(20),
+          Side(true),
+          Expiry(21, "days"), // 7 days from the 14 days above
+          "",
+          Claim(1),
+        );
+
+        expect(await Claims.searchContent(Claim(13))).to.deep.equal("");
+      });
+
+      it("should create dispute with content reference", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(UpdateResolve20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(335, "hours")]); // 14 days after resolve expiry -1 hour
+        await network.provider.send("evm_mine");
+
+        await Balance([4], 20);
+
+        await Claims.connect(Signer(4)).createDispute(
+          Claim(13),
+          Amount(20),
+          Side(true),
+          Expiry(21, "days"), // 7 days from the 14 days above
+          "0x5678",
+          Claim(1),
+        );
+
+        expect(await Claims.searchContent(Claim(13))).to.deep.equal("0x5678");
       });
 
       it("should emit event", async function () {
@@ -111,10 +155,11 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(21, "days"), // 7 days from the 14 days above
+          "",
           Claim(1),
         );
 
-        await expect(txn).to.emit(Claims, "DisputeCreated").withArgs(Address(4), Amount(20), Expiry(21, "days"));
+        await expect(txn).to.emit(Claims, "DisputeCreated").withArgs(Claim(13), Address(4), Amount(20), Expiry(21, "days"));
       });
     });
   });

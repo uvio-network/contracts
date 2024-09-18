@@ -75,6 +75,7 @@ describe("Claims", function () {
           Amount(20),
           Side(true),
           Expiry(15, "days"), // 7 days from the 8 days above
+          "",
           Claim(1),
         );
 

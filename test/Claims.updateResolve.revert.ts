@@ -25,6 +25,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           EXPIRY,
+          "",
           [],
         );
         await Claims.connect(Signer(2)).updatePropose(

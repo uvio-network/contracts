@@ -3,7 +3,7 @@
   "version": "v0.0.1",
   "description": "smart contracts of the Uvio platform",
   "scripts": {
-    "build": "./node_modules/.bin/hardhat compile",
+    "compile": "./node_modules/.bin/hardhat compile",
     "clean": "./node_modules/.bin/hardhat clean",
     "cover": "./node_modules/.bin/hardhat coverage",
     "test": "./node_modules/.bin/hardhat test"

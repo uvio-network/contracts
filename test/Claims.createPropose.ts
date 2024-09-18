@@ -22,6 +22,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         EXPIRY,
+        "",
         [],
       );
 
@@ -38,6 +39,7 @@ describe("Claims", function () {
         Amount(5),
         Side(true),
         EXPIRY,
+        "",
         [],
       );
       await Claims.connect(Signer(2)).updatePropose(
@@ -92,6 +94,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         Expiry(25, "hours"),
+        "",
         [],
       );
 
@@ -111,6 +114,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         Expiry(5, "hours"),
+        "",
         [],
       );
 
@@ -121,6 +125,7 @@ describe("Claims", function () {
         Amount(50),
         Side(true),
         EXPIRY,
+        "",
         [],
       );
 
@@ -140,6 +145,7 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         Expiry(5, "hours"),
+        "",
         [],
       );
 
@@ -150,6 +156,7 @@ describe("Claims", function () {
         Amount(30),
         Side(true),
         EXPIRY,
+        "",
         [],
       );
 
@@ -232,10 +239,45 @@ describe("Claims", function () {
         Amount(10),
         Side(true),
         maxUint64,
+        "",
         [],
       );
 
       expect(await Claims.searchExpired(Claim(1))).to.deep.equal([maxUint64, 0]);
+    });
+
+    it("should create propose without content reference", async function () {
+      const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([3], 10);
+
+      await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        maxUint64,
+        "",
+        [],
+      );
+
+      expect(await Claims.searchContent(Claim(1))).to.deep.equal("");
+    });
+
+    it("should create propose with content reference", async function () {
+      const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+      await Balance([3], 10);
+
+      await Claims.connect(Signer(3)).createPropose(
+        Claim(1),
+        Amount(10),
+        Side(true),
+        maxUint64,
+        "0x1234",
+        [],
+      );
+
+      expect(await Claims.searchContent(Claim(1))).to.deep.equal("0x1234");
     });
 
     it("should emit event", async function () {
@@ -244,14 +286,15 @@ describe("Claims", function () {
       await Balance([3], 10);
 
       const txn = await Claims.connect(Signer(3)).createPropose(
-        Claim(1),
+        Claim(5),
         Amount(10),
         Side(true),
         Expiry(14, "days"),
+        "",
         [],
       );
 
-      await expect(txn).to.emit(Claims, "ProposeCreated").withArgs(Address(3), Amount(10), Expiry(14, "days"));
+      await expect(txn).to.emit(Claims, "ProposeCreated").withArgs(Claim(5), Address(3), Amount(10), Expiry(14, "days"));
     });
   });
 });

@@ -100,8 +100,8 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, tx1, tx2 } = await loadFixture(UpdateBalanceOneUserOneDispute);
 
-          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(1, 0, 1, Amount(10));
-          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(1, 0, 1, Amount(5));
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(Claim(101), 1, 0, 1, Amount(10));
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 1, 0, 1, Amount(5));
         });
       });
 
@@ -257,8 +257,8 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, tx1, tx2 } = await loadFixture(UpdateDisputedBalance20True30False);
 
-          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(4, 0, 2, Amount(325));
-          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(5, 0, 2, Amount(50));
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(Claim(13), 4, 0, 2, Amount(325));
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 5, 0, 2, Amount(50));
         });
       });
 
@@ -375,9 +375,9 @@ describe("Claims", function () {
           // Here we do also test that the order of updating balances within a
           // tree of disputed claims does not matter. The final consensus is
           // applied throughout the tree.
-          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 2, Amount(30));
-          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(2, 0, 2, Amount(10));
-          await expect(tx3).to.emit(Claims, "DisputeSettled").withArgs(2, 0, 2, Amount(50));
+          await expect(tx1).to.emit(Claims, "DisputeSettled").withArgs(Claim(101), 2, 0, 2, Amount(30));
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 2, 0, 2, Amount(10));
+          await expect(tx3).to.emit(Claims, "DisputeSettled").withArgs(Claim(102), 2, 0, 2, Amount(50));
         });
       });
     });
