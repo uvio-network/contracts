@@ -45,48 +45,62 @@ contract Claims is AccessControlEnumerable {
     // EVENTS
     //
 
+    // ClaimUpdated is emitted when a claim is updated, whether it is a propose
+    // or dispute.
+    //
+    //     cla is the ID of the claim that got updated, propose or dispute
+    //     use is the user updating the propose
+    //     bal is the amount of reputation aditionally staked
+    //     exp is the expiry of the new propose
+    //
+    event ClaimUpdated(uint256 cla, address use, uint256 bal);
     // DisputeCreated is emitted when a dispute is created.
     //
+    //     dis is the ID of the dispute that got created
     //     use is the user creating the dispute
     //     bal is the amount of reputation initially staked
     //     exp is the expiry of the new dispute
     //
-    event DisputeCreated(address use, uint256 bal, uint64 exp);
+    event DisputeCreated(uint256 dis, address use, uint256 bal, uint64 exp);
     // DisputeSettled is emitted when a dispute is settled. Once a dispute is
     // settled all user balances are updated, which makes the consensus reached
     // definitive and binding. For the final dispute in a tree of claims that
     // means the outcome generated here will be applied to the whole tree.
     //
+    //     dis is the ID of the dispute being settled
     //     all is the amount of stakers that participated in that market
     //     yay is the amount of voters having voted true
     //     nah is the amount of voters having voted false
     //     tot is the amount of staked reputation being distributed
     //
-    event DisputeSettled(uint256 all, uint256 yay, uint256 nah, uint256 tot);
+    event DisputeSettled(uint256 dis, uint256 all, uint256 yay, uint256 nah, uint256 tot);
     // ProposeCreated is emitted when a propose is created.
     //
+    //     pro is the ID of the propose that got created
     //     use is the user creating the propose
     //     bal is the amount of reputation initially staked
     //     exp is the expiry of the new propose
     //
-    event ProposeCreated(address use, uint256 bal, uint64 exp);
+    event ProposeCreated(uint256 pro, address use, uint256 bal, uint64 exp);
     // ProposeSettled is emitted when a propose is settled. Once a propose is
     // settled all user balances are updated, which makes the consensus reached
     // definitive and binding.
     //
+    //     pro is the ID of the propose being settled
     //     all is the amount of stakers that participated in that market
     //     yay is the amount of voters having voted true
     //     nah is the amount of voters having voted false
     //     tot is the amount of staked reputation being distributed
     //
-    event ProposeSettled(uint256 all, uint256 yay, uint256 nah, uint256 tot);
+    event ProposeSettled(uint256 pro, uint256 all, uint256 yay, uint256 nah, uint256 tot);
     // ResolveCreated is emitted when a resolve is created.
     //
+    //     pro is the ID of the propose for which the resolve got created
     //     use is the user creating the resolve
     //     len is the amount of voters randomly sampled
     //     exp is the expiry of the new resolve
     //
-    event ResolveCreated(address use, uint256 len, uint64 exp);
+    event ResolveCreated(uint256 pro, address use, uint256 len, uint64 exp);
 
     //
     // CONSTANTS
@@ -250,6 +264,13 @@ contract Claims is AccessControlEnumerable {
     // _claimMapping has any claim ID as key and points to the latest dispute
     // within that tree, if any.
     mapping(uint256 => uint256) private _claimMapping;
+    // _claimContent contains arbitrary references to proof the integrity of the
+    // claim's associated content in external systems, whether those external
+    // systems are offchain or onchain. If the external content source is
+    // offchain, then the proof linked here may be the checksum of the hashed
+    // content. If teh external content source is onchain, then the proof linked
+    // here may be the hash of a transaction.
+    mapping(uint256 => string) private _claimContent;
     // _indexAddress tracks the user addresses that have reputation staked in
     // any given market. This mapping works in conjunction with _indexMembers.
     // The position of the user addresses are divided by side of the bet that
@@ -406,7 +427,7 @@ contract Claims is AccessControlEnumerable {
     //     createDispute(101, ..., ..., ..., 33)
     //     createDispute(102, ..., ..., ..., 33)
     //
-    function createDispute(uint256 dis, uint256 bal, bool vot, uint64 exp, uint256 pro) public {
+    function createDispute(uint256 dis, uint256 bal, bool vot, uint64 exp, string memory con, uint256 pro) public {
         if (dis == 0) {
             revert Mapping("dispute zero");
         }
@@ -539,6 +560,10 @@ contract Claims is AccessControlEnumerable {
             _stakePropose[dis][CLAIM_STAKE_B] = bal;
         }
 
+        {
+            _claimContent[dis] = con;
+        }
+
         address use = msg.sender;
 
         unchecked {
@@ -648,7 +673,7 @@ contract Claims is AccessControlEnumerable {
         }
 
         {
-            emit DisputeCreated(use, bal, exp);
+            emit DisputeCreated(dis, use, bal, exp);
         }
     }
 
@@ -658,7 +683,9 @@ contract Claims is AccessControlEnumerable {
     // must own the given balance either as available balance inside this Claims
     // contract or as available balance inside the relevant token contract. The
     // given expiry must be at least 24 hours in the future.
-    function createPropose(uint256 pro, uint256 bal, bool vot, uint64 exp, address[] calldata tok) public {
+    function createPropose(uint256 pro, uint256 bal, bool vot, uint64 exp, string memory con, address[] calldata tok)
+        public
+    {
         if (pro == 0) {
             revert Mapping("propose zero");
         }
@@ -685,6 +712,10 @@ contract Claims is AccessControlEnumerable {
             _stakePropose[pro][CLAIM_STAKE_A] = bal;
         } else {
             _stakePropose[pro][CLAIM_STAKE_B] = bal;
+        }
+
+        {
+            _claimContent[pro] = con;
         }
 
         // If a token whitelist is provided, simply set it up for this claim.
@@ -806,7 +837,7 @@ contract Claims is AccessControlEnumerable {
         }
 
         {
-            emit ProposeCreated(use, bal, exp);
+            emit ProposeCreated(pro, use, bal, exp);
         }
     }
 
@@ -933,6 +964,10 @@ contract Claims is AccessControlEnumerable {
                     _addressStake[cla][use][ADDRESS_STAKE_N] += bal;
                 }
             }
+        }
+
+        {
+            emit ClaimUpdated(cla, use, bal);
         }
     }
 
@@ -1110,9 +1145,9 @@ contract Claims is AccessControlEnumerable {
 
         if (all == 1) {
             if (kin == 0) {
-                emit ProposeSettled(all, yay, nah, toy + ton);
+                emit ProposeSettled(cla, all, yay, nah, toy + ton);
             } else {
-                emit DisputeSettled(all, yay, nah, toy + ton);
+                emit DisputeSettled(cla, all, yay, nah, toy + ton);
             }
 
             if (yay == nah) {
@@ -1251,7 +1286,7 @@ contract Claims is AccessControlEnumerable {
         }
 
         {
-            emit ResolveCreated(msg.sender, ind.length, exp);
+            emit ResolveCreated(pro, msg.sender, ind.length, exp);
         }
     }
 
@@ -1394,9 +1429,9 @@ contract Claims is AccessControlEnumerable {
         }
 
         if (kin == 0) {
-            emit ProposeSettled(all, yay, nah, tot);
+            emit ProposeSettled(cla, all, yay, nah, tot);
         } else {
-            emit DisputeSettled(all, yay, nah, tot);
+            emit DisputeSettled(cla, all, yay, nah, tot);
         }
     }
 
@@ -1676,6 +1711,13 @@ contract Claims is AccessControlEnumerable {
     //
     function searchBalance(address use) public view returns (uint256, uint256) {
         return (_allocBalance[use], _availBalance[use]);
+    }
+
+    // searchContent allows anyone to lookup the given claim's content
+    // reference, which may point to external offchain or onchain resources
+    // associated to the given claim.
+    function searchContent(uint256 cla) public view returns (string memory) {
+        return _claimContent[cla];
     }
 
     // searchExpired returns the unix timestamp in seconds of the given claim's

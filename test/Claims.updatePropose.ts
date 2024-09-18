@@ -68,6 +68,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          "",
           [ad6, a18, a30],
         );
 
@@ -147,6 +148,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          "",
           [ad6, a18, a30],
         );
 
@@ -185,14 +187,14 @@ describe("Claims", function () {
           2, // a30 from above
         );
 
-        await Claims.connect(Signer(1)).updatePropose(
+        const txn = await Claims.connect(Signer(1)).updatePropose(
           Claim(1),
           Amount(10),
           Side(true),
           0, // ad6 from above
         );
 
-        return { Address, Claims, Signer, Stablecoin6, Stablecoin18, Stablecoin30, UVX };
+        return { Address, Claims, Signer, Stablecoin6, Stablecoin18, Stablecoin30, UVX, txn };
       };
 
       it("should allow everyone with the same whitelisted tokens to stake, same tokens", async function () {
@@ -258,6 +260,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          "",
           [a18, a30],
         );
 
@@ -266,6 +269,12 @@ describe("Claims", function () {
           expect(await Stablecoin18.balanceOf(Address(5))).to.equal(0);
           expect(await Stablecoin30.balanceOf(Address(5))).to.equal(0);
         }
+      });
+
+      it("should emit events", async function () {
+        const { Address, Claims, txn } = await loadFixture(updateProposeDifferentTokens);
+
+        await expect(txn).to.emit(Claims, "ClaimUpdated").withArgs(Claim(1), Address(1), Amount(10));
       });
     });
   });

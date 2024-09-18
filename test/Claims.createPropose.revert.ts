@@ -17,6 +17,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          "",
           [],
         );
 
@@ -33,6 +34,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          "",
           [],
         );
 
@@ -49,6 +51,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(2, "days"),
+          "",
           [],
         );
 
@@ -65,6 +68,7 @@ describe("Claims", function () {
           Amount(0),
           Side(true),
           Expiry(2, "days"),
+          "",
           [],
         );
 
@@ -81,6 +85,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           0,
+          "",
           [],
         );
 
@@ -97,6 +102,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(5, "hours"),
+          "",
           [],
         );
 
@@ -113,6 +119,7 @@ describe("Claims", function () {
           Amount(10),
           Side(true),
           Expiry(23, "hours"),
+          "",
           [],
         );
 

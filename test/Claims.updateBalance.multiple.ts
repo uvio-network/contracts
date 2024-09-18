@@ -26,6 +26,7 @@ describe("Claims", function () {
             Amount(10),
             Side(false),
             EXPIRY,
+            "",
             [],
           );
           await Claims.connect(Signer(2)).updatePropose(
@@ -199,7 +200,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(updateBalance);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(5, 2, 0, Amount(50));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 5, 2, 0, Amount(50));
         });
       });
 
@@ -214,6 +215,7 @@ describe("Claims", function () {
             Amount(10),
             Side(true),
             EXPIRY,
+            "",
             [],
           );
           await Claims.connect(Signer(2)).updatePropose(
@@ -443,7 +445,7 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, txn } = await loadFixture(updateBalance);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(8, 2, 0, Amount(185));
+          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 8, 2, 0, Amount(185));
         });
       });
     });

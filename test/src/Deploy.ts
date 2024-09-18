@@ -59,6 +59,7 @@ export const CreatePropose7WeekExpiry = async () => {
     Amount(10),
     Side(true),
     Expiry(7, "days"),
+    "",
     [],
   );
 
@@ -175,6 +176,7 @@ export const CreatePropose16 = async () => {
     Amount(50),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -327,6 +329,7 @@ export const UpdateBalance25True = async () => {
     Amount(25),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
 
@@ -367,6 +370,7 @@ export const UpdateBalance25TrueNoVote = async () => {
     Amount(25),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
 
@@ -404,6 +408,7 @@ export const UpdateBalance25False = async () => {
     Amount(25),
     Side(false),
     Expiry(2, "days"),
+    "",
     [],
   );
 
@@ -458,6 +463,7 @@ export const UpdateBalance30True20False = async () => {
     Amount(10),
     Side(false),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -533,6 +539,7 @@ export const UpdateBalance70True115False = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -639,6 +646,7 @@ export const UpdateBalance12TTrue46MFalse = async () => {
     Amount(300),
     Side(false),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -766,6 +774,7 @@ export const UpdateBalanceBoth22True33False = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(1)).updatePropose(
@@ -831,6 +840,7 @@ export const UpdateBalanceBoth44True17False = async () => {
     Amount(17),
     Side(false),
     Expiry(2, "days"),
+    "",
     [],
   );
 
@@ -887,6 +897,7 @@ export const UpdateDispute20True30False = async () => {
     Amount(20),
     Side(true),
     Expiry(15, "days"), // 7 days from the 8 days above
+    "",
     Claim(1),
   );
 
@@ -1003,6 +1014,7 @@ export const UpdateResolve20True30False = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -1065,6 +1077,7 @@ export const UpdateResolvePunishNoVotes = async () => {
     Amount(10),
     Side(true),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -1119,6 +1132,7 @@ export const UpdateResolvePunishEqualVotes = async () => {
     Amount(5),
     Side(false),
     Expiry(2, "days"),
+    "",
     [],
   );
   await Claims.connect(Signer(2)).updatePropose(
@@ -1234,6 +1248,7 @@ export const UpdateProposeMaxDispute = async () => {
       Amount(5),
       Side(true),
       Expiry(2, "days"),
+      "",
       [],
     );
 
@@ -1278,6 +1293,7 @@ export const UpdateProposeMaxDispute = async () => {
       Amount(10),
       Side(true),
       Expiry(10, "days"), // 4 days from the 6 days above
+      "",
       Claim(1),
     );
 
@@ -1322,6 +1338,7 @@ export const UpdateProposeMaxDispute = async () => {
       Amount(20),
       Side(true),
       Expiry(18, "days"), // 4 days from the 14 days above
+      "",
       Claim(1),
     );
 
@@ -1477,6 +1494,7 @@ export const UpdateBalanceOneUserOneDispute = async () => {
       Amount(5),
       Side(true),
       Expiry(2, "days"),
+      "",
       [],
     );
   }
@@ -1510,6 +1528,7 @@ export const UpdateBalanceOneUserOneDispute = async () => {
       Amount(10),
       Side(false),
       Expiry(10, "days"), // 4 days from the 6 days above
+      "",
       Claim(1),
     );
   }
