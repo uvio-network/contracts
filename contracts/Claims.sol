@@ -51,7 +51,6 @@ contract Claims is AccessControlEnumerable {
     //     cla is the ID of the claim that got updated, propose or dispute
     //     use is the user updating the propose
     //     bal is the amount of reputation aditionally staked
-    //     exp is the expiry of the new propose
     //
     event ClaimUpdated(uint256 cla, address use, uint256 bal);
     // DisputeCreated is emitted when a dispute is created.
