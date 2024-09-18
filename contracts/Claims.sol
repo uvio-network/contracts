@@ -267,7 +267,7 @@ contract Claims is AccessControlEnumerable {
     // claim's associated content in external systems, whether those external
     // systems are offchain or onchain. If the external content source is
     // offchain, then the proof linked here may be the checksum of the hashed
-    // content. If teh external content source is onchain, then the proof linked
+    // content. If the external content source is onchain, then the proof linked
     // here may be the hash of a transaction.
     mapping(uint256 => string) private _claimContent;
     // _indexAddress tracks the user addresses that have reputation staked in
