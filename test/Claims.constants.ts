@@ -32,7 +32,7 @@ describe("Claims", function () {
     it("should expose VERSION constant", async function () {
       const { Claims } = await loadFixture(Deploy);
 
-      expect(await Claims.VERSION()).to.equal("v0.2.0");
+      expect(await Claims.VERSION()).to.equal("v0.3.0");
     });
   });
 });
