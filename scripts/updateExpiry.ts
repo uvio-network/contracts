@@ -8,16 +8,16 @@ const main = async () => {
 
   const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
   const wal = new ethers.Wallet(DEPLOYER_PRIVATE_KEY, ethers.provider);
-  const cla = 1726595419195260;
-  const exp = 1726585200;
+  const pro = 1726738606883291;
+  const exp = 1726738980;
 
   try {
-    const bef = await Claims.connect(wal).searchExpired(cla);
+    const bef = await Claims.connect(wal).searchExpired(pro);
     console.log("bef", bef)
 
-    // await Claims.connect(wal).updateExpiry(cla, exp);
+    // await Claims.connect(wal).updateExpiry(pro, exp);
 
-    const aft = await Claims.connect(wal).searchExpired(cla);
+    const aft = await Claims.connect(wal).searchExpired(pro);
     console.log("aft", aft)
   } catch (error) {
     console.error("Error:", error);

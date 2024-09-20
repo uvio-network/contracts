@@ -22,12 +22,12 @@ describe("Claims", function () {
           // the original claim
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(true); // address 1 got punished by address 2
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(true);
 
           // the dispute
           expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_S())).to.equal(true);
         });
 
         it("claim should have 5 tokens staked", async function () {
@@ -119,12 +119,12 @@ describe("Claims", function () {
           // the original claim
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(true);
 
           // the dispute
           expect(await Claims.searchResolve(Claim(13), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(13), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(13), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(13), await Claims.CLAIM_BALANCE_S())).to.equal(true);
         });
 
         it("claim should have 50 tokens staked", async function () {
@@ -277,17 +277,17 @@ describe("Claims", function () {
           // the original claim
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(true);
 
           // the first dispute
           expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(101), await Claims.CLAIM_BALANCE_S())).to.equal(true);
 
           // the second dispute
           expect(await Claims.searchResolve(Claim(102), await Claims.CLAIM_BALANCE_P())).to.equal(false);
           expect(await Claims.searchResolve(Claim(102), await Claims.CLAIM_BALANCE_R())).to.equal(true);
-          expect(await Claims.searchResolve(Claim(102), await Claims.CLAIM_BALANCE_U())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(102), await Claims.CLAIM_BALANCE_S())).to.equal(true);
         });
 
         it("claim should have 10 tokens staked", async function () {

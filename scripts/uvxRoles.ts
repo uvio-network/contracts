@@ -5,7 +5,7 @@ import { Role } from "../test/src/Role";
 //     npx hardhat run ./scripts/uvxRoles.ts --network localhost
 //
 const main = async () => {
-  const UVX = await ethers.getContractAt("UVX", "0x04Ec0582e2700Db583e3BCb9b913D181Ac2D68A8");
+  const UVX = await ethers.getContractAt("UVX", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
 
   try {
     console.log("UVX owner:    ", await UVX.owner());
