@@ -141,9 +141,9 @@ contract Claims is AccessControlEnumerable {
     // CLAIM_BALANCE_R is a bitmap index within _claimBalance. This boolean
     // tracks claims that got resolved by rewarding users.
     uint8 public constant CLAIM_BALANCE_R = 1;
-    // CLAIM_BALANCE_U is a bitmap index within _claimBalance. This boolean
-    // tracks claims that got already fully resolved.
-    uint8 public constant CLAIM_BALANCE_U = 2;
+    // CLAIM_BALANCE_S is a bitmap index within _claimBalance. This boolean
+    // tracks claims that got already fully settled onchain.
+    uint8 public constant CLAIM_BALANCE_S = 2;
 
     // CLAIM_EXPIRY_P is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "propose" and "dispute" in unix
@@ -249,7 +249,7 @@ contract Claims is AccessControlEnumerable {
     mapping(address => uint256) private _availBalance;
     // _claimBalance maintains boolean flags relevant for balance processing
     // states per claim. For more information on the overall process and logic,
-    // see updateBalance, CLAIM_BALANCE_P, CLAIM_BALANCE_R and CLAIM_BALANCE_U.
+    // see updateBalance, CLAIM_BALANCE_P, CLAIM_BALANCE_R and CLAIM_BALANCE_S.
     mapping(uint256 => Bits.Map) private _claimBalance;
     // _claimExpired tracks expiration dates for every claim. For more
     // information see CLAIM_EXPIRY_P, CLAIM_EXPIRY_R and CLAIM_EXPIRY_T.
@@ -532,12 +532,6 @@ contract Claims is AccessControlEnumerable {
             _claimMapping[lat] = dis;
         }
 
-        // Keep track of the number of disputes in this tree, so that we can
-        // enforce a maximum amount of disputes on the given propose.
-        unchecked {
-            _claimDispute[pro]++;
-        }
-
         // Dispute expiries must be at least 3 days in the future.
         if (exp < block.timestamp + 3 days) {
             revert Expired("too short", exp);
@@ -566,6 +560,12 @@ contract Claims is AccessControlEnumerable {
         address use = msg.sender;
 
         unchecked {
+            // Keep track of the number of disputes in this tree, so that we can
+            // enforce a maximum amount of disputes on the given propose.
+            {
+                _claimDispute[pro]++;
+            }
+
             // Set the given expiry to make the code flow below work.
             {
                 uint256 dur = (((exp - block.timestamp) * durationBasis) / BASIS_TOTAL);
@@ -981,23 +981,23 @@ contract Claims is AccessControlEnumerable {
     // amounts of participants, updateBalance may be called multiple times using
     // "max" as the maximum amount of users processed at a time. "max" must not
     // be zero. updateBalance can be iteratively called until searchResolve
-    // returns true when being called with CLAIM_BALANCE_U.
+    // returns true when being called with CLAIM_BALANCE_S.
     //
     //     updateBalance(33, 5)
     //
-    //     searchResolve(33, CLAIM_BALANCE_U) => false
+    //     searchResolve(33, CLAIM_BALANCE_S) => false
     //
     //     updateBalance(33, 5)
     //
-    //     searchResolve(33, CLAIM_BALANCE_U) => false
+    //     searchResolve(33, CLAIM_BALANCE_S) => false
     //
     //     updateBalance(33, 5)
     //
-    //     searchResolve(33, CLAIM_BALANCE_U) => true
+    //     searchResolve(33, CLAIM_BALANCE_S) => true
     //
     function updateBalance(uint256 cla, uint256 max) public {
-        if (_claimBalance[cla].get(CLAIM_BALANCE_U)) {
-            revert Process("already updated");
+        if (_claimBalance[cla].get(CLAIM_BALANCE_S)) {
+            revert Process("already settled");
         }
 
         if (max == 0) {
@@ -1419,7 +1419,7 @@ contract Claims is AccessControlEnumerable {
         }
 
         {
-            _claimBalance[cla].set(CLAIM_BALANCE_U);
+            _claimBalance[cla].set(CLAIM_BALANCE_S);
         }
 
         {
@@ -1511,7 +1511,7 @@ contract Claims is AccessControlEnumerable {
 
             {
                 _claimBalance[cla].set(CLAIM_BALANCE_P);
-                _claimBalance[cla].set(CLAIM_BALANCE_U);
+                _claimBalance[cla].set(CLAIM_BALANCE_S);
             }
 
             {
@@ -1686,7 +1686,7 @@ contract Claims is AccessControlEnumerable {
             }
 
             {
-                _claimBalance[cla].set(CLAIM_BALANCE_U);
+                _claimBalance[cla].set(CLAIM_BALANCE_S);
             }
         }
     }
@@ -1822,14 +1822,14 @@ contract Claims is AccessControlEnumerable {
     //
     //     CLAIM_BALANCE_R to check whether the given claim resolved in rewarding users
     //
-    //     CLAIM_BALANCE_U to check whether the given claim finalized by updating user balances
+    //     CLAIM_BALANCE_S to check whether the given claim finalized by updating user balances
     //
     // The example call below shows whether propose 33 concluded by returning
     // either true or false. Once true is returned, claim 33 will be finalized
     // and cannot change anymore. That also means claim 33 cannot be disputed
     // anymore, since its resolution has become definitive and binding.
     //
-    //     searchResolve(33, CLAIM_BALANCE_U)
+    //     searchResolve(33, CLAIM_BALANCE_S)
     //
     function searchResolve(uint256 pro, uint8 ind) public view returns (bool) {
         return _claimBalance[pro].get(ind);

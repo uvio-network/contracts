@@ -1,3 +1,5 @@
+import moment from "moment";
+
 import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
 import { expect } from "chai";
@@ -68,7 +70,7 @@ describe("Claims", function () {
           Claim(13),
           Amount(20),
           Side(true),
-          Expiry(38, "days"), // 30 days from the 8 days above
+          moment().add(8, "days").unix() + 2592000, // 30 days from the 8 days above
           "",
           Claim(1),
         );
