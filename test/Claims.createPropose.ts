@@ -285,16 +285,18 @@ describe("Claims", function () {
 
       await Balance([3], 10);
 
+      const exp = Expiry(14, "days");
+
       const txn = await Claims.connect(Signer(3)).createPropose(
         Claim(5),
         Amount(10),
         Side(true),
-        Expiry(14, "days"),
+        exp,
         "",
         [],
       );
 
-      await expect(txn).to.emit(Claims, "ProposeCreated").withArgs(Claim(5), Address(3), Amount(10), Expiry(14, "days"));
+      await expect(txn).to.emit(Claims, "ProposeCreated").withArgs(Claim(5), Address(3), Amount(10), exp);
     });
   });
 });

@@ -53,7 +53,7 @@ contract UVX is AccessControlEnumerable, ERC20, ReentrancyGuard {
     bytes32 public constant TOKEN_ROLE = keccak256("TOKEN_ROLE");
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.2.0";
+    string public constant VERSION = "v0.3.0";
 
     //
     // MAPPINGS
