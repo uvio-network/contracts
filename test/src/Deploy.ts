@@ -751,17 +751,17 @@ export const UpdateBalancePunishEqualVotes = async () => {
   await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
   await network.provider.send("evm_mine");
 
-  await Claims.connect(Signer(0)).updateBalance(
+  const tx1 = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
     3,
   );
 
-  const txn = await Claims.connect(Signer(0)).updateBalance(
+  const tx2 = await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
     2,
   );
 
-  return { Address, Balance, Claims, Signer, txn, UVX };
+  return { Address, Balance, Claims, Signer, tx1, tx2, UVX };
 };
 
 export const UpdateBalanceBoth22True33False = async () => {

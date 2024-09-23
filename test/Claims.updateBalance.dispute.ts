@@ -372,6 +372,12 @@ describe("Claims", function () {
         it("should emit event", async function () {
           const { Claims, tx1, tx2, tx3 } = await loadFixture(UpdateBalanceMaxDispute);
 
+          // Here we do also test that the event BalanceUpdated is emitted on
+          // each call to updateBalance.
+          await expect(tx1).to.emit(Claims, "BalanceUpdated").withArgs(Claim(101));
+          await expect(tx2).to.emit(Claims, "BalanceUpdated").withArgs(Claim(1));
+          await expect(tx3).to.emit(Claims, "BalanceUpdated").withArgs(Claim(102));
+
           // Here we do also test that the order of updating balances within a
           // tree of disputed claims does not matter. The final consensus is
           // applied throughout the tree.
