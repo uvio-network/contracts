@@ -45,6 +45,14 @@ contract Claims is AccessControlEnumerable {
     // EVENTS
     //
 
+    // BalanceUpdated is emitted when user balances have been updated, whether
+    // for a propose or dispute, and whether the original propose has been
+    // settled onchain or not.
+    //
+    //     pod is the propose or dispute for which user balances got updated
+    //
+    event BalanceUpdated(uint256 pod);
+
     // ClaimUpdated is emitted when a claim is updated, whether it is a propose
     // or dispute.
     //
@@ -53,6 +61,7 @@ contract Claims is AccessControlEnumerable {
     //     bal is the amount of reputation aditionally staked
     //
     event ClaimUpdated(uint256 cla, address use, uint256 bal);
+
     // DisputeCreated is emitted when a dispute is created.
     //
     //     dis is the ID of the dispute that got created
@@ -61,6 +70,7 @@ contract Claims is AccessControlEnumerable {
     //     exp is the expiry of the new dispute
     //
     event DisputeCreated(uint256 dis, address use, uint256 bal, uint64 exp);
+
     // DisputeSettled is emitted when a dispute is settled. Once a dispute is
     // settled all user balances are updated, which makes the consensus reached
     // definitive and binding. For the final dispute in a tree of claims that
@@ -73,6 +83,7 @@ contract Claims is AccessControlEnumerable {
     //     tot is the amount of staked reputation being distributed
     //
     event DisputeSettled(uint256 dis, uint256 all, uint256 yay, uint256 nah, uint256 tot);
+
     // ProposeCreated is emitted when a propose is created.
     //
     //     pro is the ID of the propose that got created
@@ -81,6 +92,7 @@ contract Claims is AccessControlEnumerable {
     //     exp is the expiry of the new propose
     //
     event ProposeCreated(uint256 pro, address use, uint256 bal, uint64 exp);
+
     // ProposeSettled is emitted when a propose is settled. Once a propose is
     // settled all user balances are updated, which makes the consensus reached
     // definitive and binding.
@@ -92,6 +104,7 @@ contract Claims is AccessControlEnumerable {
     //     tot is the amount of staked reputation being distributed
     //
     event ProposeSettled(uint256 pro, uint256 all, uint256 yay, uint256 nah, uint256 tot);
+
     // ResolveCreated is emitted when a resolve is created.
     //
     //     pro is the ID of the propose for which the resolve got created
@@ -195,7 +208,7 @@ contract Claims is AccessControlEnumerable {
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.3.0";
+    string public constant VERSION = "v0.3.1";
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
     // users who expressed their opinions by staking in agreement with the
@@ -1137,6 +1150,10 @@ contract Claims is AccessControlEnumerable {
             {
                 lef += dis + 1;
             }
+        }
+
+        {
+            emit BalanceUpdated(cla);
         }
 
         uint256 toy = _stakePropose[cla][CLAIM_STAKE_Y];

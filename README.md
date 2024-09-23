@@ -1,5 +1,10 @@
 # contracts
 
+This repository contains the smart contracts of the Uvio platform. Learn more
+about Uvio at https://docs.uvio.network.
+
+
+
 ### formatting
 
 The smart contracts are formatted using `forge`. Details are configured in the
@@ -9,6 +14,36 @@ more information.
 
 
 ### testing
+
+For local testing it is recommended to run an anvil node.
+
+```
+anvil --chain-id 1337
+```
+
+Deploy the smart contracts for local testing in order.
+
+```
+npx hardhat ignition deploy ./ignition/modules/Stablecoin.ts --network localhost
+npx hardhat ignition deploy ./ignition/modules/UVX.ts --network localhost
+npx hardhat ignition deploy ./ignition/modules/Claims.ts --network localhost
+```
+
+If the addresses deployed come out as shown below the setup should be alright.
+
+```
+Stablecoin    0x5FbDB2315678afecb367f032d93F642f64180aa3
+UVX           0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+Claims        0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+```
+
+Finally grant all necessary roles for the local setup to work properly.
+
+```
+npx hardhat run ./scripts/grantRoles.ts --network localhost
+```
+
+The accounts below are being used in the unit tests.
 
 ```
 Address(0) 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
@@ -21,4 +56,41 @@ Address(6) 0x976EA74026E726554dB657fA54763abd0C3a0aa9
 Address(7) 0x14dC79964da2C08b23698B3D3cc7Ca32193d9955
 Address(8) 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f
 Address(9) 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720
+```
+
+The npm script `npm run cover` has been removed since the coverage report for
+this repository created more problems than it helped to solve. For one the
+coverage takes a relatively long time to wait for in CI. And then, a lot of our
+unit tests are time based. And for some reason the tests run using coverage
+enabled produce a lot of time glitches, which causes the tests to fail due to
+leap seconds. Long story short, we do not create code coverage reports in CI. If
+anyone wants to see those reports for themselves, just run the following
+command locally.
+
+```
+./node_modules/.bin/hardhat coverage
+```
+
+```
+----------------------|----------|----------|----------|----------|----------------|
+File                  |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
+----------------------|----------|----------|----------|----------|----------------|
+ contracts/           |    99.31 |    89.68 |      100 |    95.41 |                |
+  Claims.sol          |    99.15 |    89.57 |      100 |    95.51 |... 3,1216,1516 |
+  UVX.sol             |      100 |       90 |      100 |    94.96 |... 320,332,370 |
+ contracts/interface/ |      100 |      100 |      100 |      100 |                |
+  ILender.sol         |      100 |      100 |      100 |      100 |                |
+  IReceiver.sol       |      100 |      100 |      100 |      100 |                |
+  IStablecoin.sol     |      100 |      100 |      100 |      100 |                |
+  IToken.sol          |      100 |      100 |      100 |      100 |                |
+ contracts/lib/       |      100 |      100 |      100 |      100 |                |
+  Bits.sol            |      100 |      100 |      100 |      100 |                |
+ contracts/mock/      |     87.5 |     37.5 |      100 |       75 |                |
+  Receiver.sol        |    83.33 |    33.33 |      100 |    71.43 |... 81,82,85,86 |
+  Stablecoin.sol      |      100 |       50 |      100 |    85.71 |             13 |
+ contracts/test/      |      100 |      100 |      100 |      100 |                |
+  BitsTest.sol        |      100 |      100 |      100 |      100 |                |
+----------------------|----------|----------|----------|----------|----------------|
+All files             |    98.71 |    88.36 |      100 |    94.62 |                |
+----------------------|----------|----------|----------|----------|----------------|
 ```

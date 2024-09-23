@@ -493,9 +493,14 @@ describe("Claims", function () {
         });
 
         it("should emit event", async function () {
-          const { Claims, txn } = await loadFixture(UpdateBalancePunishEqualVotes);
+          const { Claims, tx1, tx2 } = await loadFixture(UpdateBalancePunishEqualVotes);
 
-          await expect(txn).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 5, 1, 1, Amount(118));
+          // Here we do also test that the event BalanceUpdated is emitted on
+          // each call to updateBalance.
+          await expect(tx1).to.emit(Claims, "BalanceUpdated").withArgs(Claim(1));
+          await expect(tx2).to.emit(Claims, "BalanceUpdated").withArgs(Claim(1));
+
+          await expect(tx2).to.emit(Claims, "ProposeSettled").withArgs(Claim(1), 5, 1, 1, Amount(118));
         });
       });
 
