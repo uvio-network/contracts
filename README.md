@@ -1,5 +1,10 @@
 # contracts
 
+This repository contains the smart contracts of the Uvio platform. Learn more
+about Uvio at https://docs.uvio.network.
+
+
+
 ### formatting
 
 The smart contracts are formatted using `forge`. Details are configured in the
