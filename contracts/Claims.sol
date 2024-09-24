@@ -56,11 +56,11 @@ contract Claims is AccessControlEnumerable {
     // ClaimUpdated is emitted when a claim is updated, whether it is a propose
     // or dispute.
     //
-    //     cla is the ID of the claim that got updated, propose or dispute
+    //     pod is the ID of the propose or dispute that got updated
     //     use is the user updating the propose
     //     bal is the amount of reputation aditionally staked
     //
-    event ClaimUpdated(uint256 cla, address use, uint256 bal);
+    event ClaimUpdated(uint256 pod, address use, uint256 bal);
 
     // DisputeCreated is emitted when a dispute is created.
     //
@@ -107,12 +107,12 @@ contract Claims is AccessControlEnumerable {
 
     // ResolveCreated is emitted when a resolve is created.
     //
-    //     pro is the ID of the propose for which the resolve got created
+    //     pod is the propose or dispute for which the resolve got created
     //     use is the user creating the resolve
     //     len is the amount of voters randomly sampled
     //     exp is the expiry of the new resolve
     //
-    event ResolveCreated(uint256 pro, address use, uint256 len, uint64 exp);
+    event ResolveCreated(uint256 pod, address use, uint256 len, uint64 exp);
 
     //
     // CONSTANTS
@@ -148,15 +148,12 @@ contract Claims is AccessControlEnumerable {
     // in disagreement with the associated claim.
     uint8 public constant CLAIM_ADDRESS_N = 1;
 
-    // CLAIM_BALANCE_P is a bitmap index within _claimBalance. This boolean
-    // tracks claims that got resolved by punishing users.
-    uint8 public constant CLAIM_BALANCE_P = 0;
-    // CLAIM_BALANCE_R is a bitmap index within _claimBalance. This boolean
-    // tracks claims that got resolved by rewarding users.
-    uint8 public constant CLAIM_BALANCE_R = 1;
+    // CLAIM_BALANCE_V is a bitmap index within _claimBalance. This boolean
+    // tracks claims that got settled with a valid resolution.
+    uint8 public constant CLAIM_BALANCE_V = 0;
     // CLAIM_BALANCE_S is a bitmap index within _claimBalance. This boolean
     // tracks claims that got already fully settled onchain.
-    uint8 public constant CLAIM_BALANCE_S = 2;
+    uint8 public constant CLAIM_BALANCE_S = 1;
 
     // CLAIM_EXPIRY_P is a map index within _claimExpired. This number tracks
     // the expiry of claims with lifecycle "propose" and "dispute" in unix
@@ -262,7 +259,7 @@ contract Claims is AccessControlEnumerable {
     mapping(address => uint256) private _availBalance;
     // _claimBalance maintains boolean flags relevant for balance processing
     // states per claim. For more information on the overall process and logic,
-    // see updateBalance, CLAIM_BALANCE_P, CLAIM_BALANCE_R and CLAIM_BALANCE_S.
+    // see updateBalance, CLAIM_BALANCE_V, CLAIM_BALANCE_S.
     mapping(uint256 => Bits.Map) private _claimBalance;
     // _claimExpired tracks expiration dates for every claim. For more
     // information see CLAIM_EXPIRY_P, CLAIM_EXPIRY_R and CLAIM_EXPIRY_T.
@@ -398,6 +395,18 @@ contract Claims is AccessControlEnumerable {
             IToken(tok).totalSupply();
         }
 
+        // Additionally to the above, we want to ensure that Claims contracts
+        // cannot be deployed for tokens that do not provide at least 6 decimals
+        // for their internal accounting. For instance, USDC has exactly 6
+        // decimals defined, and is therefore a valid token to be used.
+        {
+            uint8 dec = IToken(tok).decimals();
+            if (dec < 6) {
+                // TODO test
+                revert Balance("decimals invalid", dec);
+            }
+        }
+
         {
             _grantRole(DEFAULT_ADMIN_ROLE, own);
         }
@@ -502,7 +511,7 @@ contract Claims is AccessControlEnumerable {
 
             // Disputes require an exact amount to be matched for the minimum
             // balance required. This amount is a multiple of the preceding
-            // claim.  We enforce a fixed minimum amount for disputes to prevent
+            // claim. We enforce a fixed minimum amount for disputes to prevent
             // malicious actors to artificially price out other market
             // participants. Once a dispute is created, anyone can still stake
             // as much reputation as they are willing to risk.
@@ -512,10 +521,10 @@ contract Claims is AccessControlEnumerable {
         }
 
         // Only a valid resolution can be disputed. A resolution is valid if
-        // there have been more votes on one side than on the other. That
-        // means a resolution without any vote, or a resolution with equal
-        // votes cannot be disputed. Those invalid resolutions are the
-        // punishable scenarios, which are definitive and binding.
+        // there have been more votes on one side than on the other. That means
+        // a resolution without any vote, or a resolution with equal votes
+        // cannot be disputed. Those invalid resolutions are the punishable
+        // scenarios, which are definitive and binding.
         uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
         uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
         if (!(yay > nah || yay < nah)) {
@@ -711,8 +720,15 @@ contract Claims is AccessControlEnumerable {
             revert Expired("too short", exp);
         }
 
-        if (bal == 0) {
-            revert Balance("balance zero", bal);
+        // We require every claim to provide at least 10,000 tokens in order to
+        // create any given market. This limitation prevents certain accounting
+        // issues. The lowest common amount of decimals for stablecoins is
+        // USDC's 6 decimals, which means that 1 USDC equals 1,000,000 tokens.
+        // Therefore 1 cent is the lowest amount possible in USDC denominated
+        // terms.
+        if (bal < BASIS_TOTAL) {
+            // TODO test
+            revert Balance("too small", bal);
         }
 
         // In case this is the creation of a claim with lifecycle "propose",
@@ -854,25 +870,25 @@ contract Claims is AccessControlEnumerable {
     }
 
     // updatePropose allows anyone to participate in any active market as long
-    // as the minimum balance required can be provided. The given claim ID "cla"
+    // as the minimum balance required can be provided. The given claim ID "pod"
     // may refer to claims of lifecycle phase "propose" or "dispute". The first
     // user staking on a new claim becomes the proposer, defining the minimum
     // balance required to participate in the new market. Proposer rewards may
     // apply upon market resolution.
-    function updatePropose(uint256 cla, uint256 bal, bool vot, uint256 tok) public {
+    function updatePropose(uint256 pod, uint256 bal, bool vot, uint256 tok) public {
         address use = msg.sender;
 
         unchecked {
             // If there is a token whitelist setup, verify that the caller has a
             // non zero balance of the tokens that are required to participate
             // in this claim.
-            if (_proposeToken[cla].length != 0 && IToken(_proposeToken[cla][tok]).balanceOf(use) == 0) {
+            if (_proposeToken[pod].length != 0 && IToken(_proposeToken[pod][tok]).balanceOf(use) == 0) {
                 revert Balance("token missing", 0);
             }
 
             // Ensure that every staker provides at least the minimum balance
             // required in order to participate in this market.
-            uint256 min = _stakePropose[cla][CLAIM_STAKE_A] + _stakePropose[cla][CLAIM_STAKE_B];
+            uint256 min = _stakePropose[pod][CLAIM_STAKE_A] + _stakePropose[pod][CLAIM_STAKE_B];
             if (bal < min) {
                 revert Balance("below minimum", min);
             }
@@ -881,13 +897,13 @@ contract Claims is AccessControlEnumerable {
             // CLAIM_EXPIRY_P is the propose expiry. Only valid claims have a
             // valid expiry, and so if it is zero, then the given claim does not
             // exist.
-            if (_claimExpired[cla][CLAIM_EXPIRY_P] == 0) {
+            if (_claimExpired[pod][CLAIM_EXPIRY_P] == 0) {
                 revert Mapping("claim invalid");
             }
 
             // Ensure anyone can stake up until the defined expiry threshold.
-            if (_claimExpired[cla][CLAIM_EXPIRY_T] < block.timestamp) {
-                revert Expired("staking over", _claimExpired[cla][CLAIM_EXPIRY_T]);
+            if (_claimExpired[pod][CLAIM_EXPIRY_T] < block.timestamp) {
+                revert Expired("staking over", _claimExpired[pod][CLAIM_EXPIRY_T]);
             }
 
             // Account for the balance required in order to stake reputation
@@ -935,57 +951,57 @@ contract Claims is AccessControlEnumerable {
             // balances.
             if (vot) {
                 {
-                    _addressVotes[cla][use].set(VOTE_STAKE_Y);
-                    _stakePropose[cla][CLAIM_STAKE_Y] += bal;
+                    _addressVotes[pod][use].set(VOTE_STAKE_Y);
+                    _stakePropose[pod][CLAIM_STAKE_Y] += bal;
                 }
 
                 // Allocate the user stakes and keep track of the user address
                 // based on their position in our index list. Consecutive calls
                 // by the same user will maintain the user's individual index.
-                if (_addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N] == 0) {
+                if (_addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N] == 0) {
                     {
-                        _addressStake[cla][use][ADDRESS_STAKE_Y] = bal;
+                        _addressStake[pod][use][ADDRESS_STAKE_Y] = bal;
                     }
 
                     {
-                        _indexAddress[cla][_indexMembers[cla][CLAIM_ADDRESS_Y]] = use;
-                        _indexMembers[cla][CLAIM_ADDRESS_Y]++; // base is 0
+                        _indexAddress[pod][_indexMembers[pod][CLAIM_ADDRESS_Y]] = use;
+                        _indexMembers[pod][CLAIM_ADDRESS_Y]++; // base is 0
                     }
                 } else {
-                    _addressStake[cla][use][ADDRESS_STAKE_Y] += bal;
+                    _addressStake[pod][use][ADDRESS_STAKE_Y] += bal;
                 }
             } else {
                 {
-                    _addressVotes[cla][use].set(VOTE_STAKE_N);
-                    _stakePropose[cla][CLAIM_STAKE_N] += bal;
+                    _addressVotes[pod][use].set(VOTE_STAKE_N);
+                    _stakePropose[pod][CLAIM_STAKE_N] += bal;
                 }
 
                 // Allocate the user stakes and keep track of the user address
                 // based on their position in our index list. Consecutive calls
                 // by the same user will maintain the user's individual index.
-                if (_addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N] == 0) {
+                if (_addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N] == 0) {
                     {
-                        _addressStake[cla][use][ADDRESS_STAKE_N] = bal;
+                        _addressStake[pod][use][ADDRESS_STAKE_N] = bal;
                     }
 
                     {
-                        _indexMembers[cla][CLAIM_ADDRESS_N]--; // base is 2^256-1
-                        _indexAddress[cla][_indexMembers[cla][CLAIM_ADDRESS_N]] = use;
+                        _indexMembers[pod][CLAIM_ADDRESS_N]--; // base is 2^256-1
+                        _indexAddress[pod][_indexMembers[pod][CLAIM_ADDRESS_N]] = use;
                     }
                 } else {
-                    _addressStake[cla][use][ADDRESS_STAKE_N] += bal;
+                    _addressStake[pod][use][ADDRESS_STAKE_N] += bal;
                 }
             }
         }
 
         {
-            emit ClaimUpdated(cla, use, bal);
+            emit ClaimUpdated(pod, use, bal);
         }
     }
 
     // updateBalance allows anyone to effectively distribute staked reputation
     // according to the resolution of the underlying market provided by the
-    // claim ID "cla". This claim ID might be the ID of a propose or dispute.
+    // claim ID "pod". This claim ID might be the ID of a propose or dispute.
     // Every undisputed propose can be finalized using updateBalance after its
     // own challenge window expired. Since every dispute is just another claim,
     // their respective challenge windows must expire too, before any balances
@@ -1008,8 +1024,8 @@ contract Claims is AccessControlEnumerable {
     //
     //     searchResolve(33, CLAIM_BALANCE_S) => true
     //
-    function updateBalance(uint256 cla, uint256 max) public {
-        if (_claimBalance[cla].get(CLAIM_BALANCE_S)) {
+    function updateBalance(uint256 pod, uint256 max) public {
+        if (_claimBalance[pod].get(CLAIM_BALANCE_S)) {
             revert Process("already settled");
         }
 
@@ -1022,61 +1038,13 @@ contract Claims is AccessControlEnumerable {
         // have a valid dispute ID mapped to the given claim ID, then we need to
         // account for the latest dispute. Below we try to point to the latest
         // claim in any given tree, while finding the amount of claims within
-        // that tree. On top of that we need to figure out whether cla is of
+        // that tree. On top of that we need to figure out whether pod is of
         // lifecycle phase "propose" or "dispute", so that we can emit events
         // accordingly. We will set "kin" to 0 if we update balances for a
         // propose, and we will set "kin" to 1 if we update balances for a
         // dispute.
-        //
-        //     cla = 1 || 101 || 102
-        //     lat = 0 || 1 || 102
-        //     len = 0 || 2
-        //
-        uint8 kin;
-        uint256 lat = _claimMapping[cla];
-        uint256 len;
-        if (lat == 0) {
-            // cla = 1
-            // lat = 0
-            // len = 0
-            lat = cla;
-        } else {
-            // cla = 1 || 101 || 102
-            // lat = 1 || 102
-            // len = 0 || 2
-            len = _claimDispute[lat];
-            if (len != 0) {
-                // cla = 102
-                // lat = 1
-                // len = 2
-                kin = 1;
-                lat = cla;
-            } else {
-                // cla = 1 || 101
-                // lat = 102
-                // len = 0 || 2
-                len = _claimDispute[cla];
-                if (len == 0) {
-                    // cla = 101
-                    // lat = 102
-                    // len = 0
-                    kin = 1;
-                    len = _claimDispute[_claimMapping[lat]];
-                }
-                // else
-                // cla = 1
-                // lat = 102
-                // len = 2
-            }
-        }
+        (uint8 kin, uint256 lat, uint256 len) = searchLatest(pod);
 
-        // Lookup the amounts of votes that we have recorded on either side. It
-        // may very well be that there are no votes or that we have a tied
-        // result. In those undesired cases, we punish those users who where
-        // selected by the random truth sampling process, simply by taking all
-        // of their staked balances away.
-        uint256 yay;
-        uint256 nah;
         {
             uint256 exp = _claimExpired[lat][CLAIM_EXPIRY_R];
 
@@ -1101,15 +1069,21 @@ contract Claims is AccessControlEnumerable {
             if (exp + 7 days > block.timestamp && len < 2) {
                 revert Expired("challenge active", exp + 7 days);
             }
+        }
 
-            // If lat is just an undisputed propose, then we refer to its own
-            // resolution. If lat on the other hand is the latest dispute of a
-            // tree, then we overwrite the resolution of every claim in the
-            // given tree with the outcome of the latest dispute.
-            {
-                yay = _truthResolve[lat][CLAIM_TRUTH_Y];
-                nah = _truthResolve[lat][CLAIM_TRUTH_N];
-            }
+        // Lookup the amounts of votes that we have recorded on either side. It
+        // may very well be that there are no votes or that we have a tied
+        // result. In those undesired cases, we punish those users who where
+        // selected by the random truth sampling process, simply by taking all
+        // of their staked balances away. If lat is just an undisputed propose,
+        // then we refer to its own resolution. If lat on the other hand is the
+        // latest dispute of a tree, then we overwrite the resolution of every
+        // claim in the given tree with the outcome of the latest dispute.
+        uint256 yay;
+        uint256 nah;
+        {
+            yay = _truthResolve[lat][CLAIM_TRUTH_Y];
+            nah = _truthResolve[lat][CLAIM_TRUTH_N];
         }
 
         // We are processing user balances one by one, on a circle of the
@@ -1121,9 +1095,9 @@ contract Claims is AccessControlEnumerable {
         // already processed, by moving the left most pointer further to the
         // right.
         uint256 all;
-        uint256 dis = _stakePropose[cla][CLAIM_STAKE_D];
-        uint256 lef = _indexMembers[cla][CLAIM_ADDRESS_N];
-        uint256 rig = _indexMembers[cla][CLAIM_ADDRESS_Y];
+        uint256 dis = _stakePropose[pod][CLAIM_STAKE_D];
+        uint256 lef = _indexMembers[pod][CLAIM_ADDRESS_N];
+        uint256 rig = _indexMembers[pod][CLAIM_ADDRESS_Y];
         unchecked {
             // Ensure that our basis for calculating the delta on the negative
             // spectrum is always at least max uint. If a claim has no false
@@ -1153,50 +1127,40 @@ contract Claims is AccessControlEnumerable {
         }
 
         {
-            emit BalanceUpdated(cla);
+            emit BalanceUpdated(pod);
         }
 
-        uint256 toy = _stakePropose[cla][CLAIM_STAKE_Y];
-        uint256 ton = _stakePropose[cla][CLAIM_STAKE_N];
+        uint256 toy = _stakePropose[pod][CLAIM_STAKE_Y];
+        uint256 ton = _stakePropose[pod][CLAIM_STAKE_N];
+        bool inv = yay == nah;
+        bool sid = yay > nah;
 
         if (all == 1) {
+            if (inv) {
+                punishOne(pod);
+            } else {
+                rewardOne(pod, sid);
+            }
+
             if (kin == 0) {
-                emit ProposeSettled(cla, all, yay, nah, toy + ton);
+                emit ProposeSettled(pod, all, yay, nah, toy + ton);
             } else {
-                emit DisputeSettled(cla, all, yay, nah, toy + ton);
-            }
-
-            if (yay == nah) {
-                return punishOne(cla);
-            } else {
-                return rewardOne(cla, yay > nah);
-            }
-        }
-
-        if (yay > nah || yay < nah) {
-            if (dis == 0) {
-                _claimBalance[cla].set(CLAIM_BALANCE_R);
-            }
-
-            {
-                dis = rewardAll(cla, dis, lef, rig, max, toy, ton, yay > nah);
+                emit DisputeSettled(pod, all, yay, nah, toy + ton);
             }
         } else {
-            if (dis == 0) {
-                _claimBalance[cla].set(CLAIM_BALANCE_P);
+            if (inv) {
+                dis = punishAll(pod, dis, lef, rig, max);
+            } else {
+                dis = rewardAll(pod, dis, lef, rig, max, toy, ton, sid);
             }
 
-            {
-                dis = punishAll(cla, dis, lef, rig, max);
+            // Only credit the proposer and the protocol once everyone else got
+            // accounted for.
+            if (dis == all) {
+                finishAll(pod, kin, all, yay, nah, toy, ton, toy + ton, inv, sid);
+            } else {
+                _stakePropose[pod][CLAIM_STAKE_D] = dis;
             }
-        }
-
-        // Only credit the proposer and the protocol once everyone else got
-        // accounted for.
-        if (dis == all) {
-            finishAll(cla, kin, all, yay, nah, toy + ton);
-        } else {
-            _stakePropose[cla][CLAIM_STAKE_D] = dis;
         }
     }
 
@@ -1223,20 +1187,20 @@ contract Claims is AccessControlEnumerable {
 
     // createResolve must be called by the privileged BOT_ROLE in order to
     // initiate the random truth sampling process onchain.
-    function createResolve(uint256 pro, uint256[] calldata ind, uint64 exp) public {
+    function createResolve(uint256 pod, uint256[] calldata ind, uint64 exp) public {
         // Inlining the role check instead of using the modifier saves about 140
         // gas per call.
         if (!hasRole(BOT_ROLE, msg.sender)) {
             revert AccessControlUnauthorizedAccount(msg.sender, BOT_ROLE);
         }
 
-        uint256 cep = _claimExpired[pro][CLAIM_EXPIRY_P];
+        uint256 cep = _claimExpired[pod][CLAIM_EXPIRY_P];
 
         if (cep == 0) {
             revert Mapping("propose invalid");
         }
 
-        if (_claimExpired[pro][CLAIM_EXPIRY_R] != 0) {
+        if (_claimExpired[pod][CLAIM_EXPIRY_R] != 0) {
             revert Mapping("claim overwrite");
         }
 
@@ -1256,7 +1220,7 @@ contract Claims is AccessControlEnumerable {
         uint256 yay;
         uint256 nah;
         for (uint256 i = 0; i < ind.length; i++) {
-            address use = _indexAddress[pro][ind[i]];
+            address use = _indexAddress[pod][ind[i]];
 
             // We we ended up with the zero address it means the provided index
             // is out of range and the random truth sampling process failed to
@@ -1268,12 +1232,12 @@ contract Claims is AccessControlEnumerable {
             // If for any reason the random truth sampling process provides us
             // with the same index twice, then we revert the whole transaction.
             // The rule is "one user one vote".
-            if (_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+            if (_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
                 revert Mapping("already selected");
             }
 
             {
-                _addressVotes[pro][use].set(VOTE_TRUTH_S);
+                _addressVotes[pod][use].set(VOTE_TRUTH_S);
             }
 
             // Keep track of the amounts of votes recorded on either side of the
@@ -1297,12 +1261,12 @@ contract Claims is AccessControlEnumerable {
         }
 
         {
-            _claimExpired[pro][CLAIM_EXPIRY_R] = exp;
-            _claimIndices[pro] = ind;
+            _claimExpired[pod][CLAIM_EXPIRY_R] = exp;
+            _claimIndices[pod] = ind;
         }
 
         {
-            emit ResolveCreated(pro, msg.sender, ind.length, exp);
+            emit ResolveCreated(pod, msg.sender, ind.length, exp);
         }
     }
 
@@ -1380,8 +1344,8 @@ contract Claims is AccessControlEnumerable {
     // disagreeing users is selected to verify events as happened in the real
     // world on behalf of all market participants. All voting happens on a "one
     // user one vote" basis.
-    function updateResolve(uint256 pro, bool vot) public {
-        uint256 exp = _claimExpired[pro][CLAIM_EXPIRY_R];
+    function updateResolve(uint256 pod, bool vot) public {
+        uint256 exp = _claimExpired[pod][CLAIM_EXPIRY_R];
 
         if (exp == 0) {
             revert Mapping("propose invalid");
@@ -1393,24 +1357,24 @@ contract Claims is AccessControlEnumerable {
 
         address use = msg.sender;
 
-        if (!_addressVotes[pro][use].get(VOTE_TRUTH_S)) {
+        if (!_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
             revert Address("not allowed");
         }
 
-        if (_addressVotes[pro][use].get(VOTE_TRUTH_V)) {
+        if (_addressVotes[pod][use].get(VOTE_TRUTH_V)) {
             revert Address("already voted");
         }
 
         if (vot) {
-            _addressVotes[pro][use].set(VOTE_TRUTH_Y);
-            _truthResolve[pro][CLAIM_TRUTH_Y]++;
+            _addressVotes[pod][use].set(VOTE_TRUTH_Y);
+            _truthResolve[pod][CLAIM_TRUTH_Y]++;
         } else {
-            _addressVotes[pro][use].set(VOTE_TRUTH_N);
-            _truthResolve[pro][CLAIM_TRUTH_N]++;
+            _addressVotes[pod][use].set(VOTE_TRUTH_N);
+            _truthResolve[pod][CLAIM_TRUTH_N]++;
         }
 
         {
-            _addressVotes[pro][use].set(VOTE_TRUTH_V);
+            _addressVotes[pod][use].set(VOTE_TRUTH_V);
         }
     }
 
@@ -1420,43 +1384,68 @@ contract Claims is AccessControlEnumerable {
 
     // finishAll is the final stage to settle claims with more than 1
     // participating user.
-    function finishAll(uint256 cla, uint8 kin, uint256 all, uint256 yay, uint256 nah, uint256 tot) private {
+    function finishAll(
+        uint256 pod,
+        uint8 kin,
+        uint256 all,
+        uint256 yay,
+        uint256 nah,
+        uint256 toy,
+        uint256 ton,
+        uint256 tot,
+        bool inv,
+        bool sid
+    ) private {
         unchecked {
-            address first;
-            if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
-                first = _indexAddress[cla][MAX_UINT256];
+            if (inv) {
+                _availBalance[owner] += tot - _stakePropose[pod][CLAIM_STAKE_C];
             } else {
-                first = _indexAddress[cla][0];
+                address first;
+                if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+                    first = _indexAddress[pod][MAX_UINT256];
+                } else {
+                    first = _indexAddress[pod][0];
+                }
+
+                // Fees are only applied if there are rewards to be distributed.
+                if (sid) {
+                    if (ton != 0) {
+                        uint256 share = (ton * basisProposer) / BASIS_TOTAL;
+                        _availBalance[first] += share;
+                        _availBalance[owner] += ton - (share + _stakePropose[pod][CLAIM_STAKE_C]);
+                    }
+                } else {
+                    if (toy != 0) {
+                        uint256 share = (toy * basisProposer) / BASIS_TOTAL;
+                        _availBalance[first] += share;
+                        _availBalance[owner] += toy - (share + _stakePropose[pod][CLAIM_STAKE_C]);
+                    }
+                }
             }
-
-            uint256 share = (tot * basisProposer) / BASIS_TOTAL;
-
-            _availBalance[first] += share;
-            _availBalance[owner] += tot - (share + _stakePropose[cla][CLAIM_STAKE_C]);
         }
 
         {
-            _claimBalance[cla].set(CLAIM_BALANCE_S);
+            delete _stakePropose[pod][CLAIM_STAKE_C];
+            delete _stakePropose[pod][CLAIM_STAKE_D];
         }
 
         {
-            delete _stakePropose[cla][CLAIM_STAKE_C];
-            delete _stakePropose[cla][CLAIM_STAKE_D];
+            _claimBalance[pod].set(CLAIM_BALANCE_S);
         }
 
         if (kin == 0) {
-            emit ProposeSettled(cla, all, yay, nah, tot);
+            emit ProposeSettled(pod, all, yay, nah, tot);
         } else {
-            emit DisputeSettled(cla, all, yay, nah, tot);
+            emit DisputeSettled(pod, all, yay, nah, tot);
         }
     }
 
     // punishAll ensures that invalid market resolutions are accounted for
     // properly by punishing voters and reimbursing stakers after fees.
-    function punishAll(uint256 cla, uint256 dis, uint256 lef, uint256 rig, uint256 max) private returns (uint256) {
+    function punishAll(uint256 pod, uint256 dis, uint256 lef, uint256 rig, uint256 max) private returns (uint256) {
         while (max != 0) {
-            address use = _indexAddress[cla][lef];
-            uint256 bal = _addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N];
+            address use = _indexAddress[pod][lef];
+            uint256 bal = _addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N];
 
             // Every user loses their allocated balance when claims get
             // resolved. Only those users who were right in the end regain their
@@ -1466,7 +1455,10 @@ contract Claims is AccessControlEnumerable {
                 _allocBalance[use] -= bal;
             }
 
-            //
+            // The punishment case deducts fees in order to ensure that everyone
+            // loses money if consensus could not be achieved. This is an
+            // incentive to A) try harder to achieve consensus, and B) be more
+            // diligent in the individual choice of participating in markets.
             uint256 ded = (bal * basisFee) / BASIS_TOTAL;
 
             // Since this is the punishment case of resolving claims, every user
@@ -1477,20 +1469,15 @@ contract Claims is AccessControlEnumerable {
             // happens because the selected users did either not come to
             // consensus according to events in the real world, or did not do at
             // all what they have been asked for.
-            if (_addressVotes[cla][use].get(VOTE_TRUTH_S)) {
+            if (_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
                 _availBalance[owner] += ded;
             } else {
                 _availBalance[use] += ded;
             }
 
-            {
-                delete _addressStake[cla][use][ADDRESS_STAKE_Y];
-                delete _addressStake[cla][use][ADDRESS_STAKE_N];
-            }
-
             unchecked {
                 {
-                    _stakePropose[cla][CLAIM_STAKE_C] += ded;
+                    _stakePropose[pod][CLAIM_STAKE_C] += ded;
                     dis++;
                 }
 
@@ -1509,17 +1496,19 @@ contract Claims is AccessControlEnumerable {
     }
 
     // punishOne settles claims for wich the only participating user did either
-    // not vote or confirmed that their prior opinion was wrong.
-    function punishOne(uint256 cla) private {
+    // not vote or confirmed that their prior opinion was wrong. This is a
+    // separate function because the protocol owner becomes automatically the
+    // contender if there is only a single market participant.
+    function punishOne(uint256 pod) private {
         address use;
-        if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
-            use = _indexAddress[cla][MAX_UINT256];
+        if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+            use = _indexAddress[pod][MAX_UINT256];
         } else {
-            use = _indexAddress[cla][0];
+            use = _indexAddress[pod][0];
         }
 
         unchecked {
-            uint256 bal = _addressStake[cla][use][ADDRESS_STAKE_Y] + _addressStake[cla][use][ADDRESS_STAKE_N];
+            uint256 bal = _addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N];
 
             {
                 _allocBalance[use] -= bal;
@@ -1527,42 +1516,93 @@ contract Claims is AccessControlEnumerable {
             }
 
             {
-                _claimBalance[cla].set(CLAIM_BALANCE_P);
-                _claimBalance[cla].set(CLAIM_BALANCE_S);
-            }
-
-            {
-                delete _addressStake[cla][use][ADDRESS_STAKE_Y];
-                delete _addressStake[cla][use][ADDRESS_STAKE_N];
+                _claimBalance[pod].set(CLAIM_BALANCE_S);
             }
         }
     }
 
+    // TODO test sub cent fee distribution
+
     // rewardAll processes user balances in order to settle any claim in which
     // many users participated.
     function rewardAll(
-        uint256 cla,
+        uint256 pod,
         uint256 dis,
         uint256 lef,
         uint256 rig,
         uint256 max,
         uint256 toy,
         uint256 ton,
-        bool win
+        bool sid
     ) private returns (uint256) {
+        if (dis == 0) {
+            _claimBalance[pod].set(CLAIM_BALANCE_V);
+        }
+
         // Calculate the amounts for total staked assets on either side by
         // deducting all relevant fees. The total staked assets are used as
         // basis for calculating user rewards below, respective to their
-        // individual share of the winning pool and the captured amount from the
-        // loosing side.
-        uint256 fey = (toy * basisFee) / BASIS_TOTAL;
-        uint256 fen = (ton * basisFee) / BASIS_TOTAL;
+        // individual share of the winning pool and the captured amount from
+        // the loosing side.
 
         while (max != 0) {
-            address use = _indexAddress[cla][lef];
+            address use = _indexAddress[pod][lef];
 
-            {
-                rewardAllLoop(cla, use, win, fey, fen);
+            uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
+            uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
+
+            unchecked {
+                // Every user loses their allocated balance when claims get
+                // resolved. Only those users who were right in the end regain their
+                // allocated balances in the form of available balances, plus
+                // rewards.
+                {
+                    _allocBalance[use] -= sty + stn;
+                }
+
+                if (sid) {
+                    if (_addressVotes[pod][use].get(VOTE_STAKE_Y)) {
+                        if (ton == 0) {
+                            // If the true side wins, but there is nobody on the
+                            // false side, then everybody on the true side gets
+                            // only their money back.
+                            _availBalance[use] += sty;
+                        } else {
+                            uint256 ded = (ton * basisFee) / BASIS_TOTAL;
+                            uint256 shr = (sty * 1e18) / toy;
+                            uint256 rew = (shr * ded) / 1e18;
+
+                            // If the true side wins and there is somebody else
+                            // on the false side, then everybody on the true
+                            // side gets their money back, plus the captured
+                            // reward from the false side, proportional to the
+                            // respective share on the true side.
+                            _availBalance[use] += sty + rew;
+                            _stakePropose[pod][CLAIM_STAKE_C] += rew;
+                        }
+                    }
+                } else {
+                    if (_addressVotes[pod][use].get(VOTE_STAKE_N)) {
+                        if (toy == 0) {
+                            // If the false side wins, but there is nobody on
+                            // the true side, then everybody on the false side
+                            // gets only their money back.
+                            _availBalance[use] += stn;
+                        } else {
+                            uint256 ded = (toy * basisFee) / BASIS_TOTAL;
+                            uint256 shr = (stn * 1e18) / ton;
+                            uint256 rew = (shr * ded) / 1e18;
+
+                            // If the false side wins and there is somebody else
+                            // on the true side, then everybody on the false
+                            // side gets their money back, plus the captured
+                            // reward from the true side, proportional to the
+                            // respective share on the false side.
+                            _availBalance[use] += stn + rew;
+                            _stakePropose[pod][CLAIM_STAKE_C] += rew;
+                        }
+                    }
+                }
             }
 
             unchecked {
@@ -1584,86 +1624,20 @@ contract Claims is AccessControlEnumerable {
         return dis;
     }
 
-    // rewardAllLoop processes a single user as part of the balance updating
-    // process initiated by rewardAll.
-    function rewardAllLoop(uint256 cla, address use, bool win, uint256 fey, uint256 fen) private {
-        uint256 sty = _addressStake[cla][use][ADDRESS_STAKE_Y];
-        uint256 stn = _addressStake[cla][use][ADDRESS_STAKE_N];
-
-        // Every user loses their allocated balance when claims get
-        // resolved. Only those users who were right in the end regain their
-        // allocated balances in the form of available balances, plus
-        // rewards.
-        unchecked {
-            _allocBalance[use] -= sty + stn;
-        }
-
-        if (win) {
-            // After verifying events in the real world the majority of
-            // voters decided that the proposed claim turned out to be true.
-            // Everyone staking reputation in agreement with the proposed
-            // claim will now earn their share of rewards. The users' staked
-            // balances plus rewards become now part of the respective
-            // available balances.
-            if (_addressVotes[cla][use].get(VOTE_STAKE_Y)) {
-                // Since we are working with the total amounts of staked assets as
-                // deducted fee basis, we also need to deduct the fees from every single
-                // staked balance here. Otherwise the user's share would inflate
-                // artificially relative to the deducted total that we use as a basis
-                // below.
-                unchecked {
-                    uint256 ded = (sty * basisFee) / BASIS_TOTAL;
-                    uint256 shr = (ded * 1e18) / fey;
-                    uint256 rew = (shr * fen) / 1e18;
-                    uint256 sum = (rew + ded);
-
-                    _availBalance[use] += sum;
-                    _stakePropose[cla][CLAIM_STAKE_C] += sum;
-                }
-            }
-        } else {
-            // After verifying events in the real world the majority of
-            // voters decided that the proposed claim turned out to be
-            // false. Everyone staking reputation in disagreement with the
-            // proposed claim will now earn their share of rewards. The
-            // users' staked balances plus rewards become now part of the
-            // respective available balances.
-            if (_addressVotes[cla][use].get(VOTE_STAKE_N)) {
-                // Since we are working with the total amounts of staked assets as
-                // deducted fee basis, we also need to deduct the fees from every single
-                // staked balance here. Otherwise the user's share would inflate
-                // artificially relative to the deducted total that we use as a basis
-                // below.
-                unchecked {
-                    uint256 ded = (stn * basisFee) / BASIS_TOTAL;
-                    uint256 shr = (ded * 1e18) / fen;
-                    uint256 rew = (shr * fey) / 1e18;
-                    uint256 sum = (rew + ded);
-
-                    _availBalance[use] += sum;
-                    _stakePropose[cla][CLAIM_STAKE_C] += sum;
-                }
-            }
-        }
-
-        {
-            delete _addressStake[cla][use][ADDRESS_STAKE_Y];
-            delete _addressStake[cla][use][ADDRESS_STAKE_N];
-        }
-    }
-
     // rewardOne finalizes any claim for which there was one participating user
-    // that was found to be right by consensus.
-    function rewardOne(uint256 cla, bool win) private {
+    // that was found to be right by consensus. This is a separate function
+    // because the protocol owner becomes automatically the contender if there
+    // is only a single market participant.
+    function rewardOne(uint256 pod, bool sid) private {
         address use;
-        if (_stakePropose[cla][CLAIM_STAKE_A] == 0) {
-            use = _indexAddress[cla][MAX_UINT256];
+        if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+            use = _indexAddress[pod][MAX_UINT256];
         } else {
-            use = _indexAddress[cla][0];
+            use = _indexAddress[pod][0];
         }
 
-        uint256 sty = _addressStake[cla][use][ADDRESS_STAKE_Y];
-        uint256 stn = _addressStake[cla][use][ADDRESS_STAKE_N];
+        uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
+        uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
 
         unchecked {
             uint256 bal = sty + stn;
@@ -1672,11 +1646,10 @@ contract Claims is AccessControlEnumerable {
                 _allocBalance[use] -= bal;
             }
 
-            if (win) {
-                if (_addressVotes[cla][use].get(VOTE_STAKE_Y)) {
+            if (sid) {
+                if (_addressVotes[pod][use].get(VOTE_STAKE_Y)) {
                     {
                         _availBalance[use] += sty;
-                        _claimBalance[cla].set(CLAIM_BALANCE_R);
                     }
 
                     if (stn != 0) {
@@ -1684,13 +1657,11 @@ contract Claims is AccessControlEnumerable {
                     }
                 } else {
                     _availBalance[owner] += bal;
-                    _claimBalance[cla].set(CLAIM_BALANCE_P);
                 }
             } else {
-                if (_addressVotes[cla][use].get(VOTE_STAKE_N)) {
+                if (_addressVotes[pod][use].get(VOTE_STAKE_N)) {
                     {
                         _availBalance[use] += stn;
-                        _claimBalance[cla].set(CLAIM_BALANCE_R);
                     }
 
                     if (sty != 0) {
@@ -1698,12 +1669,12 @@ contract Claims is AccessControlEnumerable {
                     }
                 } else {
                     _availBalance[owner] += bal;
-                    _claimBalance[cla].set(CLAIM_BALANCE_P);
                 }
             }
 
             {
-                _claimBalance[cla].set(CLAIM_BALANCE_S);
+                _claimBalance[pod].set(CLAIM_BALANCE_V);
+                _claimBalance[pod].set(CLAIM_BALANCE_S);
             }
         }
     }
@@ -1732,8 +1703,8 @@ contract Claims is AccessControlEnumerable {
     // searchContent allows anyone to lookup the given claim's content
     // reference, which may point to external offchain or onchain resources
     // associated with the given claim.
-    function searchContent(uint256 cla) public view returns (string memory) {
-        return _claimContent[cla];
+    function searchContent(uint256 pod) public view returns (string memory) {
+        return _claimContent[pod];
     }
 
     // searchExpired returns the unix timestamp in seconds of the given claim's
@@ -1747,8 +1718,140 @@ contract Claims is AccessControlEnumerable {
     //     out[0] the propose expiry
     //     out[0] the resolve expiry
     //
-    function searchExpired(uint256 pro) public view returns (uint256, uint256) {
-        return (_claimExpired[pro][CLAIM_EXPIRY_P], _claimExpired[pro][CLAIM_EXPIRY_R]);
+    function searchExpired(uint256 pod) public view returns (uint256, uint256) {
+        return (_claimExpired[pod][CLAIM_EXPIRY_P], _claimExpired[pod][CLAIM_EXPIRY_R]);
+    }
+
+    // searchHistory returns historical balance changes of all market
+    // participants using the same iterator pattern searchStakers. That means
+    // searchHistory works with the same indices as provided by searchIndices.
+    // Using searchStakers and searchHistory with the same indices enables the
+    // caller to understand market specific user balances before and after
+    // settlement. The returned balances are structured in touples of 5 as shown
+    // below, e.g. if searching user addresses using searchStakers were to
+    // return 5 addresses, then searchHistory would return 25 numbers, that is 5
+    // tuples of 5 balances, using the same indices as provided by
+    // searchIndices.
+    //
+    //     [        before        |         after        |   ]
+    //
+    //     "agreement,disagreement,agreement,disagreement,fee"
+    //
+    function searchHistory(uint256 pod, uint256 lef, uint256 rig) public view returns (uint256[] memory) {
+        uint256[] memory lis = new uint256[](((rig - lef) + 1) * 5);
+
+        address fir;
+        if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+            fir = _indexAddress[pod][MAX_UINT256];
+        } else {
+            fir = _indexAddress[pod][0];
+        }
+
+        (bool one, bool val, bool sid) = searchResults(pod);
+
+        uint256 toy = _stakePropose[pod][CLAIM_STAKE_Y];
+        uint256 ton = _stakePropose[pod][CLAIM_STAKE_N];
+
+        uint256 i = 0;
+        uint256 j = lef;
+        while (j <= rig) {
+            address use = _indexAddress[pod][j];
+
+            if (use == address(0)) {
+                break;
+            }
+
+            uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
+            uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
+
+            // The "before" state of staker balances is always the same.
+            {
+                lis[i] = sty;
+                lis[i + 1] = stn;
+                lis[i + 2] = 0;
+                lis[i + 3] = 0;
+                lis[i + 4] = 0;
+            }
+
+            if (one) {
+                if (val) {
+                    if (sid) {
+                        if (_addressVotes[pod][use].get(VOTE_STAKE_Y)) {
+                            lis[i + 2] = sty;
+                        }
+                    } else {
+                        if (_addressVotes[pod][use].get(VOTE_STAKE_N)) {
+                            lis[i + 3] = stn;
+                        }
+                    }
+                }
+            } else {
+                if (val) {
+                    if (sid) {
+                        if (_addressVotes[pod][use].get(VOTE_STAKE_Y)) {
+                            if (ton == 0) {
+                                lis[i + 2] = sty;
+                            } else {
+                                uint256 ded = (ton * basisFee) / BASIS_TOTAL;
+                                uint256 shr = (sty * 1e18) / toy;
+                                uint256 rew = (shr * ded) / 1e18;
+
+                                lis[i + 2] = sty + rew;
+                            }
+                        }
+
+                        if (ton != 0 && use == fir) {
+                            lis[i + 4] = (ton * basisProposer) / BASIS_TOTAL;
+                        }
+                    } else {
+                        if (_addressVotes[pod][use].get(VOTE_STAKE_N)) {
+                            if (toy == 0) {
+                                lis[i + 3] = stn;
+                            } else {
+                                uint256 ded = (toy * basisFee) / BASIS_TOTAL;
+                                uint256 shr = (stn * 1e18) / ton;
+                                uint256 rew = (shr * ded) / 1e18;
+
+                                lis[i + 3] = stn + rew;
+                            }
+                        }
+
+                        if (toy != 0 && use == fir) {
+                            lis[i + 4] = (toy * basisProposer) / BASIS_TOTAL;
+                        }
+                    }
+                } else {
+                    if (!_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
+                        if (sty != 0) {
+                            lis[i + 2] = (sty * basisFee) / BASIS_TOTAL;
+                        }
+
+                        if (stn != 0) {
+                            lis[i + 3] = (stn * basisFee) / BASIS_TOTAL;
+                        }
+                    }
+                }
+            }
+
+            {
+                i += 5;
+            }
+
+            if (j == MAX_UINT256) {
+                break;
+            }
+
+            {
+                j++;
+            }
+        }
+
+        // Resize the array to remove any initially allocated zero address.
+        assembly {
+            mstore(lis, i)
+        }
+
+        return lis;
     }
 
     // searchIndices allows anyone to search for the addresses of staker and
@@ -1784,12 +1887,12 @@ contract Claims is AccessControlEnumerable {
     //
     //     searchSamples(CLAIM, out[5], out[6])
     //
-    function searchIndices(uint256 pro)
+    function searchIndices(uint256 pod)
         public
         view
         returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
     {
-        uint256 toy = _indexMembers[pro][CLAIM_ADDRESS_Y];
+        uint256 toy = _indexMembers[pod][CLAIM_ADDRESS_Y];
         uint256 ley = 0;
         uint256 riy = toy;
 
@@ -1797,7 +1900,7 @@ contract Claims is AccessControlEnumerable {
             riy--;
         }
 
-        uint256 len = _indexMembers[pro][CLAIM_ADDRESS_N];
+        uint256 len = _indexMembers[pod][CLAIM_ADDRESS_N];
         uint256 ton;
         uint256 rin = MAX_UINT256;
 
@@ -1813,6 +1916,61 @@ contract Claims is AccessControlEnumerable {
         return (toy, ley, riy, MID_UINT256, MID_UINT256, len, rin, ton);
     }
 
+    // searchLatest provides structural insights into the claim tree of which
+    // "pod" is part of. "pod" is the claim ID of either a propose or dispute.
+    //
+    //     inp[0] the propose or dispute of any given claim tree
+    //     out[0] the actual type of "pod", 0 for propose, 1 for dispute
+    //     out[1] the latest claim ID in the given tree
+    //     out[2] the amount of disputes in the given tree
+    //
+    function searchLatest(uint256 pod) public view returns (uint8, uint256, uint256) {
+        //
+        //     pod = 1 || 101 || 102
+        //     lat = 0 || 1 || 102
+        //     len = 0 || 2
+        //
+        uint8 kin;
+        uint256 lat = _claimMapping[pod];
+        uint256 len;
+        if (lat == 0) {
+            // pod = 1
+            // lat = 0
+            // len = 0
+            lat = pod;
+        } else {
+            // pod = 1 || 101 || 102
+            // lat = 1 || 102
+            // len = 0 || 2
+            len = _claimDispute[lat];
+            if (len != 0) {
+                // pod = 102
+                // lat = 1
+                // len = 2
+                kin = 1;
+                lat = pod;
+            } else {
+                // pod = 1 || 101
+                // lat = 102
+                // len = 0 || 2
+                len = _claimDispute[pod];
+                if (len == 0) {
+                    // pod = 101
+                    // lat = 102
+                    // len = 0
+                    kin = 1;
+                    len = _claimDispute[_claimMapping[lat]];
+                }
+                // else
+                // pod = 1
+                // lat = 102
+                // len = 2
+            }
+        }
+
+        return (kin, lat, len);
+    }
+
     // searchPropose can be called by anyone to lookup the amount of tokens
     // staked on either side of any given market. Additionally, the minimum
     // stake required in order to participate in the given market is also
@@ -1822,22 +1980,20 @@ contract Claims is AccessControlEnumerable {
     //     out[1] the minimum amount of stake required to participate
     //     out[2] the amount of reputation staked in disagreement
     //
-    function searchPropose(uint256 pro) public view returns (uint256, uint256, uint256) {
+    function searchPropose(uint256 pod) public view returns (uint256, uint256, uint256) {
         return (
-            _stakePropose[pro][CLAIM_STAKE_Y],
-            _stakePropose[pro][CLAIM_STAKE_A] + _stakePropose[pro][CLAIM_STAKE_B],
-            _stakePropose[pro][CLAIM_STAKE_N]
+            _stakePropose[pod][CLAIM_STAKE_Y],
+            _stakePropose[pod][CLAIM_STAKE_A] + _stakePropose[pod][CLAIM_STAKE_B],
+            _stakePropose[pod][CLAIM_STAKE_N]
         );
     }
 
     // searchResolve can be called by anyone to check for the current claim
-    // status. The first parameter "pro" must be the ID of a claim with
-    // lifecycle phase "propose". The second parameter "ind" must be one of the
-    // following available indices.
+    // status. The first parameter "pod" must be the ID of a claim with
+    // lifecycle phase "dispute" or "propose". The second parameter "ind" must
+    // be one of the following available indices.
     //
-    //     CLAIM_BALANCE_P to check whether the given claim resolved in punishing users
-    //
-    //     CLAIM_BALANCE_R to check whether the given claim resolved in rewarding users
+    //     CLAIM_BALANCE_V to check whether the given claim resolved in punishing users
     //
     //     CLAIM_BALANCE_S to check whether the given claim finalized by updating user balances
     //
@@ -1848,16 +2004,48 @@ contract Claims is AccessControlEnumerable {
     //
     //     searchResolve(33, CLAIM_BALANCE_S)
     //
-    function searchResolve(uint256 pro, uint8 ind) public view returns (bool) {
-        return _claimBalance[pro].get(ind);
+    function searchResolve(uint256 pod, uint8 ind) public view returns (bool) {
+        return _claimBalance[pod].get(ind);
     }
 
-    // searchSamples works in conjunction with the indices provided by
-    // searchIndices. Anyone can lookup the voter addresses of either side of
-    // any given market. Voting addresses are indexed based on the order of
-    // indices provided during the contract write of createResolve. The
-    // boundaries lef and rig are both inclusive. Below is an example of
-    // searching for all 2 voters on the agreeing side of the market.
+    // searchResults returns some structural insights that have been relevant to
+    // reconciling any given claim towards settlement.
+    //
+    //     inp[0] the propose or dispute to lookup
+    //     out[0] whether the given claim had only a single market participant
+    //     out[1] whether the market resolution was valid
+    //     out[2] the side of the market used for settlement
+    //
+    function searchResults(uint256 pod) public view returns (bool, bool, bool) {
+        bool one = false;
+        {
+            (uint256 nsy,,,,,,, uint256 nsn) = searchIndices(pod);
+            if (nsy + nsn == 1) {
+                one = true;
+            }
+        }
+
+        bool val = searchResolve(pod, CLAIM_BALANCE_V);
+
+        bool sid = false;
+        {
+            (, uint256 lat,) = searchLatest(pod);
+            (uint256 yay, uint256 nah) = searchVotes(lat);
+            if (yay > nah) {
+                sid = true;
+            }
+        }
+
+        return (one, val, sid);
+    }
+
+    // searchSamples provides the results of the random truth sampling process
+    // in conjunction with the indices provided by searchIndices. Anyone can
+    // lookup the voter addresses of either side of any given market. Voting
+    // addresses are indexed based on the order of indices provided during the
+    // contract write of createResolve. The boundaries lef and rig are both
+    // inclusive. Below is an example of searching for all 2 voters on the
+    // agreeing side of the market.
     //
     //     searchSamples(CLAIM, 0, 2) => [Address(2)]
     //     searchSamples(CLAIM, 3, 5) => []
@@ -1875,18 +2063,18 @@ contract Claims is AccessControlEnumerable {
     //
     //     searchSamples(CLAIM, 2^256-8, 2^256-1) => [Address(7), Address(2)]
     //
-    function searchSamples(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
+    function searchSamples(uint256 pod, uint256 lef, uint256 rig) public view returns (address[] memory) {
         address[] memory lis = new address[](rig - lef + 1);
 
         uint256 i = 0;
         uint256 j = 0;
-        while (i < lis.length && j < _claimIndices[pro].length) {
+        while (i < lis.length && j < _claimIndices[pod].length) {
             // Go through each of the recorded indices, one after another. Those
             // indices are not guaranteed to be ordered.
             //
             //     [ 3 0 96 4 99 95 1 97 2 98 ]
             //
-            uint256 ind = _claimIndices[pro][j];
+            uint256 ind = _claimIndices[pod][j];
 
             {
                 j++;
@@ -1903,7 +2091,7 @@ contract Claims is AccessControlEnumerable {
             }
 
             {
-                lis[i] = _indexAddress[pro][ind];
+                lis[i] = _indexAddress[pod][ind];
             }
 
             {
@@ -1947,15 +2135,15 @@ contract Claims is AccessControlEnumerable {
     //         Address(4), Address(3), Address(2), Address(1)
     //     ]
     //
-    function searchStakers(uint256 pro, uint256 lef, uint256 rig) public view returns (address[] memory) {
+    function searchStakers(uint256 pod, uint256 lef, uint256 rig) public view returns (address[] memory) {
         address[] memory lis = new address[](rig - lef + 1);
 
         if (lef == MID_UINT256 && rig == MID_UINT256) {
             address use;
-            if (_stakePropose[pro][CLAIM_STAKE_A] == 0) {
-                use = _indexAddress[pro][MAX_UINT256];
+            if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+                use = _indexAddress[pod][MAX_UINT256];
             } else {
-                use = _indexAddress[pro][0];
+                use = _indexAddress[pod][0];
             }
 
             {
@@ -1968,7 +2156,7 @@ contract Claims is AccessControlEnumerable {
         uint256 i = 0;
         uint256 j = lef;
         while (j <= rig) {
-            address use = _indexAddress[pro][j];
+            address use = _indexAddress[pod][j];
 
             if (use == address(0)) {
                 break;
@@ -2029,7 +2217,7 @@ contract Claims is AccessControlEnumerable {
     //     out[0] the number of votes that verified events in the real world with true
     //     out[1] the number of votes that verified events in the real world with false
     //
-    function searchVotes(uint256 pro) public view returns (uint256, uint256) {
-        return (_truthResolve[pro][CLAIM_TRUTH_Y], _truthResolve[pro][CLAIM_TRUTH_N]);
+    function searchVotes(uint256 pod) public view returns (uint256, uint256) {
+        return (_truthResolve[pod][CLAIM_TRUTH_Y], _truthResolve[pod][CLAIM_TRUTH_N]);
     }
 }

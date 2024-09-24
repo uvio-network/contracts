@@ -9,11 +9,10 @@ describe("Claims", function () {
   describe("updateBalance", function () {
     describe("both", function () {
       describe("22 true 33 false", function () {
-        it("should update balances by rewarding users", async function () {
+        it("should settle market with valid resolution", async function () {
           const { Claims } = await loadFixture(UpdateBalanceBoth22True33False);
 
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(true);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(true);
         });
 
@@ -61,14 +60,30 @@ describe("Claims", function () {
           expect(res[0]).to.equal(0);             // allocated
           expect(res[1]).to.equal(Amount(22.00)); // available (all of yay staked)
         });
+
+        it("should calculate histories accurately for signer 1", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceBoth22True33False);
+
+          const ind = await Claims.searchIndices(Claim(1));
+          const res = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
+
+          expect(res.length).to.equal(5);
+
+          expect(res[0]).to.equal("22000000000000000000"); // agreement       before
+          expect(res[1]).to.equal("33000000000000000000"); // disagreement    before
+
+          expect(res[2]).to.equal("22000000000000000000"); // agreement       after
+          expect(res[3]).to.equal(0);                      // disagreement    after
+
+          expect(res[4]).to.equal(0);                      // proposer fee
+        });
       });
 
       describe("44 true 17 false", function () {
-        it("should update balances by rewarding users", async function () {
+        it("should settle market with valid resolution", async function () {
           const { Claims } = await loadFixture(UpdateBalanceBoth44True17False);
 
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_P())).to.equal(false);
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_R())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(true);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(true);
         });
 
@@ -115,6 +130,23 @@ describe("Claims", function () {
 
           expect(res[0]).to.equal(0);             // allocated
           expect(res[1]).to.equal(Amount(17.00)); // available (all of yay staked)
+        });
+
+        it("should calculate histories accurately for signer 1", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceBoth44True17False);
+
+          const ind = await Claims.searchIndices(Claim(1));
+          const res = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
+
+          expect(res.length).to.equal(5);
+
+          expect(res[0]).to.equal("44000000000000000000"); // agreement       before
+          expect(res[1]).to.equal("17000000000000000000"); // disagreement    before
+
+          expect(res[2]).to.equal(0);                      // agreement       after
+          expect(res[3]).to.equal("17000000000000000000"); // disagreement    after
+
+          expect(res[4]).to.equal(0);                      // proposer fee
         });
       });
     });

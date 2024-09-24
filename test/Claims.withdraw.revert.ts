@@ -6,7 +6,7 @@ import { UpdateBalance25False } from "./src/Deploy";
 import { UpdateBalance25True } from "./src/Deploy";
 import { UpdateBalance20True30False } from "./src/Deploy";
 import { UpdateBalance30True20False } from "./src/Deploy";
-import { UpdateBalance70True115False } from "./src/Deploy";
+import { UpdateBalance59True126False } from "./src/Deploy";
 
 describe("Claims", function () {
   describe("withdraw", function () {
@@ -107,7 +107,7 @@ describe("Claims", function () {
 
       describe("70 true 115 false", function () {
         it("if signer 4 tries to withdraw any tokens", async function () {
-          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
+          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance59True126False);
 
           expect(await UVX.balanceOf(Address(4))).to.equal(Amount(25)); // got 50 only spent 25
 
@@ -117,7 +117,7 @@ describe("Claims", function () {
         });
 
         it("if signer 5 tries to withdraw any tokens", async function () {
-          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
+          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance59True126False);
 
           expect(await UVX.balanceOf(Address(5))).to.equal(Amount(20)); // got 50 only spent 30
 
@@ -127,7 +127,7 @@ describe("Claims", function () {
         });
 
         it("if signer 6 tries to withdraw any tokens", async function () {
-          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
+          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance59True126False);
 
           expect(await UVX.balanceOf(Address(6))).to.equal(Amount(20)); // got 50 only spent 30
 
@@ -137,7 +137,7 @@ describe("Claims", function () {
         });
 
         it("if signer 7 tries to withdraw any tokens", async function () {
-          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
+          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance59True126False);
 
           expect(await UVX.balanceOf(Address(7))).to.equal(Amount(30)); // got 50 only spent 20
 
@@ -147,7 +147,7 @@ describe("Claims", function () {
         });
 
         it("if signer 8 tries to withdraw any tokens", async function () {
-          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
+          const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance59True126False);
 
           expect(await UVX.balanceOf(Address(8))).to.equal(Amount(40)); // got 50 only spent 10
 

@@ -5,7 +5,6 @@ import { UpdateBalance25False } from "./src/Deploy";
 import { UpdateBalance25True } from "./src/Deploy";
 import { UpdateBalance20True30False } from "./src/Deploy";
 import { UpdateBalance30True20False } from "./src/Deploy";
-import { UpdateBalance70True115False } from "./src/Deploy";
 
 describe("Claims", function () {
   describe("withdraw", function () {
@@ -106,13 +105,13 @@ describe("Claims", function () {
           const res = await Claims.searchBalance(Address(2));
 
           expect(res[0]).to.equal(0);             // allocated
-          expect(res[1]).to.equal(Amount(22.50)); // available
+          expect(res[1]).to.equal(Amount(23.50)); // available
         }
 
         {
           expect(await UVX.balanceOf(Address(2))).to.equal(0);
 
-          await Claims.connect(Signer(2)).withdraw(0);
+          await Claims.connect(Signer(2)).withdraw(0); // withdrawing nothing
 
           expect(await UVX.balanceOf(Address(2))).to.equal(0);
         }
@@ -121,48 +120,74 @@ describe("Claims", function () {
           const res = await Claims.searchBalance(Address(2));
 
           expect(res[0]).to.equal(0);             // allocated
-          expect(res[1]).to.equal(Amount(22.50)); // available
+          expect(res[1]).to.equal(Amount(23.50)); // available
         }
       });
 
-      it("should allow signer 0 to withdraw 2.50 tokens once", async function () {
+      it("should allow signer 0 to withdraw 1.50 tokens once", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance20True30False);
 
-        expect(await UVX.balanceOf(Address(0))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(0));
 
-        await Claims.connect(Signer(0)).withdraw(Amount(2.50));
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(1.50)); // available
+        }
 
-        expect(await UVX.balanceOf(Address(0))).to.equal(Amount(2.50));
+        {
+          expect(await UVX.balanceOf(Address(0))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(0));
+          await Claims.connect(Signer(0)).withdraw(Amount(1.50)); // withdraw all at once
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(0))).to.equal(Amount(1.50));
+        }
 
-        const txn = Claims.connect(Signer(0)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(0));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).withdraw(1);
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
       });
 
       it("should allow signer 0 to withdraw 2.50 tokens with multiple calls", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance20True30False);
 
-        expect(await UVX.balanceOf(Address(0))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(0));
 
-        await Claims.connect(Signer(0)).withdraw(Amount(0.50));
-        await Claims.connect(Signer(0)).withdraw(Amount(1.10));
-        await Claims.connect(Signer(0)).withdraw(Amount(0.90));
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(1.50)); // available
+        }
 
-        expect(await UVX.balanceOf(Address(0))).to.equal(Amount(2.50));
+        {
+          expect(await UVX.balanceOf(Address(0))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(0));
+          await Claims.connect(Signer(0)).withdraw(Amount(0.50));
+          await Claims.connect(Signer(0)).withdraw(Amount(0.10));
+          await Claims.connect(Signer(0)).withdraw(Amount(0.90));
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(0))).to.equal(Amount(1.50));
+        }
 
-        const txn = Claims.connect(Signer(0)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(0));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).withdraw(1);
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
       });
 
       it("should allow signer 1 to withdraw 25 tokens once", async function () {
@@ -184,218 +209,218 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
       });
 
-      it("should allow signer 2 to withdraw 22.50 tokens once", async function () {
+      it("should allow signer 2 to withdraw 23.50 tokens once", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance20True30False);
 
-        expect(await UVX.balanceOf(Address(2))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(2));
 
-        await Claims.connect(Signer(2)).withdraw(Amount(22.50));
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(23.50)); // available
+        }
 
-        expect(await UVX.balanceOf(Address(2))).to.equal(Amount(22.50));
+        {
+          expect(await UVX.balanceOf(Address(2))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(2));
+          await Claims.connect(Signer(2)).withdraw(Amount(23.50));
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(2))).to.equal(Amount(23.50));
+        }
 
-        const txn = Claims.connect(Signer(2)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(2));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(2)).withdraw(1);
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
       });
     });
 
     describe("30 true 20 false", function () {
-      it("should allow signer 0 to withdraw 2.50 tokens plus captured precision loss once", async function () {
+      it("should allow signer 0 to withdraw 1.00 tokens plus captured precision loss once", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance30True20False);
 
-        expect(await UVX.balanceOf(Address(0))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(0));
 
-        await Claims.connect(Signer(0)).withdraw("2500000000000000018");
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("1000000000000000018"); // available
+        }
 
-        expect(await UVX.balanceOf(Address(0))).to.equal("2500000000000000018");
+        {
+          expect(await UVX.balanceOf(Address(0))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(0));
+          await Claims.connect(Signer(0)).withdraw("1000000000000000018");
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(0))).to.equal("1000000000000000018");
+        }
 
-        const txn = Claims.connect(Signer(0)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(0));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(0)).withdraw(1);
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
       });
 
-      it("should allow signer 1 to withdraw 2.50 tokens once", async function () {
+      it("should allow signer 1 to withdraw 1.00 tokens once", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance30True20False);
 
-        expect(await UVX.balanceOf(Address(1))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(1));
 
-        await Claims.connect(Signer(1)).withdraw(Amount(2.50));
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("1000000000000000000"); // available
+        }
 
-        expect(await UVX.balanceOf(Address(1))).to.equal(Amount(2.50));
+        {
+          expect(await UVX.balanceOf(Address(1))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(1));
+          await Claims.connect(Signer(1)).withdraw("1000000000000000000");
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(1))).to.equal("1000000000000000000");
+        }
 
-        const txn = Claims.connect(Signer(1)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(1));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(1)).withdraw(1);
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
       });
 
-      it("should allow signer 3 to withdraw about 15 tokens once", async function () {
+      it("should allow signer 3 to withdraw about 16.00 tokens once", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance30True20False);
 
-        expect(await UVX.balanceOf(Address(3))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(3));
 
-        await Claims.connect(Signer(3)).withdraw("14999999999999999994");
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("15999999999999999994"); // available
+        }
 
-        expect(await UVX.balanceOf(Address(3))).to.equal("14999999999999999994");
+        {
+          expect(await UVX.balanceOf(Address(3))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(3));
+          await Claims.connect(Signer(3)).withdraw("15999999999999999994");
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(3))).to.equal("15999999999999999994");
+        }
 
-        const txn = Claims.connect(Signer(3)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(3));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(3)).withdraw(1);
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
       });
 
-      it("should allow signer 3 to withdraw about 15 tokens with multiple calls", async function () {
+      it("should allow signer 3 to withdraw about 16.00 tokens with multiple calls", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance30True20False);
 
-        expect(await UVX.balanceOf(Address(3))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(3));
 
-        await Claims.connect(Signer(3)).withdraw(Amount(5));
-        await Claims.connect(Signer(3)).withdraw(Amount(5));
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("15999999999999999994"); // available
+        }
 
-        expect(await UVX.balanceOf(Address(3))).to.equal(Amount(10));
+        {
+          expect(await UVX.balanceOf(Address(3))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(3));
+          await Claims.connect(Signer(3)).withdraw("5000000000000000000");          //  5.00
+          await Claims.connect(Signer(3)).withdraw("5000000000000000000");          //  5.00
 
-        expect(res[0]).to.equal(0);                     // allocated
-        expect(res[1]).to.equal("4999999999999999994"); // available
+          expect(await UVX.balanceOf(Address(3))).to.equal("10000000000000000000"); // 10.00
+        }
 
-        const txn = Claims.connect(Signer(3)).withdraw(Amount(5));
+        {
+          const res = await Claims.searchBalance(Address(3));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("5999999999999999994"); // available
+        }
+
+        {
+          const txn = Claims.connect(Signer(3)).withdraw("6000000000000000000"); // 6.00
+
+          await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+        }
+
+        // After the failed withdrawal the balance is as it was before.
+        {
+          const res = await Claims.searchBalance(Address(3));
+
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("5999999999999999994"); // available
+        }
       });
 
-      it("should allow signer 4 to withdraw about 15 tokens once", async function () {
+      it("should allow signer 4 to withdraw about 16.00 tokens with multiple calls", async function () {
         const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance30True20False);
 
-        expect(await UVX.balanceOf(Address(4))).to.equal(0);
+        {
+          const res = await Claims.searchBalance(Address(4));
 
-        await Claims.connect(Signer(4)).withdraw("14999999999999999994");
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("15999999999999999994"); // available
+        }
 
-        expect(await UVX.balanceOf(Address(4))).to.equal("14999999999999999994");
+        {
+          expect(await UVX.balanceOf(Address(4))).to.equal(0);
 
-        const res = await Claims.searchBalance(Address(4));
+          await Claims.connect(Signer(4)).withdraw("2500000000000000000");          //  2.50
+          await Claims.connect(Signer(4)).withdraw("5000000000000000000");          //  5.00
+          await Claims.connect(Signer(4)).withdraw("2500000000000000000");          //  2.50
 
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
+          expect(await UVX.balanceOf(Address(4))).to.equal("10000000000000000000"); // 10.00
+        }
 
-        const txn = Claims.connect(Signer(4)).withdraw(1);
+        {
+          const res = await Claims.searchBalance(Address(4));
 
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
-      });
+          expect(res[0]).to.equal(0);                     // allocated
+          expect(res[1]).to.equal("5999999999999999994"); // available
+        }
 
-      it("should allow signer 5 to withdraw about 15 tokens once", async function () {
-        const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance30True20False);
+        {
+          expect(await UVX.balanceOf(Address(4))).to.equal("10000000000000000000"); // 10.00
 
-        expect(await UVX.balanceOf(Address(5))).to.equal(0);
+          await Claims.connect(Signer(4)).withdraw("5999999999999999994");
 
-        await Claims.connect(Signer(5)).withdraw("14999999999999999994");
+          expect(await UVX.balanceOf(Address(4))).to.equal("15999999999999999994"); // 16.00
+        }
 
-        expect(await UVX.balanceOf(Address(5))).to.equal("14999999999999999994");
+        {
+          const res = await Claims.searchBalance(Address(4));
 
-        const res = await Claims.searchBalance(Address(5));
-
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
-
-        const txn = Claims.connect(Signer(5)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
-      });
-    });
-
-    describe("70 true 115 false", function () {
-      it("should allow signer 0 to withdraw 9.25 tokens plus captured precision loss once", async function () {
-        const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await UVX.balanceOf(Address(0))).to.equal(0);
-
-        await Claims.connect(Signer(0)).withdraw("9250000000000000115");
-
-        expect(await UVX.balanceOf(Address(0))).to.equal("9250000000000000115");
-
-        const res = await Claims.searchBalance(Address(0));
-
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
-
-        const txn = Claims.connect(Signer(0)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
-      });
-
-      it("should allow signer 1 to withdraw 65.69 tokens once", async function () {
-        const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await UVX.balanceOf(Address(1))).to.equal(Amount(30)); // got 50 only spent 20
-
-        await Claims.connect(Signer(1)).withdraw("65690677966101694901");
-
-        expect(await UVX.balanceOf(Address(1))).to.equal("95690677966101694901"); // + 30
-
-        const res = await Claims.searchBalance(Address(1));
-
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
-
-        const txn = Claims.connect(Signer(1)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
-      });
-
-      it("should allow signer 2 to withdraw 56.44 tokens once", async function () {
-        const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await UVX.balanceOf(Address(2))).to.equal(Amount(30)); // got 50 only spent 20
-
-        await Claims.connect(Signer(2)).withdraw("56440677966101694901");
-
-        expect(await UVX.balanceOf(Address(2))).to.equal("86440677966101694901"); // + 30
-
-        const res = await Claims.searchBalance(Address(2));
-
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
-
-        const txn = Claims.connect(Signer(2)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
-      });
-
-      it("should allow signer 3 to withdraw 53.62 tokens once", async function () {
-        const { Address, Claims, Signer, UVX } = await loadFixture(UpdateBalance70True115False);
-
-        expect(await UVX.balanceOf(Address(3))).to.equal(Amount(20)); // got 50 only spent 30
-
-        await Claims.connect(Signer(3)).withdraw("53618644067796610083");
-
-        expect(await UVX.balanceOf(Address(3))).to.equal("73618644067796610083"); // + 20
-
-        const res = await Claims.searchBalance(Address(3));
-
-        expect(res[0]).to.equal(0); // allocated
-        expect(res[1]).to.equal(0); // available
-
-        const txn = Claims.connect(Signer(3)).withdraw(1);
-
-        await expect(txn).to.be.revertedWithPanic(0x11); // Arithmetic operation overflowed outside of an unchecked block
+          expect(res[0]).to.equal(0); // allocated
+          expect(res[1]).to.equal(0); // available
+        }
       });
     });
   });
