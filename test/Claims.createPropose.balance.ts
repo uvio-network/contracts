@@ -22,7 +22,7 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(1)).createPropose(
           Claim(1),
-          Amount(50),
+          Amount(50.00),
           Side(true),
           EXPIRY,
           "",
@@ -31,7 +31,7 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(3)).updatePropose(
           Claim(1),
-          Amount(50),
+          Amount(50.00),
           Side(false),
           0,
         );
@@ -68,15 +68,15 @@ describe("Claims", function () {
         {
           const res = await Claims.searchBalance(Address(0));
 
-          expect(res[0]).to.equal(0);         // allocated
-          expect(res[1]).to.equal(Amount(5)); // available (protocol fees)
+          expect(res[0]).to.equal(0);            // allocated
+          expect(res[1]).to.equal(Amount(2.50)); // available (protocol fees)
         }
 
         {
           const res = await Claims.searchBalance(Address(1));
 
-          expect(res[0]).to.equal(0);          // allocated
-          expect(res[1]).to.equal(Amount(95)); // available (being right)
+          expect(res[0]).to.equal(0);             // allocated
+          expect(res[1]).to.equal(Amount(97.50)); // available (being right)
         }
 
         {
@@ -105,8 +105,8 @@ describe("Claims", function () {
 
         const res = await Claims.searchBalance(Address(1));
 
-        expect(res[0]).to.equal(Amount(30)); // allocated
-        expect(res[1]).to.equal(Amount(65)); // available
+        expect(res[0]).to.equal(Amount(30.00)); // allocated
+        expect(res[1]).to.equal(Amount(67.50)); // available
       });
 
       it("should use all of the available balance without token transfer", async function () {
@@ -114,7 +114,7 @@ describe("Claims", function () {
 
         await Claims.connect(Signer(1)).createPropose(
           Claim(47),
-          Amount(95),
+          Amount(97.50),
           Side(true),
           Expiry(16, "days"),
           "",
@@ -123,19 +123,19 @@ describe("Claims", function () {
 
         const res = await Claims.searchBalance(Address(1));
 
-        expect(res[0]).to.equal(Amount(95)); // allocated
-        expect(res[1]).to.equal(0);          // available
+        expect(res[0]).to.equal(Amount(97.50)); // allocated
+        expect(res[1]).to.equal(0);             // available
       });
 
       it("should require token transfer without sufficient available balance", async function () {
         const { Address, Balance, Claims, Signer, UVX } = await loadFixture(updateBalance);
 
-        // Signer 1 has 95 available tokens. Staking 96 tokens should fail on
-        // the token contract level, because the token transfer reverts.
+        // Signer 1 has 97.50 available tokens. Staking 97.51 tokens should fail
+        // on the token contract level, because the token transfer reverts.
         {
           const txn = Claims.connect(Signer(1)).createPropose(
             Claim(47),
-            Amount(96),
+            Amount(97.51),
             Side(true),
             Expiry(16, "days"),
             "",
@@ -150,19 +150,19 @@ describe("Claims", function () {
           expect(await UVX.balanceOf(Address(1))).to.equal(0);
         }
 
-        // Mint and allow for the missing token.
+        // Mint and allow for the missing tokens.
         {
-          await Balance([1], 1);
+          await Balance([1], 0.01);
         }
 
-        // Make sure the user got their 1 additional token.
+        // Make sure the user got their additional tokens.
         {
-          expect(await UVX.balanceOf(Address(1))).to.equal(Amount(1));
+          expect(await UVX.balanceOf(Address(1))).to.equal(Amount(0.01));
         }
 
         await Claims.connect(Signer(1)).createPropose(
           Claim(47),
-          Amount(96),
+          Amount(97.51),
           Side(true),
           Expiry(16, "days"),
           "",
@@ -175,18 +175,18 @@ describe("Claims", function () {
           expect(await UVX.balanceOf(Address(1))).to.equal(0);
         }
 
-        // The protocol has 5 tokens available, earned as fees. The user has now
-        // 96 tokens available after proposing the claim above. The Claims
-        // contract itself should now own 101 tokens.
+        // The protocol has 2.50 tokens available, earned as fees. The user has now
+        // 97.51 tokens allocated after proposing the claim above. The Claims
+        // contract itself should now own 100.01 tokens.
         {
-          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(101));
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal(Amount(100.01));
         }
 
         {
           const res = await Claims.searchBalance(Address(1));
 
-          expect(res[0]).to.equal(Amount(96)); // allocated
-          expect(res[1]).to.equal(0);          // available
+          expect(res[0]).to.equal(Amount(97.51)); // allocated
+          expect(res[1]).to.equal(0);             // available
         }
       });
     });
