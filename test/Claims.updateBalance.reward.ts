@@ -8,6 +8,7 @@ import { UpdateBalance20True30False } from "./src/Deploy";
 import { UpdateBalance30True20False } from "./src/Deploy";
 import { UpdateBalance59True126False } from "./src/Deploy";
 import { UpdateBalance12TTrue46MFalse } from "./src/Deploy";
+import { UpdateBalanceSingle36True10000False } from "./src/Deploy";
 
 describe("Claims", function () {
   describe("updateBalance", function () {
@@ -1047,6 +1048,164 @@ describe("Claims", function () {
           expect(res[23]).to.equal(0);                               // disagreement    after
 
           expect(res[24]).to.equal(0);                               // proposer fee
+        });
+      });
+
+      describe("Amount(36) true 10,000 false", function () {
+        it("should track votes", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 0]);
+        });
+
+        it("should settle market with valid resolution", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(true);
+        });
+
+        it("should have 36_000_000_000_000_010_000 tokens staked", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const res = await Claims.searchPropose(Claim(1));
+
+          expect(res[0]).to.equal(Amount(36)); // yay
+          expect(res[1]).to.equal(10_000);     // min
+          expect(res[2]).to.equal(10_000);     // nah
+
+          expect(res[0] + res[2]).to.equal("36000000000000010000");
+        });
+
+        it("should calculate available balances according to tokens staked", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const zer = await Claims.searchBalance(Address(0));
+          const one = await Claims.searchBalance(Address(1));
+          const two = await Claims.searchBalance(Address(2));
+          const thr = await Claims.searchBalance(Address(3));
+          const fou = await Claims.searchBalance(Address(4));
+
+          expect(zer[1] + one[1] + two[1] + thr[1] + fou[1]).to.equal("36000000000000010000");
+        });
+
+        it("should result in the Claims contract owning 36_000_000_000_000_010_000 tokens", async function () {
+          const { Claims, UVX } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          expect(await UVX.balanceOf(await Claims.getAddress())).to.equal("36000000000000010000");
+        });
+
+        it("should calculate balances accurately for signer 0", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const res = await Claims.searchBalance(Address(0)); // protocol owner receiving rewards
+
+          expect(res[0]).to.equal(0);     // allocated
+          expect(res[1]).to.equal("502"); // available (502 is 5% of 10,000 plus precision loss)
+        });
+
+        it("should calculate balances accurately for signer 1", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const res = await Claims.searchBalance(Address(1));
+
+          expect(res[0]).to.equal(0);                      // allocated
+          expect(res[1]).to.equal("12000000000000002999"); // available (initial + 30% of 10,000)
+        });
+
+        it("should calculate histories accurately for signer 1", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const ind = await Claims.searchIndices(Claim(1));
+          const res = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
+
+          expect(res.length).to.equal(15); // three stakers on the true side
+
+          expect(res[0]).to.equal("12000000000000000000"); // agreement       before
+          expect(res[1]).to.equal(0);                      // disagreement    before
+
+          expect(res[2]).to.equal("12000000000000002999"); // agreement       after
+          expect(res[3]).to.equal(0);                      // disagreement    after
+
+          expect(res[4]).to.equal(0);                      // proposer fee
+        });
+
+        it("should calculate balances accurately for signer 2", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const res = await Claims.searchBalance(Address(2));
+
+          expect(res[0]).to.equal(0);                      // allocated
+          expect(res[1]).to.equal("15000000000000003749"); // available (15.00 + reward of 10,000)
+        });
+
+        it("should calculate histories accurately for signer 2", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const ind = await Claims.searchIndices(Claim(1));
+          const res = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
+
+          expect(res.length).to.equal(15); // three stakers on the true side
+
+          expect(res[5]).to.equal("15000000000000000000"); // agreement       before
+          expect(res[6]).to.equal(0);                      // disagreement    before
+
+          expect(res[7]).to.equal("15000000000000003749"); // agreement       after
+          expect(res[8]).to.equal(0);                      // disagreement    after
+
+          expect(res[9]).to.equal(0);                      // proposer fee
+        });
+
+        it("should calculate balances accurately for signer 3", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const res = await Claims.searchBalance(Address(3));
+
+          expect(res[0]).to.equal(0);                      // allocated
+          expect(res[1]).to.equal("9000000000000002250"); // available (9.00 + reward of 10,000)
+        });
+
+        it("should calculate histories accurately for signer 3", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const ind = await Claims.searchIndices(Claim(1));
+          const res = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
+
+          expect(res.length).to.equal(15); // three stakers on the true side
+
+          expect(res[10]).to.equal("9000000000000000000"); // agreement       before
+          expect(res[11]).to.equal(0);                      // disagreement    before
+
+          expect(res[12]).to.equal("9000000000000002250"); // agreement       after
+          expect(res[13]).to.equal(0);                      // disagreement    after
+
+          expect(res[14]).to.equal(0);                      // proposer fee
+        });
+
+        it("should calculate balances accurately for signer 4", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const res = await Claims.searchBalance(Address(4));
+
+          expect(res[0]).to.equal(0);     // allocated
+          expect(res[1]).to.equal("500"); // available (proposer fee)
+        });
+
+        it("should calculate histories accurately for signer 4", async function () {
+          const { Claims } = await loadFixture(UpdateBalanceSingle36True10000False);
+
+          const ind = await Claims.searchIndices(Claim(1));
+          const res = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
+
+          expect(res.length).to.equal(5); // one staker on the false side
+
+          expect(res[0]).to.equal(0);        // agreement       before
+          expect(res[1]).to.equal("10000"); // disagreement    before
+
+          expect(res[2]).to.equal(0);        // agreement       after
+          expect(res[3]).to.equal(0);        // disagreement    after
+
+          expect(res[4]).to.equal("500");    // proposer fee
         });
       });
     });

@@ -88,6 +88,20 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
       });
 
+      it("if claim to update balances for does not exist", async function () {
+        const { Claims, Signer } = await loadFixture(UpdateResolve20True30False);
+
+        await network.provider.send("evm_setNextBlockTimestamp", [Expiry(8, "days")]); // after resolve expired
+        await network.provider.send("evm_mine");
+
+        const txn = Claims.connect(Signer(0)).updateBalance(
+          Claim(92364),
+          100,
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Expired");
+      });
+
       it("if dispute active", async function () {
         const { Claims, Signer } = await loadFixture(UpdateDispute20True30False);
 

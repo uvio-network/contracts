@@ -23,6 +23,28 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(Claims, "Address");
       });
 
+      it("if token decimals is below 6, 5", async function () {
+        const sig = await ethers.getSigners();
+
+        const Claims = await ethers.getContractFactory("Claims");
+        const Stablecoin5 = await ethers.deployContract("Stablecoin", [5]);
+
+        const txn = ethers.deployContract("Claims", [sig[0].address, await Stablecoin5.getAddress()]);
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+      });
+
+      it("if token decimals is below 6, 2", async function () {
+        const sig = await ethers.getSigners();
+
+        const Claims = await ethers.getContractFactory("Claims");
+        const Stablecoin5 = await ethers.deployContract("Stablecoin", [2]);
+
+        const txn = ethers.deployContract("Claims", [sig[0].address, await Stablecoin5.getAddress()]);
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+      });
+
       it("if token contract is not ERC20", async function () {
         const sig = await ethers.getSigners();
 

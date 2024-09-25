@@ -630,7 +630,7 @@ export const UpdateBalance59True126False = async () => {
 
   await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
-    5,
+    MAX,
   );
 
   return { Address, Claims, Signer, UVX };
@@ -1209,6 +1209,66 @@ export const UpdateResolvePunishEqualVotes = async () => {
   return { Address, Balance, Claims, Signer, UVX };
 };
 
+export const UpdateBalanceSingle36True10000False = async () => {
+  const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
+
+  await Balance([1, 2, 3, 4], 100);
+
+  await Claims.connect(Signer(4)).createPropose(
+    Claim(1),
+    10_000,
+    Side(false),
+    Expiry(2, "days"),
+    "",
+    [],
+  );
+
+  await Claims.connect(Signer(1)).updatePropose(
+    Claim(1),
+    Amount(12),
+    Side(true),
+    0,
+  );
+  await Claims.connect(Signer(2)).updatePropose(
+    Claim(1),
+    Amount(15),
+    Side(true),
+    0,
+  );
+  await Claims.connect(Signer(3)).updatePropose(
+    Claim(1),
+    Amount(9),
+    Side(true),
+    0,
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(3, "days")]);
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(0)).grantRole(Role("BOT_ROLE"), Address(7));
+
+  await Claims.connect(Signer(7)).createResolve(
+    Claim(1),
+    [0], // address 1
+    Expiry(7, "days"),
+  );
+
+  await Claims.connect(Signer(1)).updateResolve(
+    Claim(1),
+    Side(true),
+  );
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(14, "days")]); // 7 days + challenge
+  await network.provider.send("evm_mine");
+
+  await Claims.connect(Signer(0)).updateBalance(
+    Claim(1),
+    MAX,
+  );
+
+  return { Address, Claims, Signer, UVX };
+};
+
 export const UpdateBalanceSingle35TrueLose = async () => {
   const { Address, Balance, Claims, Signer, UVX } = await loadFixture(Deploy);
 
@@ -1268,7 +1328,7 @@ export const UpdateBalanceSingle35TrueLose = async () => {
 
   await Claims.connect(Signer(0)).updateBalance(
     Claim(1),
-    100,
+    MAX,
   );
 
   return { Address, Claims, Signer, UVX };
@@ -1717,7 +1777,7 @@ export const UpdateBalanceMaxDisputeEqualVotes = async () => {
 
   const tx2 = await Claims.connect(Signer(0)).updateBalance(
     Claim(101),
-    100,
+    MAX,
   );
 
   const tx3 = await Claims.connect(Signer(0)).updateBalance(
