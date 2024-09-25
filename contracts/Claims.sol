@@ -127,6 +127,23 @@ contract Claims is AccessControlEnumerable {
     // associated claim.
     uint8 public constant ADDRESS_STAKE_N = 1;
 
+    // BASIS_FEE is the deducated amount of stake in basis points, from which
+    // fees have been subtracted already. This number is the basis for our
+    // internal accounting when distributing staked tokens during market
+    // resolution.
+    uint16 public constant BASIS_FEE = 9_000;
+    // BASIS_PROPOSER is the amount of proposer fees in basis points, which are
+    // deducted from the losing pool of funds before updating user balances.
+    // This is the amount that users may earn by creating claims, if there are
+    // tokens on the losing side to take away from.
+    uint16 public constant BASIS_PROPOSER = 500;
+    // BASIS_PROTOCOL is the amount of protocol fees in basis points. This
+    // constant is not used anywhere, but only represented here for completeness
+    // and documentation. The process of updating user balances distributes
+    // funds to everyone who is owed their fair share as implemented by this
+    // smart contract. The remainder is then given to the protocol owner, which
+    // is also how we account for precision loss.
+    uint16 public constant BASIS_PROTOCOL = 500;
     // BASIS_TOTAL is the total amount of basis points in 100%. This amount is
     // used to calculate fees and their remainders.
     uint16 public constant BASIS_TOTAL = 10_000;
@@ -328,21 +345,6 @@ contract Claims is AccessControlEnumerable {
     // VARIABLES
     //
 
-    // basisFee is the deducated amount of stake in basis points, from which
-    // fees are subtracted already. This number is the basis for our internal
-    // accounting when distributing staked tokens upon market resolution.
-    uint16 public basisFee = 9_000;
-    // basisProposer is the amount of proposer fees in basis points, which are
-    // deducted from the total pool of funds before updating user balances upon
-    // market resolution. This is the amount that users may earn by creating
-    // claims.
-    uint16 public basisProposer = 500;
-    // basisProtocol is the amount of protocol fees in basis points, which are
-    // deducted from the total pool of funds before updating user balances upon
-    // market resolution. This is the amount that the protocol earns by
-    // providing its services.
-    uint16 public basisProtocol = 500;
-
     // durationBasis is the concluding timespan of a claim's expiry in basis
     // points, during which staking is not allowed anymore. For instance, if a
     // claim's expiry is in 5 days, then reputation can be staked on this claim
@@ -402,7 +404,6 @@ contract Claims is AccessControlEnumerable {
         {
             uint8 dec = IToken(tok).decimals();
             if (dec < 6) {
-                // TODO test
                 revert Balance("decimals invalid", dec);
             }
         }
@@ -527,7 +528,7 @@ contract Claims is AccessControlEnumerable {
         // scenarios, which are definitive and binding.
         uint256 yay = _truthResolve[pro][CLAIM_TRUTH_Y];
         uint256 nah = _truthResolve[pro][CLAIM_TRUTH_N];
-        if (!(yay > nah || yay < nah)) {
+        if (yay == nah) {
             revert Process("dispute invalid");
         }
 
@@ -727,7 +728,6 @@ contract Claims is AccessControlEnumerable {
         // Therefore 1 cent is the lowest amount possible in USDC denominated
         // terms.
         if (bal < BASIS_TOTAL) {
-            // TODO test
             revert Balance("too small", bal);
         }
 
@@ -1293,27 +1293,6 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
-    // updateFees allows the owner to change the fee structure of this contract.
-    // All fees must be provided in basis points. Fees taken must not be greater
-    // than 50%. All basis points must always sum to 10,000.
-    function updateFees(uint16 fee, uint16 psr, uint16 ptc) public {
-        // Inlining the role check instead of using the modifier saves about 140
-        // gas per call.
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) {
-            revert AccessControlUnauthorizedAccount(msg.sender, DEFAULT_ADMIN_ROLE);
-        }
-
-        if (fee < 5_000 || fee + psr + ptc != BASIS_TOTAL) {
-            revert Process("fees invalid");
-        }
-
-        {
-            basisFee = fee;
-            basisProposer = psr;
-            basisProtocol = ptc;
-        }
-    }
-
     // updateOwner allows the owner to transfer ownership to another address.
     // The new address "own" must not be the zero address, and it must not be
     // the current owner.
@@ -1407,88 +1386,95 @@ contract Claims is AccessControlEnumerable {
                     first = _indexAddress[pod][0];
                 }
 
-                // Fees are only applied if there are rewards to be distributed.
+                // Fees are only applied if there are rewards on the other side
+                // that we can distribute.
                 if (sid) {
                     if (ton != 0) {
-                        uint256 share = (ton * basisProposer) / BASIS_TOTAL;
+                        uint256 share = (ton * BASIS_PROPOSER) / BASIS_TOTAL;
                         _availBalance[first] += share;
                         _availBalance[owner] += ton - (share + _stakePropose[pod][CLAIM_STAKE_C]);
                     }
                 } else {
                     if (toy != 0) {
-                        uint256 share = (toy * basisProposer) / BASIS_TOTAL;
+                        uint256 share = (toy * BASIS_PROPOSER) / BASIS_TOTAL;
                         _availBalance[first] += share;
                         _availBalance[owner] += toy - (share + _stakePropose[pod][CLAIM_STAKE_C]);
                     }
                 }
+
+                {
+                    _claimBalance[pod].set(CLAIM_BALANCE_V);
+                }
             }
-        }
 
-        {
-            delete _stakePropose[pod][CLAIM_STAKE_C];
-            delete _stakePropose[pod][CLAIM_STAKE_D];
-        }
+            {
+                delete _stakePropose[pod][CLAIM_STAKE_C];
+                delete _stakePropose[pod][CLAIM_STAKE_D];
+            }
 
-        {
-            _claimBalance[pod].set(CLAIM_BALANCE_S);
-        }
+            {
+                _claimBalance[pod].set(CLAIM_BALANCE_S);
+            }
 
-        if (kin == 0) {
-            emit ProposeSettled(pod, all, yay, nah, tot);
-        } else {
-            emit DisputeSettled(pod, all, yay, nah, tot);
+            if (kin == 0) {
+                emit ProposeSettled(pod, all, yay, nah, tot);
+            } else {
+                emit DisputeSettled(pod, all, yay, nah, tot);
+            }
         }
     }
 
     // punishAll ensures that invalid market resolutions are accounted for
     // properly by punishing voters and reimbursing stakers after fees.
     function punishAll(uint256 pod, uint256 dis, uint256 lef, uint256 rig, uint256 max) private returns (uint256) {
-        while (max != 0) {
-            address use = _indexAddress[pod][lef];
-            uint256 bal = _addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N];
+        unchecked {
+            while (max != 0) {
+                address use = _indexAddress[pod][lef];
+                uint256 bal = _addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N];
 
-            // Every user loses their allocated balance when claims get
-            // resolved. Only those users who were right in the end regain their
-            // allocated balances in the form of available balances, plus
-            // rewards.
-            unchecked {
-                _allocBalance[use] -= bal;
-            }
-
-            // The punishment case deducts fees in order to ensure that everyone
-            // loses money if consensus could not be achieved. This is an
-            // incentive to A) try harder to achieve consensus, and B) be more
-            // diligent in the individual choice of participating in markets.
-            uint256 ded = (bal * basisFee) / BASIS_TOTAL;
-
-            // Since this is the punishment case of resolving claims, every user
-            // who was selected by the random truth sampling process loses all
-            // of their staked balance. In this particular failure scenario, the
-            // protocol receives all funds taken from the users that the random
-            // truth sampling process selected. As a reminder, this punishment
-            // happens because the selected users did either not come to
-            // consensus according to events in the real world, or did not do at
-            // all what they have been asked for.
-            if (_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
-                _availBalance[owner] += ded;
-            } else {
-                _availBalance[use] += ded;
-            }
-
-            unchecked {
+                // Every user loses their allocated balance when claims get
+                // resolved. Only those users who were right in the end regain
+                // their allocated balances in the form of available balances,
+                // plus rewards.
                 {
-                    _stakePropose[pod][CLAIM_STAKE_C] += ded;
-                    dis++;
+                    _allocBalance[use] -= bal;
+                }
+
+                // The punishment case deducts fees in order to ensure that
+                // everyone loses money if consensus could not be achieved. This
+                // is an incentive to A) try harder to achieve consensus, and B)
+                // be more diligent in the individual choice of participating in
+                // markets.
+                uint256 ded = (bal * BASIS_FEE) / BASIS_TOTAL;
+
+                // Since this is the punishment case of resolving claims, every
+                // user who was selected by the random truth sampling process
+                // loses all of their staked balance. In this particular failure
+                // scenario, the protocol receives all funds taken from the
+                // users that the random truth sampling process selected. As a
+                // reminder, this punishment happens because the selected users
+                // did either not come to consensus according to events in the
+                // real world, or did not do at all what they have been asked
+                // for.
+                if (_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
+                    _availBalance[owner] += ded;
+                } else {
+                    _availBalance[use] += ded;
                 }
 
                 {
+                    _stakePropose[pod][CLAIM_STAKE_C] += ded;
+                }
+
+                {
+                    dis++;
                     lef++;
                     max--;
                 }
-            }
 
-            if (lef == rig) {
-                break;
+                if (lef == rig) {
+                    break;
+                }
             }
         }
 
@@ -1500,14 +1486,14 @@ contract Claims is AccessControlEnumerable {
     // separate function because the protocol owner becomes automatically the
     // contender if there is only a single market participant.
     function punishOne(uint256 pod) private {
-        address use;
-        if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
-            use = _indexAddress[pod][MAX_UINT256];
-        } else {
-            use = _indexAddress[pod][0];
-        }
-
         unchecked {
+            address use;
+            if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+                use = _indexAddress[pod][MAX_UINT256];
+            } else {
+                use = _indexAddress[pod][0];
+            }
+
             uint256 bal = _addressStake[pod][use][ADDRESS_STAKE_Y] + _addressStake[pod][use][ADDRESS_STAKE_N];
 
             {
@@ -1521,8 +1507,6 @@ contract Claims is AccessControlEnumerable {
         }
     }
 
-    // TODO test sub cent fee distribution
-
     // rewardAll processes user balances in order to settle any claim in which
     // many users participated.
     function rewardAll(
@@ -1535,27 +1519,17 @@ contract Claims is AccessControlEnumerable {
         uint256 ton,
         bool sid
     ) private returns (uint256) {
-        if (dis == 0) {
-            _claimBalance[pod].set(CLAIM_BALANCE_V);
-        }
+        unchecked {
+            while (max != 0) {
+                address use = _indexAddress[pod][lef];
 
-        // Calculate the amounts for total staked assets on either side by
-        // deducting all relevant fees. The total staked assets are used as
-        // basis for calculating user rewards below, respective to their
-        // individual share of the winning pool and the captured amount from
-        // the loosing side.
+                uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
+                uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
 
-        while (max != 0) {
-            address use = _indexAddress[pod][lef];
-
-            uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
-            uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
-
-            unchecked {
                 // Every user loses their allocated balance when claims get
-                // resolved. Only those users who were right in the end regain their
-                // allocated balances in the form of available balances, plus
-                // rewards.
+                // resolved. Only those users who were right in the end regain
+                // their allocated balances in the form of available balances,
+                // plus rewards.
                 {
                     _allocBalance[use] -= sty + stn;
                 }
@@ -1568,7 +1542,7 @@ contract Claims is AccessControlEnumerable {
                             // only their money back.
                             _availBalance[use] += sty;
                         } else {
-                            uint256 ded = (ton * basisFee) / BASIS_TOTAL;
+                            uint256 ded = (ton * BASIS_FEE) / BASIS_TOTAL;
                             uint256 shr = (sty * 1e18) / toy;
                             uint256 rew = (shr * ded) / 1e18;
 
@@ -1589,7 +1563,7 @@ contract Claims is AccessControlEnumerable {
                             // gets only their money back.
                             _availBalance[use] += stn;
                         } else {
-                            uint256 ded = (toy * basisFee) / BASIS_TOTAL;
+                            uint256 ded = (toy * BASIS_FEE) / BASIS_TOTAL;
                             uint256 shr = (stn * 1e18) / ton;
                             uint256 rew = (shr * ded) / 1e18;
 
@@ -1603,21 +1577,16 @@ contract Claims is AccessControlEnumerable {
                         }
                     }
                 }
-            }
 
-            unchecked {
                 {
                     dis++;
-                }
-
-                {
                     lef++;
                     max--;
                 }
-            }
 
-            if (lef == rig) {
-                break;
+                if (lef == rig) {
+                    break;
+                }
             }
         }
 
@@ -1629,17 +1598,17 @@ contract Claims is AccessControlEnumerable {
     // because the protocol owner becomes automatically the contender if there
     // is only a single market participant.
     function rewardOne(uint256 pod, bool sid) private {
-        address use;
-        if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
-            use = _indexAddress[pod][MAX_UINT256];
-        } else {
-            use = _indexAddress[pod][0];
-        }
-
-        uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
-        uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
-
         unchecked {
+            address use;
+            if (_stakePropose[pod][CLAIM_STAKE_A] == 0) {
+                use = _indexAddress[pod][MAX_UINT256];
+            } else {
+                use = _indexAddress[pod][0];
+            }
+
+            uint256 sty = _addressStake[pod][use][ADDRESS_STAKE_Y];
+            uint256 stn = _addressStake[pod][use][ADDRESS_STAKE_N];
+
             uint256 bal = sty + stn;
 
             {
@@ -1792,7 +1761,7 @@ contract Claims is AccessControlEnumerable {
                             if (ton == 0) {
                                 lis[i + 2] = sty;
                             } else {
-                                uint256 ded = (ton * basisFee) / BASIS_TOTAL;
+                                uint256 ded = (ton * BASIS_FEE) / BASIS_TOTAL;
                                 uint256 shr = (sty * 1e18) / toy;
                                 uint256 rew = (shr * ded) / 1e18;
 
@@ -1801,14 +1770,14 @@ contract Claims is AccessControlEnumerable {
                         }
 
                         if (ton != 0 && use == fir) {
-                            lis[i + 4] = (ton * basisProposer) / BASIS_TOTAL;
+                            lis[i + 4] = (ton * BASIS_PROPOSER) / BASIS_TOTAL;
                         }
                     } else {
                         if (_addressVotes[pod][use].get(VOTE_STAKE_N)) {
                             if (toy == 0) {
                                 lis[i + 3] = stn;
                             } else {
-                                uint256 ded = (toy * basisFee) / BASIS_TOTAL;
+                                uint256 ded = (toy * BASIS_FEE) / BASIS_TOTAL;
                                 uint256 shr = (stn * 1e18) / ton;
                                 uint256 rew = (shr * ded) / 1e18;
 
@@ -1817,17 +1786,17 @@ contract Claims is AccessControlEnumerable {
                         }
 
                         if (toy != 0 && use == fir) {
-                            lis[i + 4] = (toy * basisProposer) / BASIS_TOTAL;
+                            lis[i + 4] = (toy * BASIS_PROPOSER) / BASIS_TOTAL;
                         }
                     }
                 } else {
                     if (!_addressVotes[pod][use].get(VOTE_TRUTH_S)) {
                         if (sty != 0) {
-                            lis[i + 2] = (sty * basisFee) / BASIS_TOTAL;
+                            lis[i + 2] = (sty * BASIS_FEE) / BASIS_TOTAL;
                         }
 
                         if (stn != 0) {
-                            lis[i + 3] = (stn * basisFee) / BASIS_TOTAL;
+                            lis[i + 3] = (stn * BASIS_FEE) / BASIS_TOTAL;
                         }
                     }
                 }
@@ -1993,14 +1962,14 @@ contract Claims is AccessControlEnumerable {
     // lifecycle phase "dispute" or "propose". The second parameter "ind" must
     // be one of the following available indices.
     //
-    //     CLAIM_BALANCE_V to check whether the given claim resolved in punishing users
+    //     CLAIM_BALANCE_V to check whether the given claim settled with a valid resolution
     //
-    //     CLAIM_BALANCE_S to check whether the given claim finalized by updating user balances
+    //     CLAIM_BALANCE_S to check whether the given claim settled by updating user balances
     //
     // The example call below shows whether propose 33 concluded by returning
     // either true or false. Once true is returned, claim 33 will be finalized
-    // and cannot change anymore. That also means claim 33 cannot be disputed
-    // anymore, since its resolution has become definitive and binding.
+    // and cannot be modified anymore. That also means claim 33 cannot be
+    // disputed anymore, since its resolution has become definitive and binding.
     //
     //     searchResolve(33, CLAIM_BALANCE_S)
     //

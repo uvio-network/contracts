@@ -90,7 +90,7 @@ describe("Claims", function () {
             2,
           );
 
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(false);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(false);
 
           await Claims.connect(Signer(0)).updateBalance(
@@ -98,7 +98,7 @@ describe("Claims", function () {
             2,
           );
 
-          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_V())).to.equal(false);
           expect(await Claims.searchResolve(Claim(1), await Claims.CLAIM_BALANCE_S())).to.equal(false);
 
           const txn = await Claims.connect(Signer(0)).updateBalance(
@@ -300,7 +300,7 @@ describe("Claims", function () {
             3,
           );
 
-          expect(await Claims.searchResolve(Claim(23), await Claims.CLAIM_BALANCE_V())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(23), await Claims.CLAIM_BALANCE_V())).to.equal(false);
           expect(await Claims.searchResolve(Claim(23), await Claims.CLAIM_BALANCE_S())).to.equal(false);
 
           const tx2 = await Claims.connect(Signer(0)).updateBalance(
@@ -308,7 +308,7 @@ describe("Claims", function () {
             3,
           );
 
-          expect(await Claims.searchResolve(Claim(23), await Claims.CLAIM_BALANCE_V())).to.equal(true);
+          expect(await Claims.searchResolve(Claim(23), await Claims.CLAIM_BALANCE_V())).to.equal(false);
           expect(await Claims.searchResolve(Claim(23), await Claims.CLAIM_BALANCE_S())).to.equal(false);
 
           const tx3 = await Claims.connect(Signer(0)).updateBalance(

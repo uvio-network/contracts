@@ -41,6 +41,23 @@ describe("Claims", function () {
         await expect(txn).to.be.revertedWithCustomError(UVX, "ERC20InsufficientAllowance");
       });
 
+      it("if balance is below 10,000", async function () {
+        const { Balance, Claims, Signer } = await loadFixture(Deploy);
+
+        await Balance([1], 1_000_000); // this is Amount(1,000,000) with 18 decimals
+
+        const txn = Claims.connect(Signer(1)).createPropose(
+          Claim(1),
+          9_999, // not enough tokens
+          Side(true),
+          Expiry(2, "days"),
+          "",
+          [],
+        );
+
+        await expect(txn).to.be.revertedWithCustomError(Claims, "Balance");
+      });
+
       it("if propose is empty", async function () {
         const { Balance, Claims, Signer } = await loadFixture(Deploy);
 
