@@ -1,6 +1,6 @@
 {
   "name": "contracts",
-  "version": "v0.3.1",
+  "version": "v0.4.0",
   "description": "smart contracts of the Uvio platform",
   "scripts": {
     "compile": "./node_modules/.bin/hardhat compile",
