@@ -222,7 +222,7 @@ contract Claims is AccessControlEnumerable {
     uint256 public constant MID_UINT256 = type(uint256).max / 2;
 
     // VERSION is the code release of https://github.com/uvio-network/contracts.
-    string public constant VERSION = "v0.3.1";
+    string public constant VERSION = "v0.4.0";
 
     // VOTE_STAKE_Y is a bitmap index within _addressVotes. This boolean tracks
     // users who expressed their opinions by staking in agreement with the
