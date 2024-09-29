@@ -348,9 +348,9 @@ contract Claims is AccessControlEnumerable {
     // durationBasis is the concluding timespan of a claim's expiry in basis
     // points, during which staking is not allowed anymore. For instance, if a
     // claim's expiry is in 5 days, then reputation can be staked on this claim
-    // up until the last 10% of those 120 hours, which implies the last 12
+    // up until the last 2.5% of those 120 hours, which implies the last 3
     // hours.
-    uint64 public durationBasis = 1_000;
+    uint64 public durationBasis = 250;
     // durationMax is the maximum concluding timespan of a claim's expiry in
     // seconds, during which staking is not allowed anymore. For instance, if a
     // claim's expiry is in 90 days, then reputation can be staked on this claim
@@ -359,8 +359,8 @@ contract Claims is AccessControlEnumerable {
     // durationMax is the minimum concluding timespan of a claim's expiry in
     // seconds, during which staking is not allowed anymore. For instance, if a
     // claim's expiry is in 24 hours, then reputation can be staked on this
-    // claim up until the last 3 hours.
-    uint64 public durationMin = 3 hours;
+    // claim up until the last 60 minutes.
+    uint64 public durationMin = 60 minutes;
 
     // owner is the owner address of the privileged entity receiving protocol
     // fees.

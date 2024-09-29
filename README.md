@@ -24,9 +24,9 @@ anvil --chain-id 1337
 Deploy the smart contracts for local testing in order.
 
 ```
-npx hardhat ignition deploy ./ignition/modules/Stablecoin.ts --network localhost
-npx hardhat ignition deploy ./ignition/modules/UVX.ts --network localhost
-npx hardhat ignition deploy ./ignition/modules/Claims.ts --network localhost
+npx hardhat ignition deploy ./ignition/modules/localhost/Stablecoin.ts --network localhost
+npx hardhat ignition deploy ./ignition/modules/localhost/UVX.ts --network localhost
+npx hardhat ignition deploy ./ignition/modules/localhost/Claims.ts --network localhost
 ```
 
 If the addresses deployed come out as shown below the setup should be alright.
@@ -40,7 +40,7 @@ Claims        0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 Finally grant all necessary roles for the local setup to work properly.
 
 ```
-npx hardhat run ./scripts/grantRoles.ts --network localhost
+npx hardhat run ./scripts/localhost/grantRoles.ts --network localhost
 ```
 
 The accounts below are being used in the unit tests.

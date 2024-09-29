@@ -11,9 +11,9 @@ describe("Claims", function () {
       const max = await Claims.durationMax();
       const min = await Claims.durationMin();
 
-      expect(bas).to.equal(1_000);            // 10%
+      expect(bas).to.equal(250);              // 2.5%
       expect(max).to.equal(60 * 60 * 24 * 7); // 7 days
-      expect(min).to.equal(60 * 60 * 3);      // 3 hours
+      expect(min).to.equal(60 * 60 * 1);      // 60 minutes
     });
 
     it("should modify default durations", async function () {
