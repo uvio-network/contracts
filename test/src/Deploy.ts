@@ -153,7 +153,7 @@ export const CreatePropose7WeekExpiry = async () => {
     0,
   );
 
-  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(151, "hours")]); // 6 days + 7 hours
+  await network.provider.send("evm_setNextBlockTimestamp", [Expiry(163, "hours")]); // 6 days + 19 hours
   await network.provider.send("evm_mine");
 
   await Claims.connect(Signer(1)).updatePropose(

@@ -1,11 +1,11 @@
 import { ethers } from "hardhat";
-import { Role } from "../test/src/Role";
+import { Role } from "../../test/src/Role";
 
 // DEPLOYER_PRIVATE_KEY is well known the Hardhat/Anvil deployer.
 const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 //
-//     npx hardhat run ./scripts/grantRoles.ts --network localhost
+//     npx hardhat run ./scripts/localhost/grantRoles.ts --network localhost
 //
 const main = async () => {
   const Claims = await ethers.getContractAt("Claims", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
