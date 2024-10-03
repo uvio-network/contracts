@@ -29,6 +29,12 @@ npx hardhat ignition deploy ./ignition/modules/localhost/UVX.ts --network localh
 npx hardhat ignition deploy ./ignition/modules/localhost/Claims.ts --network localhost
 ```
 
+The `v0.4.0` contracts can be checked out and deployed at the Git hash below.
+
+```
+860577652fcf1c5277de15f2a6aec9bcedf033a8
+```
+
 If the addresses deployed come out as shown below the setup should be alright.
 
 ```
@@ -40,7 +46,23 @@ Claims        0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 Finally grant all necessary roles for the local setup to work properly.
 
 ```
-npx hardhat run ./scripts/localhost/grantRoles.ts --network localhost
+npx hardhat run ./scripts/localhost/grantRoles.v.0.4.0.ts --network localhost
+```
+
+The `Claims` contract has a new version on `main` and needs to be deployed separately.
+
+```
+npx hardhat ignition deploy ./ignition/modules/localhost/Claims.ts --network localhost
+```
+
+```
+Claims        0x0165878A594ca255338adfa4d48449f69242Eb8F
+```
+
+The newly deployed `Claims` contract needs to get its roles granted too.
+
+```
+npx hardhat run ./scripts/localhost/grantRoles.v.0.5.0.ts --network localhost
 ```
 
 The accounts below are being used in the unit tests.

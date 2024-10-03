@@ -5,10 +5,10 @@ import { Role } from "../../test/src/Role";
 const DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 //
-//     npx hardhat run ./scripts/localhost/grantRoles.ts --network localhost
+//     npx hardhat run ./scripts/localhost/grantRoles.v.0.5.0.ts --network localhost
 //
 const main = async () => {
-  const Claims = await ethers.getContractAt("Claims", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
+  const Claims = await ethers.getContractAt("Claims", "0x0165878A594ca255338adfa4d48449f69242Eb8F");
   const UVX = await ethers.getContractAt("UVX", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
 
   const wal = new ethers.Wallet(DEPLOYER_PRIVATE_KEY, ethers.provider);
@@ -21,7 +21,7 @@ const main = async () => {
     await UVX.connect(wal).grantRole(Role("BOT_ROLE"), "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
     // Allow UVX tokens to be transferred across the Claims contract.
-    await UVX.connect(wal).grantRole(Role("CONTRACT_ROLE"), "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
+    await UVX.connect(wal).grantRole(Role("CONTRACT_ROLE"), "0x0165878A594ca255338adfa4d48449f69242Eb8F");
   } catch (error) {
     console.error("Error:", error);
   }
