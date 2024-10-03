@@ -70,10 +70,10 @@ describe("Claims", function () {
     it("no votes are recorded by default", async function () {
       const { Claims } = await loadFixture(createResolve);
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(0); // yay
-      expect(res[1]).to.equal(0); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([2]); // address 1 did not vote
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([2]); // address 3 did not vote
     });
 
     it("signer 1 can verify the truth with true", async function () {
@@ -84,10 +84,10 @@ describe("Claims", function () {
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(1); // yay
-      expect(res[1]).to.equal(0); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // address 1 voted true
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([2]); // address 3 did not vote
     });
 
     it("signer 1 can verify the truth with false", async function () {
@@ -98,10 +98,10 @@ describe("Claims", function () {
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(0); // yay
-      expect(res[1]).to.equal(1); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([0]); // address 1 voted false
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([2]); // address 3 did not vote
     });
 
     it("signer 3 can verify the truth with true", async function () {
@@ -112,10 +112,10 @@ describe("Claims", function () {
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(1); // yay
-      expect(res[1]).to.equal(0); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([2]); // address 1 did not vote
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]); // address 3 voted true
     });
 
     it("signer 3 can verify the truth with false", async function () {
@@ -126,10 +126,10 @@ describe("Claims", function () {
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(0); // yay
-      expect(res[1]).to.equal(1); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([2]); // address 1 did not vote
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([0]); // address 3 voted false
     });
 
     it("all signers can verify the truth with true", async function () {
@@ -145,10 +145,10 @@ describe("Claims", function () {
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(2); // yay
-      expect(res[1]).to.equal(0); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // address 1 voted true
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]); // address 1 voted true
     });
 
     it("all signers can verify the truth with false", async function () {
@@ -164,10 +164,10 @@ describe("Claims", function () {
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(0); // yay
-      expect(res[1]).to.equal(2); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([0]); // address 1 voted false
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([0]); // address 1 voted false
     });
 
     it("signer 1 can verify the truth with true 6 days in", async function () {
@@ -181,10 +181,10 @@ describe("Claims", function () {
         Side(true),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(1); // yay
-      expect(res[1]).to.equal(0); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // address 1 voted true
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([2]); // address 3 did not vote
     });
 
     it("signer 3 can verify the truth with false 6 days in", async function () {
@@ -198,10 +198,10 @@ describe("Claims", function () {
         Side(false),
       );
 
-      const res = await Claims.searchVotes(Claim(1));
+      const ind = await Claims.searchIndices(Claim(1));
 
-      expect(res[0]).to.equal(0); // yay
-      expect(res[1]).to.equal(1); // nah
+      expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([2]); // address 1 did not vote
+      expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([0]); // address 3 voted false
     });
   });
 });

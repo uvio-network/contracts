@@ -2,18 +2,36 @@ import { Amount } from "./src/Amount";
 import { Claim } from "./src/Claim";
 import { expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { UpdateBalanceMaxDispute, UpdateBalanceOneUserOneDispute } from "./src/Deploy";
+import { UpdateBalanceMaxDispute } from "./src/Deploy";
+import { UpdateBalanceOneUserOneDispute } from "./src/Deploy";
 import { UpdateDisputedBalance20True30False } from "./src/Deploy";
 
 describe("Claims", function () {
   describe("updateBalance", function () {
     describe("dispute", function () {
       describe("one user one dispute", function () {
-        it("should track votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+        it("should record all votes, propose", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 0]);
-          expect(await Claims.searchVotes(Claim(101))).to.deep.equal([0, 1]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([]);
+        });
+
+        it("should record all votes, first dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceOneUserOneDispute);
+
+          const ind = await Claims.searchIndices(Claim(101));
+
+          expect(await Claims.searchVoters(Claim(101), ind[1], ind[2])).to.deep.equal([]);
+          expect(await Claims.searchVoters(Claim(101), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(101), ind[1], ind[2])).to.deep.equal([]);
+          expect(await Claims.searchSamples(Claim(101), ind[5], ind[6])).to.deep.equal([0]); // false
         });
 
         it("should settle market with valid resolution", async function () {
@@ -138,11 +156,28 @@ describe("Claims", function () {
       });
 
       describe("20 true 30 false", function () {
-        it("should track votes", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+        it("should record all votes, propose", async function () {
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(13))).to.deep.equal([0, 2]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(3)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, first dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+
+          const ind = await Claims.searchIndices(Claim(13));
+
+          expect(await Claims.searchVoters(Claim(13), ind[1], ind[2])).to.deep.equal([Address(4)]);
+          expect(await Claims.searchVoters(Claim(13), ind[5], ind[6])).to.deep.equal([Address(6)]);
+
+          expect(await Claims.searchSamples(Claim(13), ind[1], ind[2])).to.deep.equal([0]); // false
+          expect(await Claims.searchSamples(Claim(13), ind[5], ind[6])).to.deep.equal([0]); // false
         });
 
         it("should settle market with valid resolution", async function () {
@@ -222,20 +257,23 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 1, propose", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(1));
-          const res = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
+          const sta = await Claims.searchStakers(Claim(1), ind[1], ind[2]);
+          const his = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
 
-          expect(res.length).to.equal(10); // two stakers on the true side
+          expect(sta[0]).to.equal(Address(1));
 
-          expect(res[0]).to.equal("10000000000000000000"); // agreement       before
-          expect(res[1]).to.equal(0);                      // disagreement    before
+          expect(his.length).to.equal(10); // two stakers on the true side
 
-          expect(res[2]).to.equal(0);                      // agreement       after
-          expect(res[3]).to.equal(0);                      // disagreement    after
+          expect(his[0]).to.equal("10000000000000000000"); // agreement       before
+          expect(his[1]).to.equal(0);                      // disagreement    before
 
-          expect(res[4]).to.equal("1000000000000000000");  // proposer fee
+          expect(his[2]).to.equal(0);                      // agreement       after
+          expect(his[3]).to.equal(0);                      // disagreement    after
+
+          expect(his[4]).to.equal("1000000000000000000");  // proposer fee
         });
 
         it("should calculate balances accurately for signer 2", async function () {
@@ -248,37 +286,43 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 2, propose", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(1));
-          const res = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
+          const sta = await Claims.searchStakers(Claim(1), ind[1], ind[2]);
+          const his = await Claims.searchHistory(Claim(1), ind[1], ind[2]);
 
-          expect(res.length).to.equal(10); // two stakers on the true side
+          expect(sta[1]).to.equal(Address(2));
 
-          expect(res[5]).to.equal("10000000000000000000"); // agreement       before
-          expect(res[6]).to.equal(0);                      // disagreement    before
+          expect(his.length).to.equal(10); // two stakers on the true side
 
-          expect(res[7]).to.equal(0);                      // agreement       after
-          expect(res[8]).to.equal(0);                      // disagreement    after
+          expect(his[5]).to.equal("10000000000000000000"); // agreement       before
+          expect(his[6]).to.equal(0);                      // disagreement    before
 
-          expect(res[9]).to.equal(0);                      // proposer fee
+          expect(his[7]).to.equal(0);                      // agreement       after
+          expect(his[8]).to.equal(0);                      // disagreement    after
+
+          expect(his[9]).to.equal(0);                      // proposer fee
         });
 
         it("should calculate histories accurately for signer 2, dispute", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(13));
-          const res = await Claims.searchHistory(Claim(13), ind[1], ind[2]);
+          const sta = await Claims.searchStakers(Claim(13), ind[1], ind[2]);
+          const his = await Claims.searchHistory(Claim(13), ind[1], ind[2]);
 
-          expect(res.length).to.equal(10); // two stakers on the true side (address 4 and 2)
+          expect(sta[1]).to.equal(Address(2));
 
-          expect(res[5]).to.equal("70000000000000000000"); // agreement       before
-          expect(res[6]).to.equal(0);                      // disagreement    before
+          expect(his.length).to.equal(10); // two stakers on the true side (address 4 and 2)
 
-          expect(res[7]).to.equal(0);                      // agreement       after
-          expect(res[8]).to.equal(0);                      // disagreement    after
+          expect(his[5]).to.equal("70000000000000000000"); // agreement       before
+          expect(his[6]).to.equal(0);                      // disagreement    before
 
-          expect(res[9]).to.equal(0);                      // proposer fee
+          expect(his[7]).to.equal(0);                      // agreement       after
+          expect(his[8]).to.equal(0);                      // disagreement    after
+
+          expect(his[9]).to.equal(0);                      // proposer fee
         });
 
         it("should calculate balances accurately for signer 3", async function () {
@@ -291,20 +335,23 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 3, propose", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(1));
-          const res = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
+          const sta = await Claims.searchStakers(Claim(1), ind[5], ind[6]);
+          const his = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
 
-          expect(res.length).to.equal(15); // three stakers on the false side
+          expect(sta[2]).to.equal(Address(3));
 
-          expect(res[10]).to.equal(0);                      // agreement       before
-          expect(res[11]).to.equal("10000000000000000000"); // disagreement    before
+          expect(his.length).to.equal(15); // three stakers on the false side
 
-          expect(res[12]).to.equal(0);                      // agreement       after
-          expect(res[13]).to.equal("15999999999999999994"); // disagreement    after
+          expect(his[10]).to.equal(0);                      // agreement       before
+          expect(his[11]).to.equal("10000000000000000000"); // disagreement    before
 
-          expect(res[14]).to.equal(0);                      // proposer fee
+          expect(his[12]).to.equal(0);                      // agreement       after
+          expect(his[13]).to.equal("15999999999999999994"); // disagreement    after
+
+          expect(his[14]).to.equal(0);                      // proposer fee
         });
 
         it("should calculate balances accurately for signer 4", async function () {
@@ -317,37 +364,43 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 4, propose", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(1));
-          const res = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
+          const sta = await Claims.searchStakers(Claim(1), ind[5], ind[6]);
+          const his = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
 
-          expect(res.length).to.equal(15); // three stakers on the false side
+          expect(sta[1]).to.equal(Address(4));
 
-          expect(res[5]).to.equal(0);                      // agreement       before
-          expect(res[6]).to.equal("10000000000000000000"); // disagreement    before
+          expect(his.length).to.equal(15); // three stakers on the false side
 
-          expect(res[7]).to.equal(0);                      // agreement       after
-          expect(res[8]).to.equal("15999999999999999994"); // disagreement    after
+          expect(his[5]).to.equal(0);                      // agreement       before
+          expect(his[6]).to.equal("10000000000000000000"); // disagreement    before
 
-          expect(res[9]).to.equal(0);                      // proposer fee
+          expect(his[7]).to.equal(0);                      // agreement       after
+          expect(his[8]).to.equal("15999999999999999994"); // disagreement    after
+
+          expect(his[9]).to.equal(0);                      // proposer fee
         });
 
         it("should calculate histories accurately for signer 4, dispute", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(13));
-          const res = await Claims.searchHistory(Claim(13), ind[1], ind[2]);
+          const sta = await Claims.searchStakers(Claim(13), ind[1], ind[2]);
+          const his = await Claims.searchHistory(Claim(13), ind[1], ind[2]);
 
-          expect(res.length).to.equal(10); // two stakers on the true side
+          expect(sta[0]).to.equal(Address(4));
 
-          expect(res[0]).to.equal("90000000000000000000"); // agreement       before
-          expect(res[1]).to.equal(0);                      // disagreement    before
+          expect(his.length).to.equal(10); // two stakers on the true side
 
-          expect(res[2]).to.equal(0);                      // agreement       after
-          expect(res[3]).to.equal(0);                      // disagreement    after
+          expect(his[0]).to.equal("90000000000000000000"); // agreement       before
+          expect(his[1]).to.equal(0);                      // disagreement    before
 
-          expect(res[4]).to.equal("8000000000000000000");  // proposer fee
+          expect(his[2]).to.equal(0);                      // agreement       after
+          expect(his[3]).to.equal(0);                      // disagreement    after
+
+          expect(his[4]).to.equal("8000000000000000000");  // proposer fee
         });
 
         it("should calculate balances accurately for signer 5", async function () {
@@ -360,20 +413,23 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 5, propose", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(1));
-          const res = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
+          const sta = await Claims.searchStakers(Claim(1), ind[5], ind[6]);
+          const his = await Claims.searchHistory(Claim(1), ind[5], ind[6]);
 
-          expect(res.length).to.equal(15); // three stakers on the false side
+          expect(sta[0]).to.equal(Address(5));
 
-          expect(res[0]).to.equal(0);                      // agreement       before
-          expect(res[1]).to.equal("10000000000000000000"); // disagreement    before
+          expect(his.length).to.equal(15); // three stakers on the false side
 
-          expect(res[2]).to.equal(0);                      // agreement       after
-          expect(res[3]).to.equal("15999999999999999994"); // disagreement    after
+          expect(his[0]).to.equal(0);                      // agreement       before
+          expect(his[1]).to.equal("10000000000000000000"); // disagreement    before
 
-          expect(res[4]).to.equal(0);                      // proposer fee
+          expect(his[2]).to.equal(0);                      // agreement       after
+          expect(his[3]).to.equal("15999999999999999994"); // disagreement    after
+
+          expect(his[4]).to.equal(0);                      // proposer fee
         });
 
         it("should calculate balances accurately for signer 6", async function () {
@@ -386,24 +442,30 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 6, dispute", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(13));
-          const res = await Claims.searchHistory(Claim(13), ind[5], ind[6]);
+          const sta = await Claims.searchStakers(Claim(13), ind[5], ind[6]);
+          const his = await Claims.searchHistory(Claim(13), ind[5], ind[6]);
 
-          expect(res.length).to.equal(10); // two stakers on the false side
+          expect(sta[1]).to.equal(Address(6));
 
-          expect(res[5]).to.equal(0);                      // agreement       before
-          expect(res[6]).to.equal("50000000000000000000"); // disagreement    before
+          expect(his.length).to.equal(10); // two stakers on the false side
 
-          expect(res[7]).to.equal(0);                      // agreement       after
-          expect(res[8]).to.equal("93636363636363636320"); // disagreement    after
+          expect(his[5]).to.equal(0);                      // agreement       before
+          expect(his[6]).to.equal("50000000000000000000"); // disagreement    before
 
-          expect(res[9]).to.equal(0);                      // proposer fee
+          expect(his[7]).to.equal(0);                      // agreement       after
+          expect(his[8]).to.equal("93636363636363636320"); // disagreement    after
+
+          expect(his[9]).to.equal(0);                      // proposer fee
         });
 
         it("should calculate balances accurately for signer 7", async function () {
           const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+
+          // Note that signer 7 wasn't participating in the claim tree. That is why
+          // we don't have searchHistory tests for it.
 
           const res = await Claims.searchBalance(Address(7));
 
@@ -421,20 +483,23 @@ describe("Claims", function () {
         });
 
         it("should calculate histories accurately for signer 8, dispute", async function () {
-          const { Claims } = await loadFixture(UpdateDisputedBalance20True30False);
+          const { Address, Claims } = await loadFixture(UpdateDisputedBalance20True30False);
 
           const ind = await Claims.searchIndices(Claim(13));
-          const res = await Claims.searchHistory(Claim(13), ind[5], ind[6]);
+          const sta = await Claims.searchStakers(Claim(13), ind[5], ind[6]);
+          const his = await Claims.searchHistory(Claim(13), ind[5], ind[6]);
 
-          expect(res.length).to.equal(10); // two stakers on the false side
+          expect(sta[0]).to.equal(Address(8));
 
-          expect(res[0]).to.equal(0);                       // agreement       before
-          expect(res[1]).to.equal("115000000000000000000"); // disagreement    before
+          expect(his.length).to.equal(10); // two stakers on the false side
 
-          expect(res[2]).to.equal(0);                       // agreement       after
-          expect(res[3]).to.equal("215363636363636363536"); // disagreement    after
+          expect(his[0]).to.equal(0);                       // agreement       before
+          expect(his[1]).to.equal("115000000000000000000"); // disagreement    before
 
-          expect(res[4]).to.equal(0);                       // proposer fee
+          expect(his[2]).to.equal(0);                       // agreement       after
+          expect(his[3]).to.equal("215363636363636363536"); // disagreement    after
+
+          expect(his[4]).to.equal(0);                       // proposer fee
         });
 
         it("should emit event", async function () {
@@ -446,12 +511,40 @@ describe("Claims", function () {
       });
 
       describe("max disputes", function () {
-        it("should track votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalanceMaxDispute);
+        it("should record all votes, propose", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDispute);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(101))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(102))).to.deep.equal([0, 2]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, first dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDispute);
+
+          const ind = await Claims.searchIndices(Claim(101));
+
+          expect(await Claims.searchVoters(Claim(101), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(101), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(101), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(101), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, second dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDispute);
+
+          const ind = await Claims.searchIndices(Claim(102));
+
+          expect(await Claims.searchVoters(Claim(102), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(102), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(102), ind[1], ind[2])).to.deep.equal([0]); // false
+          expect(await Claims.searchSamples(Claim(102), ind[5], ind[6])).to.deep.equal([0]); // false
         });
 
         it("should settle market with valid resolution", async function () {

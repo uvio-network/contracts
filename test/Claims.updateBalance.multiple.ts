@@ -320,9 +320,15 @@ describe("Claims", function () {
         }
 
         it("should record all votes", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchVotes(Claim(23))).to.deep.equal([2, 0]);
+          const ind = await Claims.searchIndices(Claim(23));
+
+          expect(await Claims.searchVoters(Claim(23), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(23), ind[5], ind[6])).to.deep.equal([Address(4)]);
+
+          expect(await Claims.searchSamples(Claim(23), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(23), ind[5], ind[6])).to.deep.equal([1]); // true
         });
 
         it("should settle market with valid resolution", async function () {
