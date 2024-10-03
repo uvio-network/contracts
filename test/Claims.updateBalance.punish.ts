@@ -69,9 +69,15 @@ describe("Claims", function () {
         }
 
         it("should record all votes", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 1]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([0]);
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([]);
         });
 
         it("should settle market with valid resolution", async function () {
@@ -193,9 +199,15 @@ describe("Claims", function () {
         }
 
         it("should record all votes", async function () {
-          const { Claims } = await loadFixture(updateBalance);
+          const { Address, Claims } = await loadFixture(updateBalance);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 0]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(1)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([]);
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]);
         });
 
         it("should settle market with valid resolution", async function () {
@@ -270,9 +282,15 @@ describe("Claims", function () {
 
       describe("one no vote", function () {
         it("should record all votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalance25TrueNoVote);
+          const { Address, Claims } = await loadFixture(UpdateBalance25TrueNoVote);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 0]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([2]); // no vote
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([]);
         });
 
         it("should settle market with valid resolution", async function () {
@@ -347,9 +365,15 @@ describe("Claims", function () {
 
       describe("all no votes", function () {
         it("should record all votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalancePunishNoVotes);
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishNoVotes);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([0, 0]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(2)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(4)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([2]); // no vote
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([2]); // no vote
         });
 
         it("should settle market with invalid resolution", async function () {
@@ -532,9 +556,15 @@ describe("Claims", function () {
 
       describe("all equal votes", function () {
         it("should record all votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
+          const { Address, Claims } = await loadFixture(UpdateBalancePunishEqualVotes);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([1, 1]);
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(3), Address(5)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(2), Address(1)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([0, 2]); // false, none
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([2, 1]); // none, true
         });
 
         it("should settle market with invalid resolution", async function () {
@@ -721,12 +751,40 @@ describe("Claims", function () {
       });
 
       describe("max disputes, no votes", function () {
-        it("should track votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
+        it("should record all votes, propose", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(101))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(102))).to.deep.equal([0, 0]); // no votes
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, first dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
+
+          const ind = await Claims.searchIndices(Claim(101));
+
+          expect(await Claims.searchVoters(Claim(101), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(101), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(101), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(101), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, second dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDisputeNoVotes);
+
+          const ind = await Claims.searchIndices(Claim(102));
+
+          expect(await Claims.searchVoters(Claim(102), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(102), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(102), ind[1], ind[2])).to.deep.equal([2]); // none
+          expect(await Claims.searchSamples(Claim(102), ind[5], ind[6])).to.deep.equal([2]); // none
         });
 
         it("should settle market with invalid resolution", async function () {
@@ -939,12 +997,40 @@ describe("Claims", function () {
       });
 
       describe("max disputes, equal votes", function () {
-        it("should track votes", async function () {
-          const { Claims } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
+        it("should record all votes, propose", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
 
-          expect(await Claims.searchVotes(Claim(1))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(101))).to.deep.equal([2, 0]);
-          expect(await Claims.searchVotes(Claim(102))).to.deep.equal([1, 1]); // equal votes
+          const ind = await Claims.searchIndices(Claim(1));
+
+          expect(await Claims.searchVoters(Claim(1), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(1), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(1), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(1), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, first dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
+
+          const ind = await Claims.searchIndices(Claim(101));
+
+          expect(await Claims.searchVoters(Claim(101), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(101), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(101), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(101), ind[5], ind[6])).to.deep.equal([1]); // true
+        });
+
+        it("should record all votes, second dispute", async function () {
+          const { Address, Claims } = await loadFixture(UpdateBalanceMaxDisputeEqualVotes);
+
+          const ind = await Claims.searchIndices(Claim(102));
+
+          expect(await Claims.searchVoters(Claim(102), ind[1], ind[2])).to.deep.equal([Address(1)]);
+          expect(await Claims.searchVoters(Claim(102), ind[5], ind[6])).to.deep.equal([Address(2)]);
+
+          expect(await Claims.searchSamples(Claim(102), ind[1], ind[2])).to.deep.equal([1]); // true
+          expect(await Claims.searchSamples(Claim(102), ind[5], ind[6])).to.deep.equal([0]); // false
         });
 
         it("should settle market with invalid resolution", async function () {

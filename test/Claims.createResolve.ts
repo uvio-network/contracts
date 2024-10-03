@@ -72,8 +72,8 @@ describe("Claims", function () {
 
       const res = await Claims.searchIndices(Claim(1));
 
-      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
-      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
+      expect(await Claims.searchVoters(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+      expect(await Claims.searchVoters(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
 
     it("address 1 and 3 can be selected by signer 7", async function () {
@@ -89,8 +89,8 @@ describe("Claims", function () {
 
       const res = await Claims.searchIndices(Claim(1));
 
-      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
-      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
+      expect(await Claims.searchVoters(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+      expect(await Claims.searchVoters(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
 
     it("address 2 and 4 can be selected by signer 9", async function () {
@@ -106,8 +106,8 @@ describe("Claims", function () {
 
       const res = await Claims.searchIndices(Claim(1));
 
-      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(2)]);
-      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(4)]);
+      expect(await Claims.searchVoters(Claim(1), res[1], res[2])).to.deep.equal([Address(2)]);
+      expect(await Claims.searchVoters(Claim(1), res[5], res[6])).to.deep.equal([Address(4)]);
     });
 
     it("resolve can be created by multiple signers, signer 7", async function () {
@@ -124,8 +124,8 @@ describe("Claims", function () {
 
       const res = await Claims.searchIndices(Claim(1));
 
-      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
-      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
+      expect(await Claims.searchVoters(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+      expect(await Claims.searchVoters(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
 
     it("resolve can be created by multiple signers, signer 9", async function () {
@@ -142,8 +142,8 @@ describe("Claims", function () {
 
       const res = await Claims.searchIndices(Claim(1));
 
-      expect(await Claims.searchSamples(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
-      expect(await Claims.searchSamples(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
+      expect(await Claims.searchVoters(Claim(1), res[1], res[2])).to.deep.equal([Address(1)]);
+      expect(await Claims.searchVoters(Claim(1), res[5], res[6])).to.deep.equal([Address(3)]);
     });
 
     it("should emit events", async function () {

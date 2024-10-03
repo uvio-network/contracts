@@ -283,7 +283,7 @@ contract Claims is AccessControlEnumerable {
     mapping(uint256 => mapping(uint8 => uint256)) private _claimExpired;
     // _claimIndices contains all user indices as selected by the random truth
     // sampling process. For more information on how those indices are written
-    // and read, see createResolve and searchSamples.
+    // and read, see createResolve and searchVoters.
     mapping(uint256 => uint256[]) private _claimIndices;
     // _claimDispute tracks the number of disputes in _claimMapping per propose.
     mapping(uint256 => uint256) private _claimDispute;
@@ -1692,15 +1692,15 @@ contract Claims is AccessControlEnumerable {
     }
 
     // searchHistory returns historical balance changes of all market
-    // participants using the same iterator pattern searchStakers. That means
-    // searchHistory works with the same indices as provided by searchIndices.
-    // Using searchStakers and searchHistory with the same indices enables the
-    // caller to understand market specific user balances before and after
-    // settlement. The returned balances are structured in touples of 5 as shown
-    // below, e.g. if searching user addresses using searchStakers were to
-    // return 5 addresses, then searchHistory would return 25 numbers, that is 5
-    // tuples of 5 balances, using the same indices as provided by
-    // searchIndices.
+    // participants using the same iterator pattern that searchStakers uses too.
+    // That means searchHistory works with the same indices as provided by
+    // searchIndices. Using searchStakers and searchHistory with the same
+    // indices enables the caller to understand market specific user balances
+    // before and after settlement. The returned balances are structured in
+    // touples of 5 as shown below, e.g. if searching user addresses using
+    // searchStakers were to return 5 addresses, then searchHistory would return
+    // 25 numbers, that is 5 tuples of 5 balances, using the same indices as
+    // provided by searchIndices.
     //
     //     [        before        |         after        |   ]
     //
@@ -1716,7 +1716,7 @@ contract Claims is AccessControlEnumerable {
             fir = _indexAddress[pod][0];
         }
 
-        (bool one, bool val, bool sid) = searchResults(pod);
+        (bool one, bool val, bool sid,) = searchResults(pod);
 
         uint256 toy = _stakePropose[pod][CLAIM_STAKE_Y];
         uint256 ton = _stakePropose[pod][CLAIM_STAKE_N];
@@ -1850,11 +1850,11 @@ contract Claims is AccessControlEnumerable {
     //
     // Search for all addresses selected to vote for the agreeing side.
     //
-    //     searchSamples(CLAIM, out[1], out[2])
+    //     searchVoters(CLAIM, out[1], out[2])
     //
     // Search for all addresses selected to vote for the disagreeing side.
     //
-    //     searchSamples(CLAIM, out[5], out[6])
+    //     searchVoters(CLAIM, out[5], out[6])
     //
     function searchIndices(uint256 pod)
         public
@@ -1984,8 +1984,9 @@ contract Claims is AccessControlEnumerable {
     //     out[0] whether the given claim had only a single market participant
     //     out[1] whether the market resolution was valid
     //     out[2] the side of the market used for settlement
+    //     out[3] whether the entire claim tree is considered final
     //
-    function searchResults(uint256 pod) public view returns (bool, bool, bool) {
+    function searchResults(uint256 pod) public view returns (bool, bool, bool, bool) {
         bool one = false;
         {
             (uint256 nsy,,,,,,, uint256 nsn) = searchIndices(pod);
@@ -1996,44 +1997,36 @@ contract Claims is AccessControlEnumerable {
 
         bool val = searchResolve(pod, CLAIM_BALANCE_V);
 
+        (, uint256 lat,) = searchLatest(pod);
+        bool fin = searchResolve(lat, CLAIM_BALANCE_S);
+
         bool sid = false;
         {
-            (, uint256 lat,) = searchLatest(pod);
-            (uint256 yay, uint256 nah) = searchVotes(lat);
+            uint256 yay = _truthResolve[lat][CLAIM_TRUTH_Y];
+            uint256 nah = _truthResolve[lat][CLAIM_TRUTH_N];
+
             if (yay > nah) {
                 sid = true;
             }
         }
 
-        return (one, val, sid);
+        return (one, val, sid, fin);
     }
 
-    // searchSamples provides the results of the random truth sampling process
-    // in conjunction with the indices provided by searchIndices. Anyone can
-    // lookup the voter addresses of either side of any given market. Voting
-    // addresses are indexed based on the order of indices provided during the
-    // contract write of createResolve. The boundaries lef and rig are both
-    // inclusive. Below is an example of searching for all 2 voters on the
-    // agreeing side of the market.
+    // searchSamples returns the votes cast by all selected voters of any given
+    // market using the same iterator pattern that searchVoters uses too. That
+    // means searchSamples works with the same indices as provided by
+    // searchIndices. Using searchVoters and searchSamples with the same indices
+    // enables the caller to understand market specific resolution data that
+    // lead to market settlement. The returned votes are represented numerically
+    // as follows.
     //
-    //     searchSamples(CLAIM, 0, 2) => [Address(2)]
-    //     searchSamples(CLAIM, 3, 5) => []
-    //     searchSamples(CLAIM, 6, 8) => [Address(7)]
+    //     0 represents a user voting false
+    //     1 represents a user voting true
+    //     2 represents a user not casting their vote
     //
-    // The same result as above can be achieved in a single call as shown below.
-    // The right handside boundary is only matched against the actual voter
-    // indices.
-    //
-    //     searchSamples(CLAIM, 0, 100) => [Address(2), Address(7)]
-    //
-    // If the voters to be searched were all on the other side of the market,
-    // meaning all voters would have staked in disagreement before, then the
-    // list of addresses returned would be reversed.
-    //
-    //     searchSamples(CLAIM, 2^256-8, 2^256-1) => [Address(7), Address(2)]
-    //
-    function searchSamples(uint256 pod, uint256 lef, uint256 rig) public view returns (address[] memory) {
-        address[] memory lis = new address[](rig - lef + 1);
+    function searchSamples(uint256 pod, uint256 lef, uint256 rig) public view returns (uint8[] memory) {
+        uint8[] memory lis = new uint8[](rig - lef + 1);
 
         uint256 i = 0;
         uint256 j = 0;
@@ -2059,8 +2052,18 @@ contract Claims is AccessControlEnumerable {
                 continue;
             }
 
+            address use = _indexAddress[pod][ind];
+
             {
-                lis[i] = _indexAddress[pod][ind];
+                lis[i] = 2;
+            }
+
+            if (_addressVotes[pod][use].get(VOTE_TRUTH_Y)) {
+                lis[i] = 1;
+            }
+
+            if (_addressVotes[pod][use].get(VOTE_TRUTH_N)) {
+                lis[i] = 0;
             }
 
             {
@@ -2076,12 +2079,12 @@ contract Claims is AccessControlEnumerable {
         return lis;
     }
 
-    // searchStakers works in conjunction with the indices provided by
-    // searchIndices. Anyone can lookup the staker addresses of either side of
-    // any given market. Staker addresses are indexed based on the order and
-    // side on which they staked first. The boundaries lef and rig are both
-    // inclusive. Below is an example of searching for all 8 stakers that agree
-    // with the associated claim.
+    // searchStakers returns the staker addresses in conjunction with the
+    // indices provided by searchIndices. Anyone can lookup the staker addresses
+    // of either side of any given market. Staker addresses are indexed based on
+    // the order and side on which they staked first. The boundaries lef and rig
+    // are both inclusive. Below is an example of searching for all 8 stakers
+    // that agree with the associated claim.
     //
     //     searchStakers(CLAIM, 0, 2) => [Address(1), Address(2), Address(3)]
     //     searchStakers(CLAIM, 3, 5) => [Address(4), Address(5), Address(6)]
@@ -2179,14 +2182,71 @@ contract Claims is AccessControlEnumerable {
         return _proposeToken[pro];
     }
 
-    // searchVotes can be called by anyone to lookup the latest votes on either
-    // side of any given market. The given claim ID must be the ID of the claim
-    // with the lifecycle phase "propose".
+    // searchVoters returns the voter addresses as selected by the random truth
+    // sampling process in conjunction with the indices provided by
+    // searchIndices. Anyone may lookup the voter addresses of either side of
+    // any given market. Voter addresses are indexed based on the order of
+    // indices provided during the contract write of createResolve. The
+    // boundaries lef and rig are both inclusive. Below is an example of
+    // searching for all 2 voters on the agreeing side of the market.
     //
-    //     out[0] the number of votes that verified events in the real world with true
-    //     out[1] the number of votes that verified events in the real world with false
+    //     searchVoters(CLAIM, 0, 2) => [Address(2)]
+    //     searchVoters(CLAIM, 3, 5) => []
+    //     searchVoters(CLAIM, 6, 8) => [Address(7)]
     //
-    function searchVotes(uint256 pod) public view returns (uint256, uint256) {
-        return (_truthResolve[pod][CLAIM_TRUTH_Y], _truthResolve[pod][CLAIM_TRUTH_N]);
+    // The same result as above can be achieved in a single call as shown below.
+    // The right handside boundary is only matched against the actual voter
+    // indices.
+    //
+    //     searchVoters(CLAIM, 0, 100) => [Address(2), Address(7)]
+    //
+    // If the voters to be searched were all on the other side of the market,
+    // meaning all voters would have staked in disagreement before, then the
+    // list of addresses returned would be reversed.
+    //
+    //     searchVoters(CLAIM, 2^256-8, 2^256-1) => [Address(7), Address(2)]
+    //
+    function searchVoters(uint256 pod, uint256 lef, uint256 rig) public view returns (address[] memory) {
+        address[] memory lis = new address[](rig - lef + 1);
+
+        uint256 i = 0;
+        uint256 j = 0;
+        while (i < lis.length && j < _claimIndices[pod].length) {
+            // Go through each of the recorded indices, one after another. Those
+            // indices are not guaranteed to be ordered.
+            //
+            //     [ 3 0 96 4 99 95 1 97 2 98 ]
+            //
+            uint256 ind = _claimIndices[pod][j];
+
+            {
+                j++;
+            }
+
+            // Skip all those indices that the query defined by lef and rig is
+            // not interested in. If we are look for indices on one end of the
+            // sequence, ignore those indexed on the other side.
+            //
+            //     [ < 0 1 2 3 4 > ... < 95 96 97 98 99 > ]
+            //
+            if (ind < lef || ind > rig) {
+                continue;
+            }
+
+            {
+                lis[i] = _indexAddress[pod][ind];
+            }
+
+            {
+                i++;
+            }
+        }
+
+        // Resize the array to remove any initially allocated zero address.
+        assembly {
+            mstore(lis, i)
+        }
+
+        return lis;
     }
 }
