@@ -1856,11 +1856,7 @@ contract Claims is AccessControlEnumerable {
     //
     //     searchVoters(CLAIM, out[5], out[6])
     //
-    function searchIndices(uint256 pod)
-        public
-        view
-        returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
-    {
+    function searchIndices(uint256 pod) public view returns (uint256[8] memory) {
         uint256 toy = _indexMembers[pod][CLAIM_ADDRESS_Y];
         uint256 ley = 0;
         uint256 riy = toy;
@@ -1882,7 +1878,7 @@ contract Claims is AccessControlEnumerable {
             }
         }
 
-        return (toy, ley, riy, MID_UINT256, MID_UINT256, len, rin, ton);
+        return [toy, ley, riy, MID_UINT256, MID_UINT256, len, rin, ton];
     }
 
     // searchLatest provides structural insights into the claim tree of which
@@ -1987,10 +1983,11 @@ contract Claims is AccessControlEnumerable {
     //     out[3] whether the entire claim tree is considered final
     //
     function searchResults(uint256 pod) public view returns (bool, bool, bool, bool) {
+        uint256[8] memory ind = searchIndices(pod);
+
         bool one = false;
         {
-            (uint256 nsy,,,,,,, uint256 nsn) = searchIndices(pod);
-            if (nsy + nsn == 1) {
+            if (ind[0] + ind[7] == 1) {
                 one = true;
             }
         }
