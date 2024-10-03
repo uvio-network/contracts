@@ -32,7 +32,7 @@ describe("UVX", function () {
     it("should expose VERSION constant", async function () {
       const { UVX } = await loadFixture(Deploy);
 
-      expect(await UVX.VERSION()).to.equal("v0.4.0");
+      expect(await UVX.VERSION()).to.equal("v0.5.0");
     });
   });
 });
